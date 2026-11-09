@@ -1,0 +1,12 @@
+Köy Bakkalı - hayvan modelleri (poly.pizza)
+
+CC0 1.0 (kamu malı, kaynak göstermek zorunlu değil):
+- inek.glb     "Cow"    Quaternius  https://poly.pizza/m/5XSc2Fka3F
+- at.glb       "Horse"  Quaternius  https://poly.pizza/m/F8HAAcLeBL
+- koyun.glb    "Sheep"  Quaternius  https://poly.pizza/m/C39AUXUUes
+- esek.glb     "Donkey" Quaternius  https://poly.pizza/m/qmX6nhnvp7
+
+CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/):
+- tavuk.glb    "Chicken" madtrollstudio  https://poly.pizza/m/oHmIgi4boa
+- deve.glb     "Camel"   Poly by Google  https://poly.pizza/m/7XeLogrxLad
+- guvercin.glb "Dove"    Poly by Google  https://poly.pizza/m/2jmH3trzPFf

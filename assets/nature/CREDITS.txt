@@ -1,0 +1,13 @@
+Köy Bakkalı - doğa modelleri (poly.pizza), hepsi CC0 1.0 (kamu malı, kaynak göstermek zorunlu değil)
+- agac.glb     "Tree"        Quaternius            https://poly.pizza/m/i4QMw4L64D
+- cam.glb      "Tree Large"  Isa Lousberg (KayKit) https://poly.pizza/m/7QrrpRCYXd
+- cali.glb     "Bush"        Isa Lousberg (KayKit) https://poly.pizza/m/I5KhMKZKju
+- kaya.glb     "Rock"        Quaternius            https://poly.pizza/m/RtLRqYjfMs
+- cicek.glb    "Flower Group" Quaternius           https://poly.pizza/m/hfPzQAedOe
+- palmiye.glb  "Palm Tree"   Quaternius            https://poly.pizza/m/DsrrAYmucG
+
+CC-BY 3.0 (kaynak gösterilir; oyunda Krediler sayfasında da yazılı). Dokular 256 px'e küçültüldü, meşenin kaidesi atıldı:
+- mese.glb     "Oak Tree"       Esdras Paravizo   https://poly.pizza/m/56cDueZB7TR
+- kavak.glb    "Poplar Tree"    Poly by Google    https://poly.pizza/m/2y-Cl3E7lMf
+- zeytin.glb   "Olive tree"     Poly by Google    https://poly.pizza/m/cKHksYy9jPk
+- sogut.glb    "Weeping willow" Poly by Google    https://poly.pizza/m/74_FuSwEd0E

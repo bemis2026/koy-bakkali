@@ -1,0 +1,36 @@
+Köy Bakkalı - eşya, ürün ve bina modelleri (poly.pizza; dokular oyun için 512 piksele küçültüldü)
+
+CC0 (kaynak göstermek gerekmez):
+- ambar.glb          "Silo House"  Quaternius  https://poly.pizza/m/ZgstejsAcN
+- atahiri.glb        "Fantasy Stable"  Quaternius  https://poly.pizza/m/qhNQSOGGbi
+- balik.glb          "Fish"  Quaternius  https://poly.pizza/m/BEcU9rjiAq
+- bugday.glb         "Wheat"  Quaternius  https://poly.pizza/m/lPspzfC8Pu
+- corba.glb          "Udon"  Quaternius  https://poly.pizza/m/8eOp8bismL
+- fiskiye.glb        "Fountain"  Isa Lousberg  https://poly.pizza/m/WHc7dwttlk
+- kesme1.glb         "Flowers"  Quaternius  https://poly.pizza/m/NBUxHir6FJ
+- kesme2.glb         "Flower Group"  Quaternius  https://poly.pizza/m/LqTljN6Wg2
+- mandira.glb        "Barn"  Quaternius  https://poly.pizza/m/vSqQNA7ez6
+- misirkazani.glb    "Cooking Pot"  Quaternius  https://poly.pizza/m/jAUb3FoCN7
+- pide.glb           "Pizza"  Quaternius  https://poly.pizza/m/XmmG0uImLL
+- simidi.glb         "Rubber Duck Pool Toy"  hat_my_guy  https://poly.pizza/m/8DnpFRLldK
+- yazihane.glb       "Desk"  Quaternius  https://poly.pizza/m/V86Go2rlnq
+
+CC BY 3.0 (kaynak gösterilmeli: https://creativecommons.org/licenses/by/3.0/):
+- agaski.glb         "Fishing net"  Poly by Google  https://poly.pizza/m/6xRmXaU-L7e
+- aycicek.glb        "Sunflower"  Poly by Google  https://poly.pizza/m/ce4GXw3VYE5
+- banka.glb          "Bank"  Poly by Google  https://poly.pizza/m/f1GOJtZFtsR
+- bisikletpark.glb   "Bike Rack"  J-Toastie  https://poly.pizza/m/DzsJ2LPVKZ
+- buzluk.glb         "Ice box"  Poly by Google  https://poly.pizza/m/dvu1_2Wlhc0
+- carsaf.glb         "T-Shirts - folded"  sirkitree  https://poly.pizza/m/8HBhazMls_z
+- firinbinasi.glb    "Bakery"  Poly by Google  https://poly.pizza/m/6BGhNQlUzRR
+- kaydirak.glb       "Slide"  Poly by Google  https://poly.pizza/m/dDe3njWPbg0
+- kocan.glb          "Ear of corn"  Poly by Google  https://poly.pizza/m/3zsUEPnTdFt
+- kumkale.glb        "Sand castle"  Poly by Google  https://poly.pizza/m/5iuHHfVoaza
+- ordek.glb          "Duck"  Poly by Google  https://poly.pizza/m/6HpauUCfIAb
+- pazarcadiri.glb    "Canopy"  Poly by Google  https://poly.pizza/m/1EIz0tpCwPH
+- salincak.glb       "Swing set"  Poly by Google  https://poly.pizza/m/e-IJdcqZH4p
+- sepet.glb          "Picnic Basket"  Poly by Google  https://poly.pizza/m/aWBGhxXig8y
+- top.glb            "beach ball"  the_ normalgamer  https://poly.pizza/m/4IwPTeOmq6c
+- tost.glb           "Grilled cheese"  Ben Spriggs  https://poly.pizza/m/67STdJxLVAF
+- tostmakinesi.glb   "Toaster"  Isa Lousberg  https://poly.pizza/m/Gd6FzZcXiX
+- yazarkasa.glb      "Cash register"  Poly by Google  https://poly.pizza/m/crXBxFOkCIp

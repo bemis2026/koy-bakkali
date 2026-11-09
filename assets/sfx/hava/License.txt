@@ -1,0 +1,7 @@
+Köy Bakkalı hava sesleri (assets/sfx/hava/*.ogg)
+Kaynak: Wikimedia Commons. Parçalar kesildi, ses düzeyleri eşitlendi, mono'ya çevrildi; yağmur döngülerinin sonu başına karıştırıldı.
+
+yagmur.ogg <- "Rain (1).ogg" — ezwa — Public domain — https://commons.wikimedia.org/wiki/File:Rain_(1).ogg
+saganak.ogg <- "Heavy rain in Glenshaw, PA.ogg" — Sage Ross — CC BY-SA 3.0 — https://commons.wikimedia.org/wiki/File:Heavy_rain_in_Glenshaw,_PA.ogg
+gok.ogg <- "Thunder 01.ogg" — Amuzujoe — CC BY-SA 4.0 — https://commons.wikimedia.org/wiki/File:Thunder_01.ogg
+gok.ogg <- "Thunder crack 2B.ogg" — Jud McCranie — CC BY-SA 4.0 — https://commons.wikimedia.org/wiki/File:Thunder_crack_2B.ogg

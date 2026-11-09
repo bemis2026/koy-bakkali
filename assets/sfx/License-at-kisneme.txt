@@ -1,0 +1,8 @@
+at_kisneme.ogg — aygır kişnemesi (high/low-pitched stallion whinny, "Example of low-pitched acoustic stimulus")
+
+Kaynak: Lemasson A, Remeuf K, Trabalon M, Cuir F, Hausberger M (2015). Mares Prefer the Voices of Highly Fertile Stallions.
+PLOS ONE 10(2): e0118468, ek ses S3. https://doi.org/10.1371/journal.pone.0118468
+Dosya: https://commons.wikimedia.org/wiki/File:Mares-Prefer-the-Voices-of-Highly-Fertile-Stallions-pone.0118468.s003.oga
+
+Lisans: Creative Commons Attribution 4.0 (CC BY 4.0) https://creativecommons.org/licenses/by/4.0/
+Değişiklik: dosya olduğu gibi; oyunda 0,55-3,15 sn arası çalınır, perdesi oynatılır (ambience.js). Kredi oyunda menu.js ve final.js'te.

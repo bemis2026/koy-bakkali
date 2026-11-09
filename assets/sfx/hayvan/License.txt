@@ -1,0 +1,19 @@
+Köy Bakkalı gerçek hayvan ve doğa sesleri (assets/sfx/hayvan/*.ogg)
+Kaynak: Wikimedia Commons. Parçalar kesildi, ses düzeyleri eşitlendi, 22 kHz mono'ya çevrildi, kısa geçişler eklendi.
+CC BY-SA kayıt içeren dosyalar (aşağıda belirtildi) aynı lisansla (CC BY-SA) paylaşılır.
+
+tavuk.ogg <- "Hen announcing shes lain an egg.ogg" — alys — Public domain — https://commons.wikimedia.org/wiki/File:Hen_announcing_shes_lain_an_egg.ogg
+horoz.ogg <- "Medium rooster crowing.ogg" — alys — Public domain — https://commons.wikimedia.org/wiki/File:Medium_rooster_crowing.ogg
+horoz.ogg <- "Small rooster crowing.ogg" — alys — Public domain — https://commons.wikimedia.org/wiki/File:Small_rooster_crowing.ogg
+inek.ogg <- "Cow in Vezo.ogg" — Gasybeaugosse2020 — CC0 — https://commons.wikimedia.org/wiki/File:Cow_in_Vezo.ogg
+inek.ogg <- "Single Cow Moo.ogg" — MichaeltheFox8621 — CC BY-SA 4.0 — https://commons.wikimedia.org/wiki/File:Single_Cow_Moo.ogg
+kopek.ogg <- "Barking of a dog.ogg" — Amada44 — CC BY-SA 3.0 — https://commons.wikimedia.org/wiki/File:Barking_of_a_dog.ogg
+kopek.ogg <- "Barking of a dog 2.ogg" — Amada44 — CC BY-SA 3.0 — https://commons.wikimedia.org/wiki/File:Barking_of_a_dog_2.ogg
+kopek.ogg <- "Perro ladrando.ogg" — Armartinell — CC BY-SA 4.0 — https://commons.wikimedia.org/wiki/File:Perro_ladrando.ogg
+kedi.ogg <- "Meow of a pleading cat.oga" — Heismark — Public domain — https://commons.wikimedia.org/wiki/File:Meow_of_a_pleading_cat.oga
+kedi.ogg <- "GettingOutImpatient.ogg" — Heismark — Public domain — https://commons.wikimedia.org/wiki/File:GettingOutImpatient.ogg
+kus.ogg <- "Common Blackbird song (Turdus merula).ogg" — Diana Tudor — CC BY 4.0 — https://commons.wikimedia.org/wiki/File:Common_Blackbird_song_(Turdus_merula).ogg
+kus.ogg <- "Fringilla coelebs.ogg" — Oona Räisänen (Mysid) — Public domain — https://commons.wikimedia.org/wiki/File:Fringilla_coelebs.ogg
+kus.ogg <- "Parus major 15mars2011.ogg" — Dengis Chantal — CC BY 3.0 — https://commons.wikimedia.org/wiki/File:Parus_major_15mars2011.ogg
+kus.ogg <- "Passer domesticus - House Sparrow - XC86749.ogg" — Jonathon Jongsma — CC BY-SA 3.0 — https://commons.wikimedia.org/wiki/File:Passer_domesticus_-_House_Sparrow_-_XC86749.ogg
+yaprak.ogg <- "Rustling leaves (Gravity Sound).wav" — Gravity Sound — CC BY 4.0 — https://commons.wikimedia.org/wiki/File:Rustling_leaves_(Gravity_Sound).wav

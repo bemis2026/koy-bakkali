@@ -1,0 +1,13 @@
+Köy Bakkalı araç sesleri (assets/sfx/arac/*.ogg)
+Kaynak: Wikimedia Commons. Parçalar kesildi, ses düzeyleri eşitlendi, mono'ya çevrildi; motor ve müzik döngülerinin sonu başına karıştırıldı.
+
+zil.ogg <- "Bicycle-bell-1.wav" — Soundscape_Leuphana — CC0 — https://commons.wikimedia.org/wiki/File:Bicycle-bell-1.wav
+zil.ogg <- "Bsumusictech bike-bell.wav" — bsumusictech — CC0 — https://commons.wikimedia.org/wiki/File:Bsumusictech_bike-bell.wav
+zil.ogg <- "156064 marcolo91 bicycle-bell.wav" — marcolo91 — CC0 — https://commons.wikimedia.org/wiki/File:156064_marcolo91_bicycle-bell.wav
+gecis, motosiklet.ogg <- "Moped driving by.ogg" — stephan — Public domain — https://commons.wikimedia.org/wiki/File:Moped_driving_by.ogg
+otomobil.ogg <- "WWS CarPrinzNSU1200Cengine.ogg" — Work With Sounds / Technical Museum of Slovenia — CC BY 4.0 — https://commons.wikimedia.org/wiki/File:WWS_CarPrinzNSU1200Cengine.ogg
+gecis, kamyonet.ogg <- "WWS FSRTarpan239Dvandriving.ogg" — Work With Sounds / Museum of Municipal Engineering — CC BY 4.0 — https://commons.wikimedia.org/wiki/File:WWS_FSRTarpan239Dvandriving.ogg
+kamyon.ogg <- "WWS CityBusMANSG220engine.ogg" — Work With Sounds / Technical Museum of Slovenia — CC BY 4.0 — https://commons.wikimedia.org/wiki/File:WWS_CityBusMANSG220engine.ogg
+traktor.ogg <- "WWS JohnDeereTractor.ogg" — Work With Sounds / Werstas — CC BY 4.0 — https://commons.wikimedia.org/wiki/File:WWS_JohnDeereTractor.ogg
+korna.ogg <- "WWS CarPrinzNSU1200C8211horn.ogg" — Work With Sounds / Technical Museum of Slovenia — CC BY 4.0 — https://commons.wikimedia.org/wiki/File:WWS_CarPrinzNSU1200C8211horn.ogg
+gecis.ogg <- "Cars passing over bridge.ogg" — Dsw4 — Public domain — https://commons.wikimedia.org/wiki/File:Cars_passing_over_bridge.ogg

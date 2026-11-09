@@ -1,0 +1,4 @@
+Köy Bakkalı akordeoncu (assets/sfx/calgi/akordeon.ogg)
+Kaynak: Wikimedia Commons. Parçalar kesildi, ses düzeyleri eşitlendi, mono'ya çevrildi; motor ve müzik döngülerinin sonu başına karıştırıldı.
+
+akordeon.ogg <- "Duet Musette (ISRC USUAN1100250).mp3" — Kevin MacLeod — CC BY 3.0 — https://commons.wikimedia.org/wiki/File:Duet_Musette_(ISRC_USUAN1100250).mp3

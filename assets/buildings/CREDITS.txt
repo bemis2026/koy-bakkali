@@ -1,0 +1,8 @@
+Köy Bakkalı - köy yapısı modelleri (poly.pizza), hepsi CC0 1.0 (kamu malı, kaynak göstermek zorunlu değil)
+- ev.glb        "House"        Quaternius             https://poly.pizza/m/RSwoYSLblu
+- ahir.glb      "Open Barn"    Quaternius             https://poly.pizza/m/ZIdWHxYsUv
+- kumes.glb     "ChickenCoop"  Quaternius             https://poly.pizza/m/DM0F8siLam
+- kuyu.glb      "Well"         Quaternius             https://poly.pizza/m/QlqncKYxXb
+- degirmen.glb  "Windmill"     Quaternius             https://poly.pizza/m/WUbU1Nct2W
+- cit.glb       "Fence"        Quaternius             https://poly.pizza/m/r0n40F7FKx
+- lamba.glb     "Post Lantern" Kay Lousberg (KayKit)  https://poly.pizza/m/ZSQ65S4lEu

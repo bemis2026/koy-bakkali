@@ -1,0 +1,6 @@
+Köy Bakkalı - araç modelleri (poly.pizza)
+
+CC BY 3.0 (kaynak gösterilmeli: https://creativecommons.org/licenses/by/3.0/):
+- motosiklet.glb  "Bike"     MiniPoly        https://poly.pizza/m/DN6DCPopeH
+- bisiklet.glb    "Bicycle"  Poly by Google  https://poly.pizza/m/5pBoRkAPQk6
+- sandal.glb      "Rowboat"  Poly by Google  https://poly.pizza/m/dt1yhb5AYXD
