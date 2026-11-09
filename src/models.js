@@ -1619,9 +1619,15 @@ export function makePlant(type) {
   const g = new THREE.Group();
   const leaf = mat(type === 'salatalik' ? '#5aa84a' : '#4f9e4a', { flat: true });
   if (type === 'salatalik') {
-    ico(0.38, leaf, 0, 0.35, 0, g, 0).scale.set(1.3, 0.6, 1.1);
-    ico(0.28, mat('#6cbd57', { flat: true }), 0.18, 0.46, -0.2, g, 0); // ikinci yaprak arkada: önündeki salatalığı örtmesin
-    sph(0.07, mat('#ffd23f'), -0.28, 0.5, -0.1, g, 8, 6);
+    // 2026-11-09 kullanıcı: "salatalıkların gösterimi bostanda bitkinin içinde olsun yanında değil": yapraklar arkada ve iki yanda
+    // yuva gibi kümelenir, önü alçak; salatalık bu yuvanın içinde, yaprakların arasında yatar ve kameradan görünür (fide yönü game.js addPlant)
+    const leaf2 = mat('#6cbd57', { flat: true });
+    ico(0.34, leaf, 0, 0.36, -0.2, g, 0).scale.set(1.35, 0.7, 0.85); // arka yaprak kümesi
+    ico(0.25, leaf2, -0.4, 0.22, 0.06, g, 0).scale.set(1.0, 0.6, 1.2); // yan yapraklar: salatalığın uçları aralarına girer
+    ico(0.25, leaf, 0.4, 0.2, 0.1, g, 0).scale.set(1.0, 0.55, 1.2);
+    ico(0.16, leaf2, -0.14, 0.05, 0.36, g, 0).scale.set(1.4, 0.35, 0.9); // önde alçak yaprak: salatalığın altında kalır
+    sph(0.06, mat('#ffd23f'), -0.3, 0.42, -0.06, g, 8, 6); // sarı çiçekler
+    sph(0.05, mat('#ffd23f'), 0.3, 0.4, -0.14, g, 8, 6);
   } else {
     cyl(0.04, 0.06, 1.0, 6, mat('#4a8a3c'), 0, 0.55, 0, g);
     ico(0.26, leaf, 0.12, 0.65, 0.05, g, 0);
@@ -1630,10 +1636,10 @@ export function makePlant(type) {
     rbox(0.05, 1.3, 0.05, 0.02, mat('#c9a06b'), -0.18, 0.65, -0.12, g);
   }
   const fruit = new THREE.Group();
-  fruit.position.set(type === 'salatalik' ? 0.05 : 0.2, type === 'salatalik' ? 0.32 : 0.55, 0.22);
-  // salatalık yaprağın içinde kalıyordu (2026-11-08 kullanıcı: "salatalık bostanlarında salatalıklar gözükmüyor"): fidenin kameraya bakan
-  // önünde toprağa yatar, yeşil yaprağa değil kahverengi toprağa karşı görünür. front: dünyaya göre ileri (+z) uzaklık, fide dönse de (game.js addPlant)
-  if (type === 'salatalik') g.userData.front = [0, 0.0, 0.5];
+  fruit.position.set(type === 'salatalik' ? 0.02 : 0.2, type === 'salatalik' ? 0.13 : 0.55, type === 'salatalik' ? 0.12 : 0.22);
+  // salatalık yaprak yuvasının içinde (2026-11-08'de fidenin 0,5 m önüne, toprağa alınmıştı; kullanıcı yanında değil içinde istedi).
+  // face: fidenin açık yanı kameraya (+z) baksın diye fide az döndürülür (game.js addPlant)
+  if (type === 'salatalik') { fruit.rotation.set(0, (Math.random() - 0.5) * 0.5, 0.12); g.userData.face = true; }
   g.add(fruit);
   g.userData.fruit = fruit;
   return g;

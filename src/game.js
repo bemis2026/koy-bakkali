@@ -567,9 +567,8 @@ export class PlantBed extends Station {
   addPlant(instant) {
     const [px, pz] = FIDE_AT[this.plants.length], p = makePlant(this.type);
     p.position.set(this.x + px, 0.02, this.z + pz); // fide doğrudan toprağa dikili
-    p.rotation.y = Math.random() * PI * 2;
-    const fr = p.userData.front; // meyve fide dönse de hep önde (kameraya bakan yanda) dursun: yeri ve yönü dönüşün tersine
-    if (fr) { const a = p.rotation.y; p.userData.fruit.position.set(fr[0] * Math.cos(a) - fr[2] * Math.sin(a), fr[1], fr[0] * Math.sin(a) + fr[2] * Math.cos(a)); p.userData.fruit.rotation.y = -a + (Math.random() - 0.5) * 0.6; }
+    // salatalık fidesinin yaprak yuvası önü açık (models.js face): açık yanı kameraya baksın diye az döner, meyve yaprakların içinde görünür
+    p.rotation.y = p.userData.face ? (Math.random() - 0.5) * 0.7 : Math.random() * PI * 2;
     this.parent.add(p);
     if (!instant) popIn(p, 0.1 + Math.random() * 0.2);
     this.plants.push({ obj: p, anchor: p.userData.fruit, fruit: null, t: this.grow * (0.4 + Math.random() * 0.6), x: this.x + px, z: this.z + pz });

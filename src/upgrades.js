@@ -503,9 +503,11 @@ class Worker {
     if (put) { this.go('feed', put.conv, V(put.conv.zone.x + rand(-0.4, 0.4), 0, put.conv.zone.z)); return true; }
     if (this.stack.full) return false;
     const p = this.obj.position, d = (s) => Math.hypot(s.zone.x - p.x, s.zone.z - p.z);
-    const busy = (c) => G.workers.some((w) => w !== this && w.state === 'harvest' && w.feedConv === c);
+    // başka bir eleman (hangi meslekten olursa olsun) bu makineye zaten getiriyorsa ya da işin sahibi başkasıysa gitmez (iş paylaşımı,
+    // yieldsJob). Eskiden yalnız makine besleyen başka eleman sayılıyordu; taşıyıcı ve bölüm görevlisi yoldayken garson da tarlaya koşuyordu
     for (const j of jobs.sort((a, b) => a.conv.input.length - b.conv.input.length)) {
-      if (j.conv.input.length >= j.conv.cap - 1 || busy(j.conv)) continue;
+      const c = j.conv;
+      if (c.input.length >= c.cap - 1 || claimedBy(this, c, c.inType) > 0 || yieldsJob(this, c, c.inType, j.rank ?? 4, j.srcs)) continue;
       const src = j.srcs.filter((s) => s && s.avail() > 0).sort((a, b) => d(a) - d(b))[0];
       if (!src) continue;
       this.feedType = j.conv.inType; this.feedConv = j.conv;
@@ -647,7 +649,7 @@ class Shelver extends Worker {
       if (!s) continue;
       if (!s.paid) { if (s.type) remote.push(s); } else if (G.money > 200) remote.push({ ...s, type: t }); // toptancıdan alıp rafta satar (yalnızca para varken)
     }
-    const srcs = [...new Set([...R.beds, ...Object.values(R.gens), ...remote])].filter((s) => s.avail() > 0 && this.sinkFor([s.type]));
+    const srcs = [...new Set([...R.beds, ...Object.values(R.gens), ...remote])].filter((s) => s.avail() > 0 && this.sinkFor([s.type]) && !koyClaimed(this, s.type));
     srcs.sort((a, b) => score(a) - score(b));
     if (srcs[0]) this.last = srcs[0].type;
     return srcs[0];
@@ -784,7 +786,8 @@ class Waiter extends Worker {
       if (type) { this.want = type; this.wantN = this.stack.count(type) + need[type]; const g = R.gens[type]; return this.go('take', g, V(g.zone.x + rand(-0.6, 0.6), 0, g.zone.z)); }
     }
     // sipariş yokken boş durmaz: mısır kazanını tarladan koçanla, dondurma makinesini ahırdan sütle besler
-    if (this.feed([{ conv: R.cornPot, srcs: srcFor('kocan') }, { conv: R.iceMachine, srcs: srcFor('sut').filter((s) => s && !s.paid) }])) return;
+    // 2026-11-09: tarlacı, rençper ya da sütçü varsa garson kumsalı bırakıp tarlaya koşmaz; makine uzun süre boş kalırsa yardım eder (yieldsJob, sıra 5)
+    if (this.feed([{ conv: R.cornPot, srcs: srcFor('kocan'), rank: 5 }, { conv: R.iceMachine, srcs: srcFor('sut').filter((s) => s && !s.paid), rank: 5 }])) return;
     this.idle(30, 36, 23.6, 24.6);
   }
 }
@@ -1058,11 +1061,13 @@ class Firinci extends Worker {
     // unu az olan fırına önce: iki fırın da çalışsın (simit ve poğaça)
     const shown = (t) => (R.vitrinOf[t] ? R.vitrinOf[t].count() : 0);
     const lack = (o) => o.input.length * 10 + o.out.items.length + shown(o.out.type); // unu ve ürünü az olan önce
-    const jobs = ovens.slice().sort((a, b) => lack(a) - lack(b)).map((o) => ({ conv: o, srcs: [R.flour] }));
+    const jobs = ovens.slice().sort((a, b) => lack(a) - lack(b)).map((o) => ({ conv: o, srcs: [R.flour], rank: 0 })); // taş fırınların unu fırıncının asıl işi
     if (R.mill) { const mill = { conv: R.mill, srcs: srcFor('bugday') }; if (R.flour.avail() < 3) jobs.unshift(mill); else jobs.push(mill); } // un azsa önce değirmene buğday
     if (this.feed(jobs)) return;
     this.idle(-4, 0, -23.4, -23.0, 2); // vitrinin arkasında bekler
   }
+  // iş paylaşımı (bestOwner): taş fırınların unu fırıncının; fırın çırağı ve taşıyıcı ancak fırın boşalıp fırıncı getirmiyorken götürür
+  ownFeeds() { const R = G.regions.firin; return R && R.unlocked && R.flour ? bakerOvens().map((o) => ({ conv: o, srcs: [R.flour] })) : []; }
 }
 STAFF.baker = { cls: Firinci, cap: 'bkCap', spd: 'bkSpd' };
 
@@ -1189,12 +1194,14 @@ class Dokumaci extends Worker {
     if (!A || !A.unlocked || !A.loom) return this.idle(-53, -50, 22.6, 23.8, 2);
     const sink = this.kilimSink();
     if (this.stack.count('kilim') && sink) return this.go('sell', sink, V(sink.zone.x + rand(-0.6, 0.6), 0, sink.zone.z));
-    if (this.feed([{ conv: A.loom, srcs: srcFor('yun').filter((s) => s && !s.paid) }])) return;
+    if (this.feed([{ conv: A.loom, srcs: srcFor('yun').filter((s) => s && !s.paid), rank: 0 }])) return;
     // tezgah beslenemiyorsa (yün yok ya da tepsi dolu) boş durmaz: biriken kilimleri satış yerine taşır
     const out = A.loom.out;
     if (sink && out && out.avail() > 0 && !this.stack.full) { this.want = Math.min(this.stack.cap, this.stack.count('kilim') + out.avail()); return this.go('take', out, V(out.zone.x + rand(-0.5, 0.5), 0, out.zone.z)); }
     this.idle(-53, -50, 22.6, 23.8, 2);
   }
+  // iş paylaşımı (bestOwner): ilk dokuma tezgahının yünü dokumacının; kalfa yeni tezgahlara bakar, çoban yünü satış yerlerine götürür
+  ownFeeds() { const A = G.regions.atolye; return A && A.unlocked && A.loom ? [{ conv: A.loom, srcs: srcFor('yun').filter((s) => s && !s.paid) }] : []; }
 }
 STAFF.weaver = { cls: Dokumaci, cap: 'wvCap', spd: 'wvSpd' };
 
@@ -1375,6 +1382,7 @@ function restockJob(w) {
   for (const sh of koyShelves().sort((a, b) => a.count() / a.cap - b.count() / b.cap)) {
     const free = sh.slots.filter((x) => !x).length;
     for (const k of sh.acc()) {
+      if (claimedBy(w, sh, k) >= free) continue; // bu rafı başkası (sütçü, rafçı) zaten dolduruyor
       const src = srcFor(k).filter((s) => s && !s.paid && s.avail() > 0).sort((a, b) => d(a) - d(b))[0];
       if (src) return { src, type: k, n: Math.min(w.stack.cap, free) };
     }
@@ -1397,7 +1405,76 @@ function srcFor0(type) {
   if (ps) return [{ paid: true, zone: ps.zone, avail: () => ((ps.stock ?? 1) > 0 && G.money >= (ITEMS[type].cost || 0) ? 1 : 0), give: (st) => ps.buyTo(st, type) === 'ok' }];
   return [];
 }
-function carrierJobs() {
+// bütün taşıyıcı türü elemanlar aynı karede aynı listeyi ister: karede bir kez kurulur (G.time her karede ilerler, main.js tick)
+let cjT = -1, cjL = null;
+function carrierJobs() { if (cjT !== G.time || !cjL) { cjT = G.time; cjL = carrierJobs0(); } return cjL; }
+// ---------- iş paylaşımı (2026-11-09) ----------
+// Kullanıcı: "meydancı mısır tarlacı ve sütçünün görevleri ile çakışan aynı görevleri yapan adamlar var ... personellerin görevlerini
+// kontrol et optimize edelim". Ölçüm (denetim/s_gorev.mjs, 5 dk): farklı meslekler aynı makineye aynı ürünü aynı anda götürüyordu
+// (garson + sütçü + çiftçi dondurma makinesine süt, garson + tarlacı + rençper mısır kazanına koçan, dokumacı + kalfa tezgaha yün...).
+// İki neden: (1) "bu işi başkası aldı" sayımı yalnız aynı meslekten arkadaşlar arasındaydı; (2) taşıyıcı her işi, bölüm görevlisi
+// bölgesine değen her işi listesine alıyordu. Şimdi üstlenilen adet bütün elemanlar arasında sayılır ve her işin (yer + ürün) bir
+// sahibi var. Sahip sırası (rank): 0 makinenin kendi elemanı (dokumacı → tezgah, fırıncı → taş fırınlar) ve sütçü (süt, yumurta,
+// peynir); 1 ürünün çıktığı bölümün görevlisi; 2 yerin bölümünün görevlisi; 3 taşıyıcı; 4 boşta yardım eden (kâhya, seyis, rafçı,
+// restoran garsonu); 5 yerini bırakmaması gereken (sahil garsonu). Aynı sıradakilerden dolu kaynağı yere en yakın olan sahiptir.
+// Biri o yere zaten götürüyorsa sahibi olmayan ikinci kişi gitmez (yoldakiler dahil yer yarıdan boşsa katılır); sahibi yer kaldıysa yine gider. Kimse götürmüyorsa
+// boştaki herkes yardım eder: ilk denemede sahibi meşgulken yardım da kesilince harman %68, dokuma tezgahı %62 boş kaldı (önce %6 ve %31).
+// Sonuç (aynı kayıt, 4 koşu): dakikada teslim aynı (~300), farklı mesleğin aynı işe koşması yarıdan az, boşa yol %60 az
+const claimOf = (w, key, type) => {
+  if (w.gone || !w.stack) return 0;
+  if (w.job && w.job.sink) return w.job.sink.key === key && w.job.type === type ? Math.max(w.stack.count(type), w.feedN || 0) : 0;
+  if (w.state === 'harvest' && w.feedConv === key && w.feedType === type) return Math.max(w.stack.count(type), w.feedN || 0);
+  if ((w.state === 'feed' || w.state === 'put') && w.target === key) return w.stack.count(type); // makineye ya da rafa bırakmak üzere
+  return 0;
+};
+// başka elemanların o yere götürmekte olduğu adet (meslek ayrımı yok)
+function claimedBy(me, key, type) { let n = 0; for (const w of G.workers) if (w !== me) n += claimOf(w, key, type); return n; }
+// sahiplik puanı: sıra × 1000 + dolu kaynağın yere uzaklığı (dolu kaynağı yoksa en arkada)
+function ownScore(rank, srcs, z) {
+  let d = Infinity;
+  if (z) for (const s of srcs || []) if (s && s.zone && s.avail() > 0) d = Math.min(d, Math.hypot(s.zone.x - z.x, s.zone.z - z.z));
+  return rank * 1000 + Math.min(d, 999);
+}
+// sahiplik tablosu yarım saniyede bir kurulur (her karede kurmak telefonda gereksiz çöp üretir; sahip o kadar hızlı değişmez)
+let ownT = -1, ownMap = null;
+function bestOwner(key, type) {
+  if (!ownMap || G.time - ownT >= 0.5 || G.time < ownT) {
+    ownT = G.time; ownMap = new Map();
+    const add = (k, t, sc) => { let m = ownMap.get(k); if (!m) ownMap.set(k, (m = new Map())); const b = m.get(t); if (b == null || sc < b) m.set(t, sc); };
+    for (const w of G.workers) {
+      if (w.gone) continue;
+      if (typeof w.jobs === 'function') for (const j of w.jobs()) add(j.sink.key, j.type, ownScore(j.rank ?? 3, j.own || j.srcs, j.sink.zone));
+      else if (w.ownFeeds) for (const j of w.ownFeeds()) add(j.conv, j.conv.inType, ownScore(0, j.srcs, j.conv.zone));
+    }
+  }
+  const m = ownMap.get(key);
+  return m ? m.get(type) : null;
+}
+// yer en az STARVE sn boş kaldıysa sahibi yetişemiyor demektir: sahil garsonu ancak o zaman tarlaya, ahıra gider (müşterisini bırakmasın)
+const STARVE = 15, emptyAt = new WeakMap();
+function sinkEmpty(k, t) {
+  const e = k.input ? !k.input.length : typeof k.count === 'function' ? !k.count(t) : false;
+  if (!e) { emptyAt.delete(k); return false; }
+  if (!emptyAt.has(k)) emptyAt.set(k, G.time);
+  return G.time - emptyAt.get(k) >= STARVE;
+}
+// köy dolabına (süt, peynir, yumurta...) başkası (sütçü, taşıyıcı) zaten yeteri kadar getiriyorsa rafçı ve servisçi o ürüne gitmez
+function koyClaimed(me, t) {
+  const sh = G.regions.koy.shelfByType && G.regions.koy.shelfByType[t];
+  return !!sh && claimedBy(me, sh, t) >= sh.slots.filter((x) => !x).length;
+}
+// bu iş başkasının mı: sahibi (daha önde biri) varken biri zaten götürüyorsa yol verir; kimse götürmüyorsa yardım eder
+function yieldsJob(me, key, type, rank, srcs, z = key.zone) {
+  const best = bestOwner(key, type);
+  if (best == null || ownScore(rank, srcs, z) <= best + 0.5) return false; // sahibi benim (ya da aynı meslekten arkadaşımla birlikte)
+  if (rank >= 4 && best >= 3000) return false; // boştaki yardımcı yalnız uzman sahibe yol verir, taşıyıcıya değil (kâhya hanın fırınını besler)
+  if (rank >= 5) return !sinkEmpty(key, type) || claimedBy(me, key, type) > 0; // sahil garsonu yerini ancak makine uzun süre boş kalınca bırakır
+  const c = claimedBy(me, key, type), f = fillOf(key);
+  return c > 0 && !(f && (f[0] + c) * 2 < f[1]); // biri zaten götürüyorsa sahibi olmayan ikinci kişi gitmez; yoldakiler dahil yarıdan boşsa katılır
+}
+// büyük makine (değirmen 8 buğday alır) tek kişinin yüküyle dolmaz: katılmasa değirmene ve taş fırınlara giden buğday ve un %30 azalıyordu
+const fillOf = (k) => (k.input && k.cap ? [k.input.length, k.cap] : k.slots ? [k.slots.filter(Boolean).length, k.slots.length] : null);
+function carrierJobs0() {
   const S = G.regions.sahil, K = G.regions.koy, T = G.regions.tarla, Me = G.regions.mera, A = G.regions.atolye, P = G.regions.pazar, R = G.regions.tatil;
   const jobs = [];
   const add = (type, sink, srcs, pri) => { if (sink) jobs.push({ type, sink, srcs: srcs.filter(Boolean), pri }); };
@@ -1472,22 +1549,23 @@ class Carrier extends Worker {
   }
   // bölgeler arası ne lazımsa: önce elindekini ihtiyacı olan yere götürür (yük eksikse tamamlar), sonra en öncelikli
   // ve kaynağı dolu işe başlar. Başka taşıyıcının üstlendiği miktar düşülür: iki eşek aynı işe yığılmaz
+  // 2026-11-09: üstlenilen adet bütün elemanlar arasında sayılır, işin sahibi başkasıysa yol verilir (iş paylaşımı, yieldsJob)
   decide() {
-    const jobs = this.jobs(), p = this.obj.position, mates = (G.staff[this.role] || []).filter((w) => w !== this);
-    const claimed = (j) => mates.reduce((n, w) => n + (w.job && w.job.sink.key === j.sink.key && w.job.type === j.type ? Math.max(w.stack.count(j.type), w.feedN || 0) : 0), 0);
-    const need = (j) => j.sink.room() - claimed(j);
+    const jobs = this.jobs(), p = this.obj.position, nd = new Map();
+    const need = (j) => { let v = nd.get(j); if (v === undefined) nd.set(j, (v = j.sink.room() - claimedBy(this, j.sink.key, j.type))); return v; };
+    const other = (j) => yieldsJob(this, j.sink.key, j.type, j.rank ?? 3, j.own || j.srcs, j.sink.zone);
     const d = (s) => Math.hypot(s.zone.x - p.x, s.zone.z - p.z), at = (s) => V(s.zone.x + rand(-0.5, 0.5), 0, s.zone.z + rand(-0.3, 0.3));
     const nearest = (j) => j.srcs.filter((s) => s.avail() > 0).sort((a, b) => d(a) - d(b))[0];
     for (const j of jobs.filter((x) => this.stack.count(x.type) > 0).sort((a, b) => b.pri - a.pri)) {
       const n = this.stack.count(j.type), room = need(j);
       if (room <= 0) continue;
       this.job = j;
-      const src = !this.stack.full && n < room && nearest(j);
+      const src = !this.stack.full && n < room && !other(j) && nearest(j); // elindekini götürür; başkasının işi için yükünü tamamlamaz
       if (src) { this.feedType = j.type; this.feedN = Math.min(this.stack.cap, room); return this.go('harvest', src, at(src)); }
       this.feedN = 0;
       return this.go('deliver', j.sink, at(j.sink));
     }
-    if (!this.stack.full) for (const j of jobs.sort((a, b) => b.pri - a.pri || need(b) - need(a))) {
+    if (!this.stack.full) for (const j of jobs.filter((x) => !other(x)).sort((a, b) => b.pri - a.pri || need(b) - need(a))) {
       const room = need(j), src = room > 0 && nearest(j);
       if (!src) continue;
       this.job = j; this.feedType = j.type;
@@ -1497,7 +1575,7 @@ class Carrier extends Worker {
     this.job = null; this.feedN = 0;
     this.idleBox();
   }
-  jobs() { return carrierJobs(); }
+  jobs() { return carrierJobs().map((j) => ({ ...j, rank: 3 })); } // taşıyıcı: sahibi olmayan işler ve boş kalan yerler
   idleBox() { this.idle(-32, -30, -0.8, 0.6, 2); } // tarladaki suluğun başında bekler
   update(dt) {
     this.moving = false;
@@ -1543,7 +1621,7 @@ class Sutcu extends Carrier {
   // oyuncu başka yerdeyken sahildekilerin yarısı; kullanıcı seçimi "yalnız sütçü önceliği")
   jobs() {
     const ice = G.regions.sahil.iceMachine, low = ice && ice.input.length < 3 && ice.out.avail() < 3;
-    return carrierJobs().filter((j) => DAIRY.includes(j.type)).map((j) => ({ ...j, pri: j.sink.key === ice ? (low ? 5 : 1) : Array.isArray(j.sink.key.slots) ? 4 : 3 }));
+    return carrierJobs().filter((j) => DAIRY.includes(j.type)).map((j) => ({ ...j, rank: 0, pri: j.sink.key === ice ? (low ? 5 : 1) : Array.isArray(j.sink.key.slots) ? 4 : 3 })); // süt, yumurta, peynir sütçünün
   }
   idleBox() { this.idle(36, 41, -22, -20, 2); }
 }
@@ -1569,12 +1647,13 @@ class BolumGorevlisi extends Worker {
     // bölümün ürününü dışarıya en çok 200 m götürür: şehir köyden ~400 m uzakta, oraya kamyon taşır (city.js). 2026-11-04: Çiçekçi
     // çiçeği şehrin hediyelik dükkânına, rençper ayçiçeğini şehir marketine yürüyerek götürüyor, dakikalarca bölümünden ayrılıyordu
     const e = regionEntry(r) || [0, 0, 0], near = (st) => Math.hypot(st.zone.x - e[0], st.zone.z - e[2]) < 200;
+    // iş paylaşımı (yieldsJob): ürün bölümündense iş onun (sıra 1); yalnız yeri bölümündeyse ürünün kendi görevlisine yol verir (sıra 2).
+    // Bölge sınırları üst üste bindiği için çiftçi pazar tezgahına, han çırağı çiçek yemliğine de gidiyordu
     return carrierJobs().flatMap((j) => {
-      const srcs = j.srcs.filter((st) => !st.paid);
-      if (inside(j.sink)) return srcs.length ? [{ ...j, srcs }] : [];
+      const srcs = j.srcs.filter((st) => !st.paid), own = srcs.filter(inside);
+      if (inside(j.sink)) return srcs.length ? [{ ...j, srcs, own: own.length ? own : null, rank: own.length ? 1 : 2 }] : [];
       if (!j.sink.zone || !near(j.sink)) return [];
-      const own = srcs.filter(inside);
-      return own.length ? [{ ...j, srcs: own }] : [];
+      return own.length ? [{ ...j, srcs: own, rank: 1 }] : [];
     });
   }
   idleBox() { const e = regionEntry(this.region) || [0, 0, 0]; this.idle(e[0] - 2, e[0] + 2, e[2] - 1.2, e[2] + 1.2, 2); }
