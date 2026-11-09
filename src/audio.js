@@ -401,6 +401,9 @@ function makeDeck() {
   fileBus = AC.createGain(); fileBus.gain.value = songLevel(); fileBus.connect(musicGain);
   for (let i = 0; i < 2; i++) {
     const el = new Audio();
+    // 2026-11-09: web.app'te assets/ GitHub Pages'e yönlendirilir (firebase.json redirects). İzinsiz (CORS'suz) gelen başka adres sesi
+    // createMediaElementSource'a bağlanınca tarayıcı sessizlik verir; 'anonymous' ile CORS isteği gider, Pages ACAO * döndürür
+    el.crossOrigin = 'anonymous';
     el.preload = 'auto';
     const g = AC.createGain(); g.gain.value = 0;
     AC.createMediaElementSource(el).connect(g).connect(fileBus);
