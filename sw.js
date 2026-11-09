@@ -22,9 +22,19 @@ self.addEventListener('fetch', (e) => {
 // mobil ağda kopan istek iki kez daha denenir (tek bir model yüklenemezse oyun açılmaz)
 const get = async (r, n = 2) => { try { return await fetch(r); } catch (err) { if (n <= 0) throw err; await new Promise((ok) => setTimeout(ok, 400)); return get(r, n - 1); } };
 const keep = (c, r, res) => { if (res && (res.ok || res.type === 'opaque') && res.status !== 206) c.put(r, res.clone()).catch(() => {}); return res; };
+// 2026-11-09: kod ve sayfa her seferinde sunucuya sorulur (koşullu istek: değişmediyse 304, gövde inmez). GitHub Pages bütün
+// dosyalara max-age=600 verir; tarayıcı önbelleği güncellemeden sonraki 10 dk eski modülü yenisiyle karıştırabiliyordu.
+// Firebase'de js/html zaten max-age=0, must-revalidate: orada bir şey değişmez. Gezinme isteği init ile kopyalanamaz, adresinden
+// yeniden kurulur; no-store/reload istekleri olduğu gibi kalır.
+const fresh = (r) => (r.cache === 'no-store' || r.cache === 'reload' ? r
+  : r.mode === 'navigate' ? new Request(r.url, { cache: 'no-cache', credentials: 'same-origin' }) : new Request(r, { cache: 'no-cache' }));
 async function networkFirst(r) {
   const c = await caches.open(V);
-  try { return keep(c, r, await get(r)); } catch (err) {
+  try {
+    let res = await get(fresh(r));
+    if (r.mode === 'navigate' && res.redirected) res = await get(r); // yönlendirilmiş yanıt gezinmeye verilemez
+    return keep(c, r, res);
+  } catch (err) {
     return (await c.match(r)) || (r.mode === 'navigate' && ((await c.match(r, { ignoreSearch: true })) || (await c.match('./')))) || Response.error();
   }
 }
