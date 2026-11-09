@@ -169,7 +169,7 @@ body[data-theme="ahsap"] #upgBtn path { fill: #7a4a22; stroke: #3a2210; }
 @keyframes pulse { to { transform: scale(1.08); } }
 
 /* kutlama afişi ve bildirim */
-#banner { position: absolute; top: 26%; left: 50%; transform: translate(-50%, -50%) scale(0); text-align: center; padding: 14px 34px 16px; border-radius: calc(var(--radius) + 6px); background: var(--banner-bg); border: var(--bw) solid var(--line); box-shadow: var(--shadow); pointer-events: none; }
+#banner { position: absolute; z-index: 3; top: 26%; left: 50%; transform: translate(-50%, -50%) scale(0); text-align: center; padding: 14px 34px 16px; border-radius: calc(var(--radius) + 6px); background: var(--banner-bg); border: var(--bw) solid var(--line); box-shadow: var(--shadow); pointer-events: none; }
 #banner small { display: block; font: 900 14px var(--font-body); letter-spacing: .14em; color: var(--banner-ink); opacity: .85; }
 #banner b { display: block; font: 40px var(--font-title); font-weight: normal; color: var(--banner-ink); white-space: nowrap; }
 body[data-theme="seker"] #banner b { -webkit-text-stroke: 7px #3b2a6b; paint-order: stroke fill; }
