@@ -15,7 +15,7 @@ const HOME = { domates: 'koy', salatalik: 'koy', yumurta: 'ciftlik', sut: 'ciftl
   misir: 'sahil', dondurma: 'sahil', balik: 'iskele', izgara: 'iskele', ekmek: 'han', corba: 'han', simit: 'firin', pogaca: 'firin', yun: 'mera', ksut: 'mera', yogurt: 'mera', kilim: 'atolye' };
 // bölgelerin bekleme yerleri (ilk kullanımda engel ve yürünebilirlik denetlenir)
 const SPOTS = {
-  koy: [[-11.4, 0.4], [9.4, 1.6]], pazar: [[41.4, 3.4], [31.2, 3.2]], sahil: [[8, 17.4], [34, 16.6]], han: [[-3.6, -41.6], [3.6, -35.4]],
+  koy: [[-11.4, 0.4], [9.4, 1.6]], pazar: [[41.4, 3.4], [31.2, 3.2]], sahil: [[8, 17.4], [37.1, 18.6]], han: [[-3.6, -41.6], [3.6, -35.4]],
   firin: [[-6, -24.4], [4, -24.4], [-12.5, -22.4], [8.5, -22.4], [0, -21.4]], kasaba: [[-40.0, -27.0], [-50.8, -34.4]], tatil: [[78, 15.6], [91, 14.6]], atlar: [[-48, 1.6]], mera: [[-31, 19.4]],
 };
 const ENTRY = [V(-96.5, 0, -15.1), V(-89, 0, 11.2), V(105, 0, 4.4)]; // harita genişletmesi; ana yolda ve pazar caddesinde kaldırımdan (2026-11-02)

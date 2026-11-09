@@ -57,6 +57,7 @@ function targets() {
 }
 function spawn(pile) {
   const at = V(pile.zone.x, 0, pile.zone.z);
+  for (let i = 0; i < 16 && G.colliders.some((c) => at.x > c[0] && at.x < c[1] && at.z > c[2] && at.z < c[3]); i++) at.z += 0.3; // yığın tezgâhın üstündeyse (sahil barı) içeri girmez, önünden uzanır
   const ex = EXITS.filter((e) => e.ok()).sort((a, b) => a.at.distanceTo(at) - b.at.distanceTo(at))[0];
   const obj = makeThief();
   obj.position.copy(ex.at);

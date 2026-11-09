@@ -524,7 +524,7 @@ defineExpansion({ id: 'xfirin3', region: 'firin', tier: 3, icon: '🥐', title: 
 // =====================================================================
 defineExpansion({ id: 'xsahil1', region: 'sahil', tier: 1, icon: '⛱️', title: 'Şezlong Sırası', price: 1500, rect: null, at: [19.5, 22.6],
   info: { text: 'Kumsala üç şezlong daha kondu.', steps: [['⛱️', 'Daha çok tatilci aynı anda güneşlenir, büfeden sipariş verir.']] },
-  build: (c) => { G.regions.sahil.addLoungers([19.5, 32.5, 6.2], c.instant); } });
+  build: (c) => { G.regions.sahil.addLoungers([19.5, 26.25, 3.75], c.instant); } });
 // deniz bisikleti kiralama büfenin hizmeti (2026-11-03 kullanıcı: "deniz bisikleti kiralama hizmetini sahildeki büfe ile birleştir, tek bir
 // işletmenin sırayla açılan hizmetleri olsun"): eskiden derenin kıyısında ayrı kulübe ve kasaydı (arsa 52,3-56,6 / 14,9-27,4). Tezgâh büfenin
 // doğusunda, içecek dolabıyla palmiyenin arasında; ücret büfenin kasasına düşer. Kayıttaki eski kasa parası world.js MOVED_PILES ile büfeye geçer
@@ -538,7 +538,7 @@ defineExpansion({ id: 'xsahil3', region: 'sahil', tier: 3, icon: '🍦', title: 
   info: { text: 'Büfe büyüdü, kumsal kalabalık.', steps: [['⛱️', 'Bir şezlong daha; tatilciler %50 daha sık gelir.'], ['🍦', 'Mısır kazanı ve dondurma makinesi %30 daha hızlı.']] },
   build: (c) => {
     const S = G.regions.sahil;
-    S.addLoungers([36.2], c.instant);
+    S.addLoungers([41.25], c.instant);
     for (const m of [S.iceMachine, S.cornPot]) if (m && !m.fast) { m.fast = true; m.out.interval /= 1.3; m.out.baseInterval = m.out.interval; }
     after(S, (dt) => { S.spawnT -= dt * 0.5 * repMul(); });
   } });

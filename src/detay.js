@@ -81,8 +81,9 @@ function stool() { const g = new THREE.Group(); M.cyl(0.18, 0.18, 0.06, 12, M.ma
 function bistro(col) { // yuvarlak masa, iki sandalye, şemsiye
   const g = new THREE.Group();
   M.cyl(0.42, 0.42, 0.05, 14, M.mat('#ffffff'), 0, 0.74, 0, g); M.cyl(0.04, 0.05, 0.72, 6, M.mat('#8b939c'), 0, 0.37, 0, g);
-  for (const sx of [-1, 1]) { const c = new THREE.Group(); c.position.set(sx * 0.75, 0, 0); c.rotation.y = sx * PI / 2; g.add(c); M.rbox(0.42, 0.05, 0.42, 0.02, M.mat(col), 0, 0.45, 0, c); M.rbox(0.42, 0.45, 0.05, 0.02, M.mat(col), 0, 0.68, -0.19, c); for (const [x, z] of [[-0.17, -0.17], [0.17, -0.17], [-0.17, 0.17], [0.17, 0.17]]) M.cyl(0.02, 0.02, 0.44, 4, M.mat('#8b939c'), x, 0.22, z, c); }
-  const u = M.makeUmbrella(col); u.scale.setScalar(0.7); g.add(u);
+  for (const sx of [-1, 1]) { const c = new THREE.Group(); c.position.set(sx * 0.75, 0, 0); c.rotation.y = -sx * PI / 2; g.add(c); M.rbox(0.42, 0.05, 0.42, 0.02, M.mat(col), 0, 0.45, 0, c); M.rbox(0.42, 0.45, 0.05, 0.02, M.mat(col), 0, 0.68, -0.19, c); for (const [x, z] of [[-0.17, -0.17], [0.17, -0.17], [-0.17, 0.17], [0.17, 0.17]]) M.cyl(0.02, 0.02, 0.44, 4, M.mat('#8b939c'), x, 0.22, z, c); }
+  // şemsiye masanın arkasında (kuzey): ortadaki direk masaya açılan tavlanın üstündeydi, kubbe de oynayanları kameradan örtüyordu
+  const u = M.makeUmbrella(col); u.scale.setScalar(0.7); u.position.z = -1.05; g.add(u);
   return g;
 }
 function lookAt(o, x, z) { o.rotation.y = Math.atan2(x - o.position.x, z - o.position.z); }
@@ -181,13 +182,11 @@ function sahil(R) {
   const p = (k) => (ITEMS[k] ? ITEMS[k].price : '?');
   const mb = menuBoard('BÜFE', [`🌽 Mısır ........ ${p('misir')} ₺`, `🍦 Dondurma .... ${p('dondurma')} ₺`, '🥤 Soğuk içecek', '☀️ Güneşte serinle!']);
   put(R, mb, 27.6, 20.4, 0.25); col(R, 27.0, 28.2, 20.1, 20.7);
-  const fr = new THREE.Group(); // içecek dolabı: camlı, renkli şişeler
-  M.rbox(0.9, 1.6, 0.6, 0.06, M.mat('#e8473c'), 0, 0.8, 0, fr); M.rbox(0.74, 1.3, 0.04, 0.02, M.mat('#cfefff', { opacity: 0.5, rough: 0.1 }), 0, 0.85, 0.31, fr);
-  for (let r = 0; r < 3; r++) for (let i = 0; i < 4; i++) M.cyl(0.05, 0.05, 0.22, 6, M.mat(['#3fae6b', '#f6c343', '#e8604c', '#3d7dd8'][(i + r) % 4]), -0.27 + i * 0.18, 0.35 + r * 0.4, 0.15, fr);
-  put(R, fr, 37.3, 18.6); col(R, 36.8, 37.8, 18.3, 18.9);
-  put(R, bistro('#3ec1b5'), 24.8, 23.4); col(R, 24.0, 25.6, 22.9, 23.9);
-  put(R, bistro('#f6a623'), 44.6, 23.6); col(R, 43.8, 45.4, 23.1, 24.1);
-  for (const x of [31.0, 32.2]) put(R, stool(), x, 17.0, 0); // büfenin arkasında (kasadarın yanında) tabureler
+  // içecek dolabı artık barın içinde (models.js makeBeachBar)
+  put(R, bistro('#3ec1b5'), 24.8, 23.4); col(R, 24.0, 25.6, 22.9, 23.9); col(R, 24.68, 24.92, 22.23, 22.47); // şemsiye direği
+  put(R, bistro('#f6a623'), 44.6, 23.6); col(R, 43.8, 45.4, 23.1, 24.1); col(R, 44.48, 44.72, 22.43, 22.67);
+  R.tavla = [{ x: 24.8, z: 23.4 }, { x: 44.6, z: 23.6 }]; // iki yanda oturup tavla oynayanlar (tavla.js)
+  for (const x of [30.9, 31.9]) put(R, stool(), x, 20.05, 0); // bar tezgâhının önünde tabureler
 }
 // Koyun merası: su yalağı, yemlik, sağım yerinde güğümler, kırkımın yanında yün yığını
 function mera(R) {

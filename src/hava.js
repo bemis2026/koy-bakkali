@@ -3,7 +3,8 @@
 // Müşteri azalır. Hava açtığında tekrar kalabalık olur."
 // Her oyun gününde (daylight.js DAY) mevsimine göre en çok bir hava olayı çıkar: yağmur, fırtına; kışın kar, tipi. Olay gün numarasından
 // türetilir (kayıt gerekmez, sayfa yenilense de o gün aynı hava); ilk iki gün hep açık. 40 sn önce bulut toplanır (haber verilir),
-// 25 sn'de kuvvetlenir, sonunda 25 sn'de diner; dindikten sonra 75 sn bekleyen müşteri akın eder (×1,35'ten 1'e iner).
+// 15 sn'de kuvvetlenir, sonunda 15 sn'de diner; dindikten sonra 75 sn bekleyen müşteri akın eder (×1,35'ten 1'e iner).
+// Süre 60-105 sn (2026-11-09 kullanıcı: "aşırı uzun sürmesin yağmur"; eskiden günün %17-30'u, 2-3,5 dakika).
 // Etki: müşteri sıklığı (rating.js repMul × havaMul), sahil ayrıca boşalır, fırtınada şezlongdakiler kalkar (world.js havaBeach, havaKac);
 // gök kararır, güneş söner, öğlen sıcağı düşer, şimşek çakar (daylight.js tintHava); müşterilerin bir kısmı şemsiye açar
 // (models.js animateCharacter kolu kaldırır). Kuşlar yağmurda susar (ambience.js).
@@ -19,10 +20,10 @@ import { DAY } from './daylight.js';
 // cust: müşteri sıklığına çarpan (en kuvvetli anında), beach: sahile ayrıca, dark: gökün kararması, n: yağış tanesi, wind: yatıklık,
 // umb: şemsiye açanların payı, leave: şezlongdakinin saniyede kalkma olasılığı
 const KINDS = {
-  yagmur: { name: 'Yağmur', icon: '🌧️', cust: 0.6, beach: 0.25, dark: 0.45, fall: 0, n: 2600, wind: 0.15, umb: 0.7, snd: 'yagmur', leave: 0.04,
+  yagmur: { name: 'Yağmur', icon: '🌧️', cust: 0.6, beach: 0.25, dark: 0.45, fall: 0, n: 4200, wind: 0.15, umb: 0.7, snd: 'yagmur', leave: 0.04,
     warn: '☁️ Bulutlar toplanıyor: birazdan yağmur başlayacak, müşteri azalacak', start: '🌧️ Yağmur başladı: müşteri azaldı, sahil boşalıyor',
     info: '🌧️ Yağmur: müşteri daha seyrek gelir, sahil boşalır, kimi müşteri şemsiye açar. Hava açınca bekleyenler akın eder.' },
-  firtina: { name: 'Fırtına', icon: '⛈️', cust: 0.3, beach: 0.05, dark: 0.7, fall: 0, n: 5000, wind: 1, umb: 0.85, snd: 'saganak', bolt: true, leave: 0.3,
+  firtina: { name: 'Fırtına', icon: '⛈️', cust: 0.3, beach: 0.05, dark: 0.7, fall: 0, n: 6000, wind: 1, umb: 0.85, snd: 'saganak', bolt: true, leave: 0.3,
     warn: '☁️ Kara bulutlar geliyor: birazdan fırtına kopacak, müşteri çok azalacak', start: '⛈️ Fırtına koptu: müşteri çok azaldı, sahildekiler kaçıyor',
     info: '⛈️ Fırtına: müşteri çok seyrek gelir, sahil boşalır, şimşek çakar. Dinince bekleyenler akın eder.' },
   kar: { name: 'Kar', icon: '🌨️', cust: 0.55, beach: 0.2, dark: 0.3, fall: 1, n: 2200, wind: 0.1, umb: 0.2, snd: null, leave: 0.04,
@@ -35,7 +36,7 @@ const KINDS = {
 // mevsime göre bir günde olay olasılıkları (mevsim.js id)
 const CHANCE = { ilkbahar: [['yagmur', 0.4], ['firtina', 0.1]], yaz: [['yagmur', 0.1], ['firtina', 0.15]], sonbahar: [['yagmur', 0.45], ['firtina', 0.2]],
   kis: [['kar', 0.45], ['tipi', 0.12], ['yagmur', 0.08]] };
-const RAMP = 25, WARN = 40, RUSH = 75, RUSH_K = 0.35; // sn
+const RAMP = 15, WARN = 40, RUSH = 75, RUSH_K = 0.35, LEN_MIN = 60, LEN_RND = 45; // sn
 const CLEAR = 'Hava açtı: bekleyen müşteriler geri geliyor!';
 
 export const hava = { kind: null, K: null, w: 0, rush: 1, icon: null, flash: 0 };
@@ -52,7 +53,7 @@ function plan(n) {
   let acc = 0;
   for (const [kind, p] of CHANCE[S] || CHANCE.ilkbahar) {
     acc += p;
-    if (roll < acc) { const t0 = 0.08 + r() * 0.54, len = 0.17 + r() * 0.13; planD = { kind, t0, t1: Math.min(t0 + len, 0.93) }; break; }
+    if (roll < acc) { const t0 = 0.08 + r() * 0.54, len = (LEN_MIN + r() * LEN_RND) / DAY; planD = { kind, t0, t1: Math.min(t0 + len, 0.93) }; break; }
   }
   return planD;
 }
@@ -83,56 +84,106 @@ export function tintHava(P) {
   if (hava.flash > 0) { const f = hava.flash; P.hi *= 1 + 2.4 * f; P.si *= 1 + 1.2 * f; P.bg.lerp(WHITE, 0.55 * f); P.sky.lerp(WHITE, 0.6 * f); }
 }
 
-// ---------- yağış: tek çizim, taneler gölgelendiricide düşer (karede yalnız uniform) ----------
-const MAXN = 5000, BOX = 56, TOP = 16;
-const VS = `uniform float uT, uSnow, uWind, uSize, uScale; uniform vec3 uC; attribute float aR; varying float vA;
+// ---------- yağış: taneler gölgelendiricide düşer (karede yalnız uniform) ----------
+// 2026-11-09 kullanıcı: "yağmur damlalarını geliştir ve zoom out yağınca yağma efekti bozuluyor onu da optimize et". Eskiden nokta karelerinin içine
+// ince çizgi boyanıyordu ve yağış oyuncunun çevresinde sabit 56 m'lik kutuydu: uzaklaşınca kutunun kenarı görünüyor, çizgi piksel altına inip titriyordu,
+// her nokta 30 piksele kadar kare boyatıp çoğunu atıyordu. Şimdi her tane ekranda sabit genişlikte ince dörtgen (tek örnekli çizim); kutu, yükseklik, tane boyu
+// ve hız kameranın uzaklığıyla (uK) büyür, yağış her yakınlıkta aynı görünür. Kutu kameranın baktığı yeri izler; tanelerin kaydırması (uOff) dünyaya sabit
+// kalır, uzaklaşırken akmaz. Yere düşen tanelerin halkaları ayrı, ufak bir çizim.
+const MAXN = 6000, MAXS = 900, BOX = 56, TOP = 16;
+const quad = (pts) => { const g = new THREE.InstancedBufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)); g.setIndex([0, 1, 2, 0, 2, 3]); return g; };
+const VS = `uniform float uT, uSnow, uWind, uK, uSize, uScale, uPx; uniform vec2 uRes, uOff; uniform vec3 uC; attribute vec3 aP; attribute float aR; varying float vA; varying vec2 vQ;
 void main() {
   float sp = mix(15.0, 1.7, uSnow) * (0.75 + 0.5 * aR);
-  float y = mod(position.y * ${TOP.toFixed(1)} - uT * sp, ${TOP.toFixed(1)});
-  float bx = position.x * ${BOX.toFixed(1)}, bz = position.z * ${BOX.toFixed(1)};
-  float x = uC.x + mod(bx - uC.x + ${(BOX / 2).toFixed(1)}, ${BOX.toFixed(1)}) - ${(BOX / 2).toFixed(1)};
-  float z = uC.z + mod(bz - uC.z + ${(BOX / 2).toFixed(1)}, ${BOX.toFixed(1)}) - ${(BOX / 2).toFixed(1)};
-  x += uWind * (${TOP.toFixed(1)} - y) * mix(0.22, 0.55, uSnow) + uSnow * sin(uT * 1.3 + aR * 40.0) * 0.5;
-  z += uSnow * cos(uT * 1.1 + aR * 31.0) * 0.4;
+  float y = mod(aP.y * ${TOP.toFixed(1)} - uT * sp, ${TOP.toFixed(1)}) * uK;
+  float x = uC.x + (fract(aP.x + uOff.x) - 0.5) * ${BOX.toFixed(1)} * uK;
+  float z = uC.z + (fract(aP.z + uOff.y) - 0.5) * ${BOX.toFixed(1)} * uK;
+  x += uWind * (${TOP.toFixed(1)} * uK - y) * mix(0.22, 0.55, uSnow) + uSnow * sin(uT * 1.3 + aR * 40.0) * 0.5 * uK;
+  z += uSnow * cos(uT * 1.1 + aR * 31.0) * 0.4 * uK;
+  float L = (0.75 + 0.85 * aR) * uK; // tane boyu
   vec4 mv = modelViewMatrix * vec4(x, y, z, 1.0);
-  gl_PointSize = min(uSize * mix(1.0, 0.45, uSnow) * uScale / max(1.0, -mv.z), mix(30.0, 14.0, uSnow) * uScale / 800.0);
-  gl_Position = projectionMatrix * mv;
-  vA = (0.55 + 0.45 * aR) * smoothstep(0.0, 1.5, y) * smoothstep(8.0, 16.0, -mv.z); // kameranın dibindeki iri taneler silinir
+  vec4 a = projectionMatrix * mv, b = projectionMatrix * modelViewMatrix * vec4(x - uWind * 0.22 * L, y + L, z, 1.0);
+  vQ = vec2(position.x, position.y * 2.0 - 1.0);
+  vA = (0.55 + 0.45 * aR) * smoothstep(0.0, 1.5 * uK, y) * smoothstep(8.0 * uK, 16.0 * uK, -mv.z); // kameranın dibindeki iri taneler silinir
+  if (a.w < 0.2 || b.w < 0.2) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  vec4 p;
+  if (uSnow > 0.5) { // kar: yuvarlak, kameraya dönük
+    float hs = min(0.5 * uSize * 0.45 * uK * uScale / max(1.0, -mv.z), 7.0 * uScale / 800.0);
+    p = a; p.xy += vQ * hs * 2.0 / uRes * a.w;
+  } else { // yağmur: başı (aşağı) ile kuyruğu arasında ekranda sabit kalınlıkta çizgi
+    vec2 d = (b.xy / b.w - a.xy / a.w) * uRes;
+    float l = length(d);
+    vec2 n = l > 0.01 ? vec2(-d.y, d.x) / l : vec2(1.0, 0.0);
+    p = mix(a, b, position.y); p.xy += n * position.x * (0.75 + 0.65 * aR) * uPx * 2.0 / uRes * p.w;
+  }
+  gl_Position = p;
 }`;
-const FS = `uniform float uSnow, uOp, uWind; uniform vec3 uCol; varying float vA;
+const FS = `uniform float uSnow, uOp; uniform vec3 uCol; varying float vA; varying vec2 vQ;
 void main() {
-  vec2 q = gl_PointCoord - 0.5;
-  float rain = (1.0 - smoothstep(0.02, 0.055, abs(q.x - q.y * uWind * 0.3))) * (1.0 - smoothstep(0.3, 0.5, abs(q.y)));
-  float snow = 1.0 - smoothstep(0.2, 0.5, length(q));
+  float rain = (1.0 - smoothstep(0.35, 1.0, abs(vQ.x))) * (1.0 - smoothstep(-0.2, 1.0, vQ.y)); // başı parlak, kuyruğu silinir
+  float r = length(vQ);
+  float snow = 1.0 - smoothstep(0.4, 1.0, r);
   float a = mix(rain, snow, uSnow) * vA * uOp;
   if (a < 0.01) discard;
-  gl_FragColor = vec4(mix(uCol, vec3(0.7, 0.76, 0.84), uSnow * smoothstep(0.12, 0.42, length(q))), a); // tanenin kıyısı griye döner: açık zeminde de seçilir
+  gl_FragColor = vec4(mix(uCol, vec3(0.7, 0.76, 0.84), uSnow * smoothstep(0.24, 0.84, r)), a); // tanenin kıyısı griye döner: açık zeminde de seçilir
 }`;
-let pts = null;
-const SZ = new THREE.Vector2();
+// yere değen tanenin halkası: kısa ömürlü, her turda başka yerde (gölgelendirici içi rastgele)
+const SVS = `uniform float uT, uK; uniform vec2 uOff; uniform vec3 uC; attribute vec3 aP; attribute float aR; varying float vP; varying vec2 vQ;
+float h(float n) { return fract(sin(n) * 43758.5453); }
+void main() {
+  float t = uT / (0.45 + 0.3 * aR) + aP.y * 11.0, id = floor(t);
+  vP = t - id; vQ = position.xz;
+  float x = uC.x + (fract(aP.x + h(id + aR * 91.0) + uOff.x) - 0.5) * ${BOX.toFixed(1)} * uK;
+  float z = uC.z + (fract(aP.z + h(id + aR * 57.0) + uOff.y) - 0.5) * ${BOX.toFixed(1)} * uK;
+  float r = (0.06 + 0.24 * vP) * min(uK, 1.5); // uzaklaşınca halka büyümez
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(x + position.x * r, 0.13, z + position.z * r, 1.0);
+}`;
+const SFS = `uniform float uOp; uniform vec3 uCol; varying float vP; varying vec2 vQ;
+void main() {
+  float r = length(vQ), a = smoothstep(0.45, 0.78, r) * (1.0 - smoothstep(0.82, 1.0, r)) * (1.0 - vP * vP) * uOp;
+  if (a < 0.01) discard;
+  gl_FragColor = vec4(uCol, a);
+}`;
+let pts = null, spl = null;
+const SZ = new THREE.Vector2(), TGT = new THREE.Vector3(), DIR = new THREE.Vector3(), FALL_C = { x: 0, z: 0, on: false };
 function makeFall() {
-  const geo = new THREE.BufferGeometry(), p = new Float32Array(MAXN * 3), r = new Float32Array(MAXN), rnd = rng(4242);
-  for (let i = 0; i < MAXN; i++) { p[i * 3] = rnd(); p[i * 3 + 1] = rnd(); p[i * 3 + 2] = rnd(); r[i] = rnd(); }
-  geo.setAttribute('position', new THREE.BufferAttribute(p, 3)); geo.setAttribute('aR', new THREE.BufferAttribute(r, 1));
-  const m = new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: FS, transparent: true, depthWrite: false,
-    uniforms: { uT: { value: 0 }, uSnow: { value: 0 }, uWind: { value: 0 }, uSize: { value: 1 }, uScale: { value: 400 }, uOp: { value: 0 }, uC: { value: new THREE.Vector3() }, uCol: { value: new THREE.Color('#d6e2ee') } } });
-  pts = new THREE.Points(geo, m); pts.frustumCulled = false; pts.renderOrder = 6; pts.visible = false; pts.matrixAutoUpdate = false;
-  pts.layers.enableAll();
-  G.scene.add(pts);
+  const rnd = rng(4242);
+  const inst = (geo, n) => {
+    const p = new Float32Array(n * 3), r = new Float32Array(n);
+    for (let i = 0; i < n; i++) { p[i * 3] = rnd(); p[i * 3 + 1] = rnd(); p[i * 3 + 2] = rnd(); r[i] = rnd(); }
+    geo.setAttribute('aP', new THREE.InstancedBufferAttribute(p, 3)); geo.setAttribute('aR', new THREE.InstancedBufferAttribute(r, 1));
+    return geo;
+  };
+  const shared = { uT: { value: 0 }, uK: { value: 1 }, uOff: { value: new THREE.Vector2() }, uC: { value: new THREE.Vector3() }, uOp: { value: 0 }, uCol: { value: new THREE.Color('#d6e2ee') } };
+  const m = new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: FS, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    uniforms: { ...shared, uSnow: { value: 0 }, uWind: { value: 0 }, uSize: { value: 1 }, uScale: { value: 400 }, uPx: { value: 1 }, uRes: { value: new THREE.Vector2(1, 1) } } });
+  pts = new THREE.Mesh(inst(quad([-1, 0, 0, 1, 0, 0, 1, 1, 0, -1, 1, 0]), MAXN), m);
+  const ms = new THREE.ShaderMaterial({ vertexShader: SVS, fragmentShader: SFS, transparent: true, depthWrite: false, side: THREE.DoubleSide, uniforms: { uT: shared.uT, uK: shared.uK, uOff: shared.uOff, uC: shared.uC, uOp: { value: 0 }, uCol: { value: new THREE.Color('#f2f7fc') } } });
+  spl = new THREE.Mesh(inst(quad([-1, 0, -1, 1, 0, -1, 1, 0, 1, -1, 0, 1]), MAXS), ms);
+  for (const o of [pts, spl]) { o.frustumCulled = false; o.visible = false; o.matrixAutoUpdate = false; o.layers.enableAll(); G.scene.add(o); }
+  pts.renderOrder = 6; spl.renderOrder = 5;
 }
 function stepFall(dt) {
   const K = hava.K, on = K && hava.w > 0.02;
-  if (!on) { if (pts) pts.visible = false; return; }
+  if (!on) { if (pts) pts.visible = spl.visible = false; FALL_C.on = false; return; }
   if (!pts) makeFall();
-  const u = pts.material.uniforms, c = G.player ? G.player.position : G.camera.position;
-  pts.visible = true;
-  if (K.fall !== curFall) { curFall = K.fall; u.uSnow.value = K.fall; u.uCol.value.set(K.fall ? '#ffffff' : '#7f9bbb'); } // gün ışığında açık renk yağmur seçilmiyor: koyu mavi gri
+  const u = pts.material.uniforms, us = spl.material.uniforms, cam = G.camera;
+  if (K.fall !== curFall) { curFall = K.fall; u.uSnow.value = K.fall; u.uCol.value.set(K.fall ? '#ffffff' : '#7d97b8'); }
   u.uT.value += dt; u.uWind.value = K.wind * (0.8 + 0.2 * Math.sin(u.uT.value * 0.4));
-  u.uSize.value = K.fall ? 0.8 : 1.1; u.uOp.value = Math.min(1, hava.w * 1.4) * (K.fall ? 0.95 : 0.85);
-  u.uC.value.set(c.x, 0, c.z);
-  if (G.renderer) { G.renderer.getDrawingBufferSize(SZ); u.uScale.value = SZ.y / (2 * Math.tan((G.camera.fov * Math.PI) / 360)); }
-  const q = settings.quality; // Performans ve Pil tasarrufunda daha az tane (ekran kartının boyadığı nokta sayısı)
-  pts.geometry.setDrawRange(0, Math.round(K.n * (q === 'pil' ? 0.4 : q === 'dusuk' ? 0.6 : 1) * (0.35 + 0.65 * hava.w)));
+  u.uSize.value = K.fall ? 0.8 : 1.1; u.uOp.value = Math.min(1, hava.w * 1.4) * (K.fall ? 0.95 : 1.0);
+  // yağış kutusu kameranın baktığı yerde; her şey kameranın uzaklığıyla orantılı (varsayılan yakınlıkta 23,8 m, uK 1)
+  cam.getWorldDirection(DIR);
+  const d = DIR.y < -0.12 ? Math.min(-cam.position.y / DIR.y, 160) : 60, zk = Math.max(0.55, d / 23.8);
+  const bw = BOX * zk, fw = 0.12 * bw / Math.max(0.001, Math.hypot(DIR.x, DIR.z)); // ekranın üstü daha uzak: kutu biraz ileride
+  TGT.set(cam.position.x + DIR.x * (d + fw), 0, cam.position.z + DIR.z * (d + fw));
+  if (FALL_C.on) { const o = u.uOff.value; o.x -= (TGT.x - FALL_C.x) / bw; o.y -= (TGT.z - FALL_C.z) / bw; o.x -= Math.floor(o.x); o.y -= Math.floor(o.y); }
+  FALL_C.x = TGT.x; FALL_C.z = TGT.z; FALL_C.on = true;
+  u.uC.value.copy(TGT); u.uK.value = zk;
+  if (G.renderer) { G.renderer.getDrawingBufferSize(SZ); u.uRes.value.copy(SZ); u.uPx.value = G.renderer.getPixelRatio(); u.uScale.value = SZ.y / (2 * Math.tan((cam.fov * Math.PI) / 360)); }
+  const q = settings.quality, qk = q === 'pil' ? 0.4 : q === 'dusuk' ? 0.6 : 1; // Performans ve Pil tasarrufunda daha az tane
+  pts.visible = true; pts.geometry.instanceCount = Math.min(MAXN, Math.round(K.n * qk * (0.35 + 0.65 * hava.w)));
+  spl.visible = !K.fall && q !== 'pil';
+  if (spl.visible) { us.uOp.value = 0.7 * Math.min(1, hava.w * 1.4) / Math.max(1, zk * 0.7); spl.geometry.instanceCount = Math.min(MAXS, Math.round(K.n * 0.16 * qk * hava.w)); }
 }
 // gölgelendirici olay başlamadan (uyarıda) derlenir: telefonda ilk yağış karesi takılmasın
 let curFall = -1, warmed = false;
@@ -140,8 +191,8 @@ function prewarm() {
   if (warmed || !G.renderer || !G.camera || !G.scene) return;
   warmed = true;
   if (!pts) makeFall();
-  const R = G.renderer, sc = new THREE.Scene(), p = new THREE.Points(pts.geometry, pts.material);
-  p.frustumCulled = false; sc.add(p);
+  const R = G.renderer, sc = new THREE.Scene();
+  for (const o of [pts, spl]) { const p = new THREE.Mesh(o.geometry, o.material); p.frustumCulled = false; sc.add(p); }
   try { if (R.compileAsync) R.compileAsync(sc, G.camera, G.scene).catch(() => {}); else R.compile(sc, G.camera, G.scene); } catch (e) { /* derlenemezse ilk karede derlenir */ }
 }
 

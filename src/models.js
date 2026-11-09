@@ -1723,16 +1723,59 @@ export function makeCrateOf(kinds) {
 export const STALL_SLOTS = [-1.2, -0.4, 0.4, 1.2].flatMap((x) => STALL_ROWS.map(([z, y]) => new THREE.Vector3(x, y, z)));
 
 // ---------- sahil ----------
-export function makeKiosk(label = 'BÜFE') { // label: tentedeki levha (tatil acentesi 'ACENTE')
+// Sahil barı (2026-11-09 kullanıcı: "büfenin içini yap orda dursun kasada orda olsun barımsı sahile uygun şekilde"; eski makeKiosk dolu bir kutuydu).
+// Grup merkezi (33, 18,5): zemin z -2,0...+1,2. Önde bambu kaplı bar tezgâhı (üstü y 1,215, kasa burada), arkada raflı duvar, tezgâh, içecek dolabı.
+// Saz çatı yalnız arka bölümde: kamera güneyden 51° baktığı için çatı öne uzansa içi ve kasadarı örterdi; önü ince bambu kirişli ve ampullü
+export function makeBeachBar(label = 'BÜFE') {
   const g = new THREE.Group();
-  rbox(5, 1.15, 2.2, 0.12, mat('#3ec1b5'), 0, 0.58, 0, g);
-  rbox(5.2, 0.12, 2.4, 0.05, mat('#ffffff'), 0, 1.2, 0, g);
-  rbox(5, 2.6, 0.2, 0.08, mat('#ffffff', { map: texRep('wood', 2, 1) }), 0, 1.3, -1.0, g);
-  for (const x of [-2.4, 2.4]) cyl(0.08, 0.08, 2.0, 10, mat('#ffffff'), x, 2.2, 1.0, g);
-  const aw = mesh(cached('kioskaw', () => new THREE.CylinderGeometry(1.5, 1.5, 5.6, 20, 1, true, 0, PI)), mat('#ffffff', { map: stripes('#ff6f61', '#ffffff', 12), side: THREE.DoubleSide }), 0, 3.1, 0.05, g);
-  aw.rotation.z = PI / 2; aw.scale.set(0.42, 1, 1);
-  const sign = rbox(3, 0.8, 0.2, 0.1, mat('#ffffff', { map: textTex(label, { bg: '#ff6f61', border: '#ffffff', w: 480, h: 128 }) }), 0, 4.0, -0.95, g);
+  const plank = mat('#ffffff', { map: texRep('wood', 3, 2) }), wall = mat('#ffffff', { map: texRep('wood', 3, 1.4) }), top = mat('#ffffff', { map: texRep('wood', 3, 0.5) });
+  const teal = mat('#3ec1b5'), bam = mat('#d8b873'), bam2 = mat('#c49f58'), sand = mat('#c8a25a', { flat: true }), sand2 = mat('#b48c47', { flat: true }), dark = mat('#6b4a2e');
+  rbox(5.2, 0.1, 3.2, 0.03, plank, 0, 0.05, -0.4, g); // döşeme
+  rbox(5.0, 3.7, 0.14, 0.04, wall, 0, 1.87, -1.92, g); // arka duvar
+  for (const sx of [-1, 1]) rbox(0.12, 1.12, 3.0, 0.03, teal, sx * 2.48, 0.6, -0.42, g); // alçak yan duvarlar
+  // bar tezgâhı: turkuaz gövde, önünde bambu sırası, üstte kalın ahşap
+  rbox(4.96, 1.08, 0.72, 0.04, teal, 0, 0.6, 0.76, g);
+  for (let i = 0; i < 25; i++) cyl(0.09, 0.09, 1.08, 6, i % 2 ? bam : bam2, -2.4 + i * 0.2, 0.6, 1.13, g);
+  rbox(5.12, 0.09, 0.92, 0.03, top, 0, 1.17, 0.76, g);
+  // arka tezgâh ve üstündekiler
+  rbox(3.4, 0.92, 0.6, 0.04, wall, -0.72, 0.56, -1.55, g);
+  rbox(3.5, 0.06, 0.66, 0.02, mat('#e9edf0', { rough: 0.35 }), -0.72, 1.05, -1.55, g);
+  rbox(0.56, 0.44, 0.38, 0.05, mat('#c9ccd0', { rough: 0.3 }), -1.95, 1.3, -1.55, g); // kahve makinesi
+  rbox(0.4, 0.05, 0.2, 0.01, dark, -1.95, 1.2, -1.32, g);
+  for (const x of [-1.4, -1.22]) cyl(0.05, 0.04, 0.09, 8, mat('#ffffff'), x, 1.13, -1.42, g); // bardaklar
+  cyl(0.11, 0.09, 0.13, 8, mat('#3a3f46'), -0.86, 1.15, -1.55, g); // blender
+  cyl(0.12, 0.09, 0.32, 8, mat('#cfefff', { rough: 0.15, opacity: 0.55 }), -0.86, 1.37, -1.55, g);
+  cyl(0.28, 0.17, 0.12, 12, mat('#f0e2c5'), -0.1, 1.14, -1.55, g); // meyve kâsesi
+  for (const [x, z, c] of [[-0.2, -1.6, '#f2912e'], [0.0, -1.62, '#f6d33c'], [-0.1, -1.46, '#f2912e'], [0.07, -1.47, '#7bbf3a']]) sph(0.09, mat(c), x, 1.25, z, g, 10, 8);
+  ico(0.14, mat('#d9a93a', { flat: true }), 0.62, 1.25, -1.55, g, 0).scale.set(0.9, 1.3, 0.9); // ananas
+  for (let i = 0; i < 5; i++) { const l = cyl(0.0, 0.06, 0.28, 4, mat('#4f9a3c', { flat: true }), 0.62 + Math.cos(i * 1.26) * 0.05, 1.56, -1.55 + Math.sin(i * 1.26) * 0.05, g); l.rotation.set(Math.sin(i * 1.26) * 0.4, 0, -Math.cos(i * 1.26) * 0.4); }
+  // içecek dolabı: içeride, doğu köşesinde
+  rbox(0.95, 1.8, 0.62, 0.06, mat('#e8473c'), 1.75, 0.98, -1.55, g);
+  rbox(0.76, 1.42, 0.04, 0.02, mat('#cfefff', { opacity: 0.5, rough: 0.1 }), 1.75, 1.05, -1.23, g);
+  for (let r = 0; r < 3; r++) for (let i = 0; i < 4; i++) cyl(0.05, 0.05, 0.24, 6, mat(['#3fae6b', '#f6c343', '#e8604c', '#3d7dd8'][(i + r) % 4]), 1.48 + i * 0.18, 0.56 + r * 0.44, -1.36, g);
+  // duvar rafları ve renkli şişeler
+  const cols = ['#3fae6b', '#c2703a', '#e8c547', '#7a4fc4', '#e8604c', '#3d9be0', '#7fd1c7', '#a44a3f'];
+  [1.56, 1.98].forEach((y, r) => {
+    rbox(3.4, 0.05, 0.2, 0.01, dark, -0.72, y, -1.76, g);
+    for (let i = 0; i < 9; i++) { const x = -2.25 + i * 0.38, h = 0.22 + ((i + r) % 3) * 0.03, m = mat(cols[(i * 3 + r) % cols.length], { rough: 0.3 }); cyl(0.05, 0.055, h, 6, m, x, y + 0.025 + h / 2, -1.76, g); cyl(0.018, 0.022, 0.09, 5, m, x, y + 0.025 + h + 0.045, -1.76, g); }
+  });
+  // direkler, ön kiriş, bambu çıtalar
+  for (const sx of [-1, 1]) { cyl(0.075, 0.085, 3.0, 8, bam, sx * 2.44, 1.55, 1.1, g); cyl(0.075, 0.085, 3.3, 8, bam, sx * 2.44, 1.7, -0.92, g); }
+  const beam = (w, x, y, z, ry) => { const c = cyl(0.05, 0.05, w, 6, bam2, x, y, z, g); c.rotation.set(0, ry, PI / 2); return c; };
+  beam(5.0, 0, 3.02, 1.1, 0);
+  for (let i = 0; i < 7; i++) beam(2.3, -2.4 + i * 0.8, 3.08, 0.12, PI / 2); // çıtalar güneyden bakanın görüşünü kapatmaz
+  for (let i = 0; i < 9; i++) { sph(0.05, mat('#ffe9a8', { emissive: '#ffcf70', ei: 0.7 }), -2.2 + i * 0.55, 2.84 + Math.abs(Math.sin(i * 1.57)) * -0.08, 1.1, g, 6, 5); }
+  // saz çatı: kameraya doğru alçalan üç kat, saçağında püsküller
+  const roof = new THREE.Group(); roof.position.set(0, 3.62, -1.62); roof.rotation.x = 0.4; g.add(roof);
+  rbox(5.9, 0.16, 1.95, 0.06, sand2, 0, 0, 0, roof);
+  rbox(5.8, 0.14, 1.5, 0.05, sand, 0, 0.13, -0.2, roof);
+  rbox(5.6, 0.12, 0.9, 0.05, sand2, 0, 0.25, -0.46, roof);
+  for (let i = 0; i < 28; i++) cyl(0.12, 0.02, 0.4 + (i % 3) * 0.08, 5, i % 2 ? sand : sand2, -2.84 + i * 0.21, -0.2, 0.93, roof);
+  const sign = rbox(3, 0.8, 0.2, 0.1, mat('#ffffff', { map: textTex(label, { bg: '#ff6f61', border: '#ffffff', w: 480, h: 128 }) }), 0, 4.55, -1.7, g);
   sign.castShadow = false;
+  for (const sx of [-1, 1]) cyl(0.04, 0.04, 0.5, 6, dark, sx * 1.2, 4.0, -1.72, g);
+  // dış duvara yaslı sörf tahtası
+  const sb = rbox(0.5, 2.2, 0.07, 0.03, mat('#ffffff', { map: stripes('#ff6f61', '#ffffff', 6) }), -2.88, 1.15, 0.5, g); sb.rotation.set(0, PI / 2, 0.14);
   return g;
 }
 

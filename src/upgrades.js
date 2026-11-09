@@ -965,7 +965,13 @@ class Guard extends Worker {
       if (!this.path.length && this.t <= 0) {
         const piles = G.stations.filter((s) => s instanceof MoneyPile && s.zone.x < 300 && walkable(s.zone.x, s.zone.z)); // şehir ayrı dünya
         const s = piles[Math.floor(Math.random() * piles.length)];
-        if (s) { const q = V(s.zone.x + rand(-0.8, 0.8), 0, s.zone.z + rand(-0.8, 0.8)); this.path = [walkable(q.x, q.z) ? q : V(s.zone.x, 0, s.zone.z)]; this.leg = null; }
+        if (s) {
+          const q = V(s.zone.x + rand(-0.8, 0.8), 0, s.zone.z + rand(-0.8, 0.8));
+          if (!walkable(q.x, q.z)) q.set(s.zone.x, 0, s.zone.z);
+          // yığın tezgâhın üstündeyse (sahil barı) içine girmez, önünde bekler
+          for (let i = 0; i < 16 && G.colliders.some((c) => q.x > c[0] && q.x < c[1] && q.z > c[2] && q.z < c[3]); i++) q.z += 0.3;
+          this.path = [q]; this.leg = null;
+        }
         this.t = rand(4, 7);
       }
       if (this.path.length) this.walkPath(dt, this.speed * 0.6);

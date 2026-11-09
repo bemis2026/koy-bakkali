@@ -59,10 +59,14 @@ import { enhanceSea, enableSwim, swimAround } from './sea.js';
 import { initBeach, updateBeach, seaPlay } from './beach.js';
 import { day, shaded } from './daylight.js';
 import { havaBeach, havaKac, havaIslak, havaPlaj } from './hava.js';
+import { updateTavla } from './tavla.js';
 const UMB = [0.75, 0.8]; // şezlong şemsiyesinin şezlonga göre yeri (x, z): öğle saatlerinde gölgesi yatan müşteriye düşer
 // şemsiyesiz şezlonglar (x): müşteri güneşte yatar, gölge bahşişi yok (kullanıcı 2026-11-03: "hepsinin yanında şemsiye olmasın,
 // bazıları şemsiyesiz güneşleniyor olsun"). İlk altı şezlongun ikisi, sonradan açılanların üçü
-const SUNNY = new Set([-2, 25, 10, 36.2, 48]);
+const SUNNY = new Set([-2, 25, 26.25, 48]);
+// ikili şezlonglar (2026-11-09 kullanıcı: "bazı şezlonglar 2 kişi olsun 2 şezlong yan yana bazıları tek tek"): şezlong sayısı aynı, sonradan açılan dört
+// tanesi (eskiden x 10, 32,5, 36,2, 6,2) buradakilerin 1,25 m doğusuna kondu. İkisi bir şemsiyeyi paylaşır (bahşiş gölgesi x + 0,625 sayılır); çiftler çoğu zaman birlikte gelir
+const DOUBLE = new Set([14, 25, 40, 2.5]), MATE_DX = 1.25, DOUBLE_UMB = 0.625, DOUBLE_SIDE = 1.55; // ikilinin ortak şemsiyesi batı yanında: üstlerinde olsa kameradan ikisi de örtülüyordu
 
 // Çöp kutusu: yanlış ürünü elden boşaltmak için
 class Trash extends Station {
@@ -1356,8 +1360,8 @@ function buildSahil() {
   R.slab.geometry.dispose(); R.slab.geometry = coastSlabGeo(R.rect, (x) => coastZ(x) - 0.2); // denize bakan kenar kıyı çizgisini izler
   const C = R.content;
   strip(C, 18.5, 14, 69, 2.4, 'wood', 2.2); // harita genişletmesi: sahil doğuya 7 uzadı (x 16 ve ötesi +7)
-  const kiosk = put(C, M.makeKiosk(), 33, 0, 18.5);
-  rcol(R, 30.4, 35.6, 17.3, 19.7);
+  put(C, M.makeBeachBar(), 33, 0, 18.5);
+  rcol(R, 30.4, 35.6, 16.5, 19.7); // barın tamamı tek engel: içinden kimse geçmez, kasadar içeride durur
   for (const [x, z, s] of [[23, 19.5, 1], [42, 18.8, 1.1], [48, 22, 0.95], [8, 20, 1.05], [-4, 18, 1], [-12, 24, 1.1], [0.2, 28.4, 0.9]]) { put(C, M.makePalm(s, rand(0.15, 0.35)), x, 0, z, rand(0, 6)); rcol(R, x - 0.35, x + 0.35, z - 0.35, z + 0.35); }
   put(C, M.makeLifeguard(), 51, 0, 27); rcol(R, 50.2, 51.8, 26.2, 27.8);
   // cankurtaran kuleleri: ilki sahille gelir, diğerleri zamanla açılır; her kuleye bir cankurtaran oturur
@@ -1380,10 +1384,12 @@ function buildSahil() {
     const cols = ['#ff6f61', '#4fc3e8', '#f9c74f', '#7fd1c7', '#c77dd8', '#ff9f43'];
     for (const x of xs) {
       const cc = cols[R.loungers.length % cols.length];
+      const mate = R.loungers.find((l) => Math.abs(l.x + MATE_DX - x) < 0.01), ux = DOUBLE.has(x) ? DOUBLE_UMB : UMB[0];
       const lo = put(C, M.makeLounger(cc), x, 0, 26.5), umb = !SUNNY.has(x);
-      const um = umb ? put(C, M.makeUmbrella(cc), x + UMB[0], 0, 26.5 + UMB[1]) : null; // ayak ucunun yanında: gölgesi 10.00-15.00 arası yatana düşer (daylight.js)
+      const um = umb && !mate ? put(C, M.makeUmbrella(cc), DOUBLE.has(x) ? x - DOUBLE_SIDE : x + ux, 0, 26.5 + (DOUBLE.has(x) ? 0.5 : UMB[1])) : null; // tekli: ayak ucunun yanında, gölgesi 10.00-15.00 arası yatana düşer (daylight.js)
       if (!instant) { popIn(lo); if (um) popIn(um, 0.1); }
-      const L = new Lounger(x, 26.5, { instant }); L.umb = umb;
+      const L = new Lounger(x, 26.5, { instant }); L.umb = umb; L.ux = ux;
+      if (mate) { L.mate = mate; mate.mate = L; L.shade = mate; } // yandaki ikizin şemsiyesini paylaşır
       R.loungers.push(L);
     }
   };
@@ -1401,7 +1407,7 @@ function buildSahil() {
   R.activate = (instant) => {
     new Trash(C, -13.4, 17.6, { instant }); // sahilin batı köşesinde: köy kapısından kazana giden yolun dışında
     // kasa büfenin tezgahında: doğu ucunda yazarkasa, para tezgahta birikir; büfeci (kasiyer) yanında durur
-    R.pile = new MoneyPile(C, 34.7, 18.95, 1.22, { instant, desk: false, register: [0.75, 0.04, -0.1], body: [33.4, 35.6, 17.3, 19.7], spot: [36.05, 18.7, -PI / 2], look: { shirt: '#ffffff', pants: '#3a4a6b', hat: 'cap', hatColor: '#3ec1b5', skin: '#e0b48a' } });
+    R.pile = new MoneyPile(C, 34.7, 19.25, 1.22, { instant, desk: false, register: [0.75, 0.04, -0.1], body: [33.4, 35.6, 17.3, 19.7], spot: [34.7, 18.15, 0], look: { shirt: '#ffffff', pants: '#3a4a6b', hat: 'cap', hatColor: '#3ec1b5', skin: '#e0b48a' } });
     const pot = put(C, M.makeCornPot(), 30.6, 0, 21.0); if (!instant) popIn(pot);
     rcol(R, 28.6, 32.6, 20.4, 21.6);
     unlockRegion('tarla', instant); // koçan köyün batısındaki tarlalarda büyür
@@ -1415,11 +1421,12 @@ function buildSahil() {
   R.drowning = null; R.dCool = 25; R.scare = 0;
   R.update = (dt) => {
     updateBeach(dt);
+    updateTavla(R, dt);
     R.spawnT -= dt * repMul() * havaBeach(); // yağmurda, karda sahil ayrıca boşalır (hava.js); yağış sürerken hiç gelmez (havaIslak)
     R.dCool -= dt; R.scare -= dt;
     const free = R.loungers.filter((l) => !l.c);
     // biri boğulup kurtarılamadıysa plaj bir süre çekingen: yeni müşteri gelmez
-    if (R.spawnT <= 0 && free.length && R.scare <= 0 && !havaIslak()) { R.spawnT = 3.6 / ((0.9 + 0.35 * day.heat) * (G.season ? G.season.beach : 1)); spawnSahil(R, pick(free)); } // öğlen sıcağında ve yazın plaj kalabalık (mevsim.js)
+    if (R.spawnT <= 0 && free.length && R.scare <= 0 && !havaIslak()) { R.spawnT = 3.6 / ((0.9 + 0.35 * day.heat) * (G.season ? G.season.beach : 1)); const L = pick(free), x0 = spawnSahil(R, L); if (L.mate && !L.mate.c && Math.random() < 0.8) spawnSahil(R, L.mate, x0); } // öğlen sıcağında ve yazın plaj kalabalık (mevsim.js)
   };
   return R;
 }
@@ -1427,6 +1434,8 @@ function buildSahil() {
 // ---------- denizde yüzme, boğulma, kurtarma ----------
 // kıyı girintili (nature.js): suya giriş ve derinlik her x'te kıyı çizgisine göre
 const shoreZ = (x) => coastZ(x) - 1.0, seaZ = (x) => coastZ(x) - 0.3;
+// denizden çıkış: kıyı noktası yürüme alanının dışında (findRoute orada düz çizgi verir, müşteri büfenin içinden geçiyordu); kumsala giren bir ara nokta yolu bulmayı açar
+const onSand = (x) => V(x, 0, Math.min(30, shoreZ(x)));
 // suda gövde suyun içinde ve dalgayla iner kalkar; karada zemin hizasında
 function swimY(c, dt, k = 1) {
   const p = c.obj.position;
@@ -1457,7 +1466,7 @@ function startDrown(R, c) {
     floatText(c.obj.position, `Hayatımı kurtardın! +${tip} ₺`, 'pos');
     confetti(c.obj.position, 24);
     c.mood(true);
-    c.path = [V(c.obj.position.x, 0, c.swim.zOut), V(c.swim.x0, 0, c.swim.zOut)];
+    c.path = [onSand(c.obj.position.x), V(c.obj.position.x, 0, c.swim.zOut), V(c.swim.x0, 0, c.swim.zOut)];
     c.leaving = true; c.state = 'leave';
   };
 }
@@ -1476,7 +1485,7 @@ function seaThink(R, c, dt) {
       if (seaPlay(c, dt)) return true; // yatakta, simitte ya da top oynarken (beach.js): dolaşmaz, boğulmaz
       swimAround(c, dt); // yerinde durmaz, çevresinde kulaç atarak dolaşır (sea.js)
       if (!R.drowning && R.dCool <= 0 && !havaIslak() && Math.random() < dt * 0.05) { startDrown(R, c); return true; }
-      if (c.swim.t <= 0) { c.path = [V(p.x, 0, shoreZ(p.x)), V(p.x, 0, c.swim.zOut), V(c.swim.x0, 0, c.swim.zOut)]; c.leaving = true; c.state = 'leave'; }
+      if (c.swim.t <= 0) { c.path = [V(p.x, 0, shoreZ(p.x)), onSand(p.x), V(p.x, 0, c.swim.zOut), V(c.swim.x0, 0, c.swim.zOut)]; c.leaving = true; c.state = 'leave'; }
       return true;
     case 'drown': {
       c.timer -= dt;
@@ -1494,7 +1503,7 @@ function seaThink(R, c, dt) {
         floatText(p, 'Kimse kurtarmadı… plaj korktu', 'neg');
         c.mood(false);
         c.speed *= 0.5;
-        c.path = [V(p.x, 0, shoreZ(p.x)), V(p.x, 0, c.swim.zOut), V(c.swim.x0, 0, c.swim.zOut)];
+        c.path = [V(p.x, 0, shoreZ(p.x)), onSand(p.x), V(p.x, 0, c.swim.zOut), V(c.swim.x0, 0, c.swim.zOut)];
         c.leaving = true; c.state = 'leave';
       }
       return true;
@@ -1513,10 +1522,10 @@ function seaThink(R, c, dt) {
 
 // sahil müşterileri tahta yürüyüş yolunun harita dışındaki uçlarından gelir, çoğu yakın uçtan
 const SAHIL_FAR = [-105, 162]; // iki ucu da ormanın içinde (eskiden -65 ve 132)
-function spawnSahil(R, L) {
+function spawnSahil(R, L, from) {
   const near = L.x < 30 ? 0 : 1;
-  // mera açıkken iskelenin batı ucu meranın içinden geçer (baraka, çit): müşteriler doğudan gelir
-  const x0 = G.regions.mera && G.regions.mera.unlocked ? SAHIL_FAR[1] : SAHIL_FAR[Math.random() < 0.75 ? near : 1 - near];
+  // mera açıkken iskelenin batı ucu meranın içinden geçer (baraka, çit): müşteriler doğudan gelir. from: ikili şezlongda eşiyle aynı uçtan gelir
+  const x0 = from ?? (G.regions.mera && G.regions.mera.unlocked ? SAHIL_FAR[1] : SAHIL_FAR[Math.random() < 0.75 ? near : 1 - near]);
   const zIn = 13.6 + rand(-0.2, 0.2), zOut = 14.4 + rand(-0.2, 0.2);
   const c = new Customer(V(x0, 0, zIn), 'sahil', M.touristLook()); // tatilci: açık renk, güneş şapkası, gözlük
   L.c = c;
@@ -1539,7 +1548,7 @@ function spawnSahil(R, L) {
   c.served = () => {
     const price = ITEMS[c.order].price;
     // öğlen sıcağında şemsiyenin gölgesinde yatan müşteri sıcaklık oranında fazla bahşiş bırakır (en çok iki katı)
-    const cool = L.umb && day.heat > 0.3 && shaded(L.x, L.z, L.x + UMB[0], L.z + UMB[1]);
+    const SH = L.shade || L, cool = L.umb && day.heat > 0.3 && shaded(SH.x, SH.z, SH.x + SH.ux, SH.z + UMB[1]);
     const tip = Math.round(price * 0.6 * Math.max(0, c.timer) / 30 * (cool ? 1 + day.heat : 1));
     if (cool) G.stats.shade = (G.stats.shade || 0) + 1; // günlük görev ve başarım sayacı (gorev.js, menu.js)
     const m = mult();
@@ -1583,6 +1592,7 @@ function spawnSahil(R, L) {
         break;
     }
   };
+  return x0;
 }
 
 // =====================================================================
@@ -2192,7 +2202,7 @@ const UNLOCKS = [
   { id: 'gb', lvl: 6, icon: '🎣', title: 'Balıkçı İskelesi', price: 1400, at: [-38.6, 29.7], side: true, req: 'gs', build: (i) => unlockRegion('iskele', i) },
   { id: 'b2', lvl: 7, icon: '🐟', title: 'Balık Restoranı', price: 1800, at: [-36.6, 36.2], side: true, req: 'gb', build: (i) => G.regions.iskele.addRestaurant(i) },
   { id: 's1', icon: '🍦', title: 'Dondurma Makinesi', price: 400, at: [37.4, 22.8], build: (i) => G.regions.sahil.addFreezer(i) },
-  { id: 's2', icon: '⛱️', title: 'Yeni Şezlonglar', price: 450, at: [44, 26.8], build: (i) => G.regions.sahil.addLoungers([44, 48, 10], i) },
+  { id: 's2', icon: '⛱️', title: 'Yeni Şezlonglar', price: 450, at: [44, 26.8], build: (i) => G.regions.sahil.addLoungers([44, 48, 15.25], i) },
   { id: 'kc', lvl: 5, icon: '🚗', title: 'Paket Servis', price: 450, at: [-12.6, -7.2], build: (i) => { unlockRegion('meydan', i); G.regions.koy.startCars(i); } },
   // ikinci kasa (2026-11-01 kullanıcı: "yeni kasa ekleme alma opsiyonumuz da olsun"): ödeme yeri köy marketindeki yerinin önünde
   { id: 'kk2', lvl: 6, icon: '🧾', title: 'İkinci Kasa', price: 1500, at: [D.counter2At(3).x, D.queue2At(3)[0].z], y: 0.26, side: true, stage: 2, build: (i) => G.regions.koy.addRegister(i) },
