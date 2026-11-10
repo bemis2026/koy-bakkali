@@ -12,7 +12,7 @@ const ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' &&
 const touch = matchMedia('(pointer: coarse)').matches;
 const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) && !/[?&]sw=1/.test(location.search);
 
-export const installed = () => ['standalone', 'fullscreen', 'minimal-ui'].some((m) => matchMedia(`(display-mode: ${m})`).matches) || navigator.standalone === true;
+export const installed = () => (!document.fullscreenElement && ['standalone', 'fullscreen', 'minimal-ui'].some((m) => matchMedia(`(display-mode: ${m})`).matches)) || navigator.standalone === true; // tarayıcının tam ekran kipi kurulu sayılmaz
 export const canInstall = () => !installed() && (!!window.__bip || touch);
 export const canFullscreen = () => !installed() && !ios && !!document.fullscreenEnabled;
 export function toggleFullscreen() {
@@ -85,7 +85,7 @@ function showCard() {
   card.querySelector('.kbi-x').addEventListener('click', () => { ls(SNOOZE, String(Date.now())); hideCard(); });
   document.body.appendChild(card);
   setTimeout(() => card && card.classList.add('on'), 60);
-  setTimeout(hideCard, 30000);
+  setTimeout(() => { if (card) ls(SNOOZE, String(Date.now())); hideCard(); }, 30000); // kendiliğinden kapanınca da iki gün ertelenir (yoksa her açılışta çıkıyordu)
 }
 // açılıştan sonra davet: sinematik, menü, ilk dükkân kurulumu ya da ilk adımlar rehberi (rehber.js) açıkken beklenir;
 // kart hedef kartının üstüne açılır, yeni oyuncu ilk iki kilidi açmadan rehberin yazısını kapatmasın

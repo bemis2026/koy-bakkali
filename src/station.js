@@ -254,7 +254,7 @@ function addDriveway(instant) {
   const a = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 16.05), mat(1, 5.4)); a.rotation.x = -PI / 2; a.position.set(-86.6, 0.012, -6.425); a.receiveShadow = true; S.add(a);
   const b = new THREE.Mesh(new THREE.PlaneGeometry(13.9, 2.6), mat(5, 1)); b.rotation.x = -PI / 2; b.position.set(-81.05, 0.014, 0.5); b.receiveShadow = true; S.add(b);
   // şeridin doğu ucu avluya bağlanır (2026-10-28 kullanıcı: "çıkmaz sokak olmasın"): arsaların önünden geçen araba avluya, oradan yola çıkabilir
-  const c = new THREE.Mesh(new THREE.PlaneGeometry(2.9, 1.4), mat(1, 0.5)); c.rotation.x = -PI / 2; c.position.set(-75.55, 0.013, -1.35); // doğuda binicilik pisti var: bağlantı şeridin ucunda c.receiveShadow = true; S.add(c);
+  const c = new THREE.Mesh(new THREE.PlaneGeometry(2.9, 1.4), mat(1, 0.5)); c.rotation.x = -PI / 2; c.position.set(-75.55, 0.013, -1.35); c.receiveShadow = true; S.add(c); // doğuda binicilik pisti var: bağlantı şeridin ucunda (2026-11-10: ekleme satırı yorumun içinde kalmıştı, bağlantı hiç çizilmiyordu)
   if (!instant) { popIn(a); popIn(b); popIn(c); }
 }
 export function addExtraBay(kind, x, instant, model) {

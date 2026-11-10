@@ -42,6 +42,9 @@ function ensure(renderer) {
   renderer.getDrawingBufferSize(size);
   if (!rt) {
     rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4, depthTexture: new THREE.DepthTexture(size.x, size.y) });
+    if (mat) { mat.uniforms.tColor.value = rt.texture; mat.uniforms.tDepth.value = rt.depthTexture; } // disposeDof'tan sonra yeniden kuruldu
+  }
+  if (!mat) {
     mat = new THREE.ShaderMaterial({
       uniforms: { tColor: { value: rt.texture }, tDepth: { value: rt.depthTexture }, cNear: { value: 0.1 }, cFar: { value: 1000 }, focus: { value: 20 }, band: { value: 3 }, range: { value: 12 }, maxBlur: { value: 0 }, texel: { value: new THREE.Vector2() } },
       vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
@@ -52,6 +55,10 @@ function ensure(renderer) {
     scene2 = new THREE.Scene(); scene2.add(quad); cam2 = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   } else if (rt.width !== size.x || rt.height !== size.y) rt.setSize(size.x, size.y);
 }
+
+// Alan derinliği kapanınca (kalite düşünce) çizim hedefi ekran kartı belleğinde boş durmasın: 4 örnekli yarım kayan noktalı renk +
+// derinlik, 1080p'de ~125 MB (2026-11-10 denetimi). Yeniden gerekirse ensure baştan kurar
+export function disposeDof() { if (!rt) return; rt.depthTexture.dispose(); rt.dispose(); rt = null; }
 
 // strength 0-1, focus: kameranın odak noktasına (oyuncuya) uzaklığı
 export function renderDof(renderer, scene, camera, strength, focus) {

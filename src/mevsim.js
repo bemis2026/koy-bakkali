@@ -179,7 +179,7 @@ export function updateMevsim(dt) {
   const q = G.stats.season, Q = q && QUESTS[q.k];
   if (!Q || q.done || Q.val() - q.from < q.goal) return;
   q.done = true;
-  const m = reward(); G.money += m; addXp(100);
+  const m = reward(); if (!G.visit) G.money += m; addXp(100);
   banner('MEVSİM GÖREVİ TAMAM', `${G.season.icon} +${m.toLocaleString('tr-TR')} ₺`); sfx('hire');
 }
 // fiyat: mevsim ürünü %30, haftanın etkinlik ürünü %50 pahalı (album.js G.weekItems); ikisi denk gelirse çarpılır

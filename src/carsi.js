@@ -248,8 +248,9 @@ export function bakeryRegion(R, h) {
 // duman bulutçukları
 const puffs = [];
 const puffMat = new THREE.MeshStandardMaterial({ color: '#e6e6e6', transparent: true, opacity: 0.6, depthWrite: false });
+const PUFF_GEO = new THREE.SphereGeometry(0.3, 8, 6); // ortak: her duman için yeni geometri ekran kartı belleğinde birikiyordu (2026-11-10)
 function puff(at) {
-  const m = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 6), puffMat.clone());
+  const m = new THREE.Mesh(PUFF_GEO, puffMat.clone());
   m.position.copy(at); G.scene.add(m); puffs.push({ m, t: 0 });
 }
 function updatePuffs(dt) {

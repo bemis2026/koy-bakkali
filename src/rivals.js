@@ -122,7 +122,7 @@ export function setupRivals(R, T) {
         if (it) {
           c.stack.push(t, it, 0.3); bounce(rv.vendor, 0.12); note(true);
           const pay = Math.max(1, Math.round(ITEMS[t].price * mult()));
-          R.pile.add(pay, c.obj.position); floatText(c.obj.position, `+${pay} ₺`, mult() > 1 ? 'pos x2' : 'pos'); sfx('cash', { at: c.obj.position });
+          R.pile.add(pay, c.obj.position); floatText(c.obj.position, `+${pay} ₺`, G.boost > 0 ? 'pos x2' : 'pos'); sfx('cash', { at: c.obj.position });
           G.stats.sold++; G.stats.customers++;
         }
         c.rvSpot.c = null; c.away(); return;
@@ -141,7 +141,7 @@ export function setupRivals(R, T) {
       if (!started) {
         // kayıttan dönüş: G.stats ilk karede hazır. Satın alınanlar kurulur, görünmüş satın alma padleri yarım ödemesiyle geri gelir
         started = true;
-        const pads = (loadSave() || {}).pads || {};
+        const pads = G.pads0 || (loadSave() || {}).pads || {}; // açılıştaki kayıt (world.js): arka sekmede ilk kareden önce yazılan kayıt yarım ödemeyi silmesin
         for (const rv of list) { if (owned().includes(rv.id)) buy(rv, true); else if (shown().includes(rv.id)) showPad(rv, pads[rv.id] || 0); }
       }
       const s = share();

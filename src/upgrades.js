@@ -261,7 +261,7 @@ function wagePaid() {
   }
   return Math.round(t);
 }
-let wageT = 0;
+// (maaş sayacı G.stats.wageT'te: updateUpgrades)
 // işe alım → { sınıf, kapasite yükseltmesi, hız yükseltmesi } (dosya sonunda doldurulur)
 const STAFF = {};
 
@@ -404,6 +404,15 @@ function buy(id) {
   } else { sfx('buy'); feel('buy', G.player.position); }
   save();
   render();
+}
+// işten çıkarma iki dokunuşla: ilk dokunuş sorar, 4 sn içinde ikincisi çıkarır (küçük düğmeye yanlış dokunuş tazminat kesip o elemanın
+// yükseltmelerini sıfırlıyordu; 2026-11-10 denetimi)
+let fireArm = { id: null, until: 0 };
+function fireAsk(id) {
+  const now = performance.now();
+  if (fireArm.id === id && now < fireArm.until) { fireArm.id = null; return fire(id); }
+  fireArm = { id, until: now + 4000 };
+  toast('👋 İşten çıkarmak için yeniden bas: tazminat ödenir, hız ve kapasite yükseltmeleri sıfırlanır');
 }
 // işten çıkarma: en son işe alınan ayrılır, tazminatı (işe alım bedelinin yarısı) hesaptan ödenir; yeri kadroda boşalır
 function fire(id) {
@@ -2001,7 +2010,7 @@ function buildMenu() {
     btnEl.addEventListener('pointerdown', (e) => { e.stopPropagation(); toggleMenu(); });
     menuEl.querySelector('.mclose').addEventListener('click', () => toggleMenu(false));
     menuEl.addEventListener('pointerdown', (e) => { if (e.target === menuEl) toggleMenu(false); e.stopPropagation(); });
-    listEl.addEventListener('click', (e) => { const f = e.target.closest('button[data-fire]'); if (f) return fire(f.dataset.fire); const b = e.target.closest('button[data-id]'); if (b) buy(b.dataset.id); });
+    listEl.addEventListener('click', (e) => { const f = e.target.closest('button[data-fire]'); if (f) return fireAsk(f.dataset.fire); const b = e.target.closest('button[data-id]'); if (b) buy(b.dataset.id); });
     tabsEl.addEventListener('click', (e) => {
       if (e.target.closest('.tpick')) { tabsEl.classList.toggle('open'); return; } // telefonda bölüm listesini aç / kapat
       const b = e.target.closest('button[data-tab]'); if (b) { tab = b.dataset.tab; tabsEl.classList.remove('open'); render(); }
@@ -2013,7 +2022,10 @@ function buildMenu() {
 
 export function toggleMenu(force) {
   if (G.visit && force !== false) return; // komşunun köyünde yükseltme yok
-  G.menuOpen = force ?? !G.menuOpen;
+  const isOpen = menuEl.classList.contains('open'), want = force ?? !isOpen;
+  if (want === isOpen) return;
+  if (want && G.menuOpen) return; // başka bir pencere (dükkân tasarımı, kurulum) açık: ortak bayrağına dokunulmaz
+  G.menuOpen = want;
   menuEl.classList.toggle('open', G.menuOpen);
   sfx(G.menuOpen ? 'open' : 'close');
   if (G.menuOpen) render();
@@ -2100,8 +2112,9 @@ function anyAffordable() {
 export function updateUpgrades(dt) {
   for (const w of [...G.workers]) { w.update(dt); w.payT = (w.payT || 0) + dt; if (w.state === 'idle') w.idleT = (w.idleT || 0) + dt; }
   M.animateLooms(G.time); // atölyede tezgah başındaki dokumacı kadınlar (models.js)
-  wageT += dt;
-  if (wageT >= 60) { wageT -= 60; const w = wagePaid(); if (w > 0) fine(w, G.player.position, '💼', 'maaşlar'); }
+  // sayaç kayıtta durur (G.stats.wageT): her açılışta sıfırlanınca bir dakikadan kısa oturumlar hiç maaş ödemiyordu
+  const ST = G.stats; ST.wageT = (ST.wageT || 0) + dt;
+  if (ST.wageT >= 60) { ST.wageT -= 60; const w = wagePaid(); if (w > 0) fine(w, G.player.position, '💼', 'maaşlar'); }
   refreshT -= dt;
   if (refreshT <= 0 && btnEl) {
     refreshT = 0.3;

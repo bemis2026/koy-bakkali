@@ -313,7 +313,7 @@ function spawnBuyer(F) {
           c.t = 0;
           const obj = c.got < need && F.stall.takeType(want);
           if (obj) {
-            const pay = ITEMS[want].price * mult(); c.stack.push(want, obj, 0.3); c.got++; c.bill += pay; G.stats.sold++; if (c.got === 1) G.stats.customers++;
+            const pay = Math.round(ITEMS[want].price * mult()); c.stack.push(want, obj, 0.3); c.got++; c.bill += pay; G.stats.sold++; if (c.got === 1) G.stats.customers++;
             F.pile.add(pay, c.obj.position); floatText(c.obj.position, `+${pay} ₺`, 'pos'); sfx('cash', { at: c.obj.position });
             c.setBubble(want, Math.max(1, need - c.got));
           }

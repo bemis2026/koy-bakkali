@@ -4,12 +4,13 @@
 // gölgesi kapanır (eski duruşuyla yanlış yere gölge düşmesin). Yeniden göründüğü ilk çizimde kemikler o anki yerine ve duruşuna gelir.
 import * as THREE from 'three';
 import { settings } from './audio.js';
+import { refresh } from './matris.js'; // dondurulan kökün tarama kaydı yenilenir
 
 const live = new Set(), skip = () => {};
 let frame = 0, lastR = null, lastF = -1;
 function set(s, on) {
   s.frozen = on;
-  for (const r of s.roots) { r.visible = !on; if (on) r.updateMatrixWorld = skip; else delete r.updateMatrixWorld; }
+  for (const r of s.roots) { r.visible = !on; if (on) r.updateMatrixWorld = skip; else delete r.updateMatrixWorld; refresh(r); }
   s.meshes.forEach((m, i) => { m.castShadow = !on && s.cast[i]; });
   if (on) live.delete(s); else live.add(s);
 }

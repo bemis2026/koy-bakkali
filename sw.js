@@ -33,7 +33,9 @@ async function networkFirst(r) {
   try {
     let res = await get(fresh(r));
     if (r.mode === 'navigate' && res.redirected) res = await get(r); // yönlendirilmiş yanıt gezinmeye verilemez
-    return keep(c, r, res);
+    // oyunun ana sayfası sorgusu ne olursa olsun tek anahtarla saklanır: her ?ziyaret=<kimlik> için ayrı kopya birikiyordu
+    const home = r.mode === 'navigate' && /\/(index\.html)?$/.test(new URL(r.url).pathname);
+    return keep(c, home ? './' : r, res);
   } catch (err) {
     return (await c.match(r)) || (r.mode === 'navigate' && ((await c.match(r, { ignoreSearch: true })) || (await c.match('./')))) || Response.error();
   }

@@ -72,12 +72,23 @@ async function initOnline0() {
     try { B = await firebaseBackend(FIREBASE); ON.mode = 'firebase'; } catch (e) { console.warn('Firebase açılamadı, çevrimdışı', e); return ON; }
   } else return ON;
   const u = await B.current();
-  if (u) await afterLogin(u);
+  // açılışta profil okunamazsa (günlük kota doldu, reklam engelleyici, bağlantı yok) oyun yine açılır: bu cihazdaki son profil kopyasıyla;
+  // o da yoksa giriş kapısı gösterilir. Eskiden hata yukarı çıkıyor, üyeler "Yüklenemedi" ekranında kalıyordu (2026-11-10 denetimi)
+  if (u) { try { await afterLogin(u, true); } catch (e) { console.warn('profil okunamadı', e); ON.user = null; ON.profile = null; } }
   return ON;
 }
-async function afterLogin(u) {
+async function afterLogin(u, boot = false) {
+  const key = `koyBakkali.prof.${u.uid}`;
+  let p;
+  try { p = await B.get('users', u.uid); if (p) ls(key, JSON.stringify(p)); }
+  catch (e) {
+    if (!boot) throw e;
+    try { p = JSON.parse(ls(key) || 'null'); } catch (e2) { p = null; }
+    if (!p) throw e;
+    console.warn('profil buluttan okunamadı, cihazdaki kopya kullanılıyor', e);
+  }
   ON.user = u;
-  ON.profile = await B.get('users', u.uid);
+  ON.profile = p;
   ON.needName = !ON.profile; // Google ile ilk giriş: kullanıcı adı seçilmeli
   ls('koyBakkali.guest', null);
 }
@@ -152,15 +163,22 @@ export async function deleteAccount() {
   const t = Date.parse((u.metadata && u.metadata.lastSignInTime) || '') || 0;
   if (ON.mode === 'firebase' && Date.now() - t > 280000) throw fail('login', 'Güvenlik için önce çıkış yapıp yeniden gir, sonra hemen hesabını sil');
   const off = () => {};
+  let bad = 0; const miss = () => { bad++; };
+  closing = true; // silme sürerken bulut kaydı ve puan yazılmaz (az önce silinen belgeler yeniden yaratılıyordu)
+  try {
   for (let i = 0; i < 12; i++) await B.remove(`weekly/${weekId(new Date(Date.now() - i * 7 * 86400000))}/scores`, uid).catch(off);
-  for (const it of await B.list(`inbox/${uid}/items`).catch(() => [])) await B.remove(`inbox/${uid}/items`, it.id).catch(off);
-  await B.remove('villages', uid).catch(off);
+  for (const it of await B.list(`inbox/${uid}/items`).catch(() => { bad++; return []; })) await B.remove(`inbox/${uid}/items`, it.id).catch(miss);
+  await B.remove('villages', uid).catch(miss);
   try { const L = await liveDb(); if (L) { const c = await L.D.get(L.D.ref(L.db, `rooms/${uid}/chat`)); if (c.exists()) for (const k of Object.keys(c.val())) await L.D.remove(L.D.ref(L.db, `rooms/${uid}/chat/${k}`)).catch(off); } } catch (e) { /* oda yok */ } // kurallar yazıları tek tek siler (database.rules.json)
   if (un) await B.remove('usernames', un).catch(off);
-  await B.remove('users', uid).catch(off);
+  await B.remove('users', uid).catch(miss);
+  // kişisel veri (bulut kaydı, gelen kutusu, profil) silinemediyse giriş hesabı silinmez: yoksa sahipsiz veri kalırdı
+  if (bad) throw fail('del', 'Bazı veriler silinemedi. Bağlantını kontrol edip yeniden dene');
   await B.deleteUser();
+  ls(`koyBakkali.prof.${uid}`, null);
   ON.user = null; ON.profile = null;
   ls('koyBakkali.owner', null); ls('koyBakkali.lastId', null); playGuest();
+  } finally { closing = false; }
 }
 export const playGuest = () => ls('koyBakkali.guest', '1');
 export const isGuest = () => ls('koyBakkali.guest') === '1';
@@ -180,24 +198,32 @@ export async function loadCloud(uid = ON.user && ON.user.uid) {
   const v = await B.get('villages', uid);
   try { return v && v.data ? JSON.parse(v.data) : null; } catch (e) { return null; }
 }
-let cloudT = 0, cloudBusy = false;
+// Bulut kaydı kuralları (2026-11-10 denetimi):
+  // - cloudOk: açılışta buluttaki kayıt okunabildiyse (ya da bilerek yeni oyun seçildiyse) yazılır. Okuma hata verdiyse yazılmaz:
+  //   eskiden hata "kayıt yok" sayılıyor, 3 sn sonra yerel (belki eski) kayıt buluttaki ilerlemenin üstüne yazılıyordu.
+  // - gizli sekme yazmaz, oyun süresi ilerlemediyse yazılmaz: açık unutulan sekme başka cihazdaki ilerlemeyi geri almaz, kota yemez.
+  // - 3 dakikada bir (eskiden 1): ücretsiz planın günlük yazma kotası. Sekme gizlenirken ve çıkışta yine hemen yazılır.
+let cloudT = 0, cloudBusy = false, cloudOk = false, cloudLast = -1, closing = false;
+export const cloudReady = (v) => { cloudOk = !!v; };
+export const cloudIsReady = () => cloudOk;
 export function saveCloud(data, force = false) {
-  if (!signedIn() || G.visit || cloudBusy) return Promise.resolve();
-  const now = Date.now();
-  if (!force && now - cloudT < 60000) return Promise.resolve();
-  cloudT = now; cloudBusy = true;
+  if (!signedIn() || G.visit || cloudBusy || !cloudOk || closing) return Promise.resolve();
+  const now = Date.now(), time = (data.stats && data.stats.time) || 0;
+  if (time === cloudLast) return Promise.resolve(); // son yazılandan beri oynanmadı
+  if (!force && (document.hidden || now - cloudT < 180000)) return Promise.resolve();
+  cloudT = now; cloudLast = time; cloudBusy = true;
   const s = computeScore();
   const p = B.set('villages', ON.user.uid, { data: JSON.stringify(data), ts: now, time: (data.stats && data.stats.time) || 0, name: ON.profile.name, village: (data.custom && data.custom.name) || '', level: s.level })
-    .catch((e) => console.warn('bulut kaydı', e)).finally(() => { cloudBusy = false; });
-  publishScore(force);
+    .catch((e) => { cloudLast = -1; console.warn('bulut kaydı', e); }).finally(() => { cloudBusy = false; });
+  publishScore(false);
   return p;
 }
 // sıralama: kullanıcı belgesindeki puanlar ve bu haftanın puan satırı (iki dakikada bir)
 let pubT = 0;
 export function publishScore(force = false) {
-  if (!signedIn() || G.visit) return;
+  if (!signedIn() || G.visit || closing) return;
   const now = Date.now();
-  if (!force && now - pubT < 120000) return;
+  if (!force && now - pubT < 300000) return; // 5 dakikada bir (eskiden 2): iki belgeye yazılıyor
   pubT = now;
   const score = computeScore(), wk = weekScore(), P = ON.profile, village = (G.custom && G.custom.name) || P.village;
   Object.assign(P, { score, village });
@@ -261,7 +287,7 @@ export async function finishHelp(to, money, items, sentLive = 0, stocked = 0) {
   const reward = first ? Math.round(money * 0.1) : 0;
   const me = ON.profile;
   const rest = Math.max(0, Math.round(money - sentLive));
-  if (rest > 0 || items > 0) await B.add(`inbox/${to}/items`, { from: ON.user.uid, fromName: me.name, avatar: me.avatar, kind: 'help', money: rest, items, ts: Date.now() });
+  if (rest > 0 || items > 0) await B.add(`inbox/${to}/items`, { from: ON.user.uid, fromName: me.name, avatar: me.avatar, kind: 'help', money: Math.min(100000, rest), items, ts: Date.now() }); // kural üst sınırı: aşarsa bütün vardiya reddedilirdi
   if (first) markHelped(to);
   ls(mine('koyBakkali.pendingHelp'), JSON.stringify({ pts, reward, ts: Date.now() }));
   return { pts, reward };
@@ -291,7 +317,8 @@ export const dropInbox = (id) => B.remove(`inbox/${ON.user.uid}/items`, id);
 export async function sendFeedback(kind, text) {
   const t = String(text || '').trim();
   if (t.length < 3) throw fail('fb', 'Biraz daha yaz');
-  await B.add('feedback', { uid: ON.user ? ON.user.uid : null, name: ON.profile ? ON.profile.name : 'misafir', kind, text: t.slice(0, 1000), ts: Date.now(), level: G.level || 1, host: location.host });
+  const anon = kind === 'hata'; // hata raporu kimlik taşımaz (gizlilik.html)
+  await B.add('feedback', { uid: !anon && ON.user ? ON.user.uid : null, name: anon ? 'hata' : ON.profile ? ON.profile.name : 'misafir', kind, text: t.slice(0, 1000), ts: Date.now(), level: G.level || 1, host: location.host });
 }
 export const listFeedback = () => B.top('feedback', 'ts', 100);
 // canlı ziyaret (canli.js): anlık veritabanı bağlantısı; çevrimdışıysa null

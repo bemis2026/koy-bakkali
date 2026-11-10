@@ -146,7 +146,8 @@ export function initMenu(o) {
   $('musicBtn').addEventListener('pointerdown', (e) => { e.stopPropagation(); toggleSoundPanel(); });
   syncMusic();
   $('mainMenu').addEventListener('pointerdown', (e) => { if (e.target.id === 'mainMenu') closeMenu(); e.stopPropagation(); });
-  $('mainMenu').querySelector('.mclose').addEventListener('click', closeMenu);
+  // telefonda ☰ ile × üst üste: menüyü açan dokunuşun parmak kalkınca gelen tıklaması ×'e düşüp menüyü hemen kapatmasın
+  $('mainMenu').querySelector('.mclose').addEventListener('click', () => { if (performance.now() - openedAt > 350) closeMenu(); });
   $('mmBody').addEventListener('click', onBodyClick);
   $('mmBody').addEventListener('input', onBodyInput);
   $('mmBody').addEventListener('change', onBodyChange);
@@ -175,13 +176,20 @@ function askReset() {
   $('mainMenu').appendChild(el);
 }
 
+let openedAt = 0;
+// Telefonun Geri tuşu (ve tarayıcının geri hareketi) açık menüyü kapatır: menü açılırken geçmişe bir adım eklenir, Geri o adımı
+// geri alır. Eskiden Geri oyundan çıkıyor, kurulu uygulamayı kapatıyordu (2026-11-10 denetimi). Menü düğmeyle kapanınca adım geri alınır
+let histOn = false;
+addEventListener('popstate', () => { if (!histOn) return; histOn = false; closeMenu(); });
 export function openMenu(sec) {
   if (G.visit) return; // komşunun köyünde menü yok (online-ui.js yardım vardiyası)
   if (open) { show(sec || section); return; }
   if ($('upg').classList.contains('open')) toggleMenu(false);
   if (G.menuOpen) return; // dükkan kurulum penceresi açık
+  if (G.custom.name && G.custom.name !== 'Köy Bakkalı') $('mmShop').setAttribute('translate', 'no'); else $('mmShop').removeAttribute('translate');
   $('mmShop').textContent = G.custom.name;
-  open = true; G.menuOpen = true; G.paused = true;
+  open = true; G.menuOpen = true; G.paused = true; openedAt = performance.now();
+  if (!histOn) try { history.pushState({ kbMenu: 1 }, ''); histOn = true; } catch (e) { /* geçmişe yazılamadı: Geri eskisi gibi */ }
   $('mainMenu').classList.add('open');
   duckMusic(true);
   play('open');
@@ -192,6 +200,7 @@ export function closeMenu() {
   if (!open) return;
   if (section === 'upg') unmountUpgrades();
   open = false; G.menuOpen = false; G.paused = false;
+  if (histOn) { histOn = false; try { history.back(); } catch (e) { /* yok */ } } // menü için eklenen geçmiş adımı geri alınır
   $('mainMenu').classList.remove('open');
   $('resetAsk')?.remove();
   duckMusic(false);

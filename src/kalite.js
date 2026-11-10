@@ -38,12 +38,17 @@ function detectOnce() {
   const g = gpu.toLowerCase();
   if (/swiftshader|llvmpipe|software|basic render/.test(g)) return 'pil'; // ekran kartı yok, yazılımla çiziliyor
   if (!touch) {
+    if (!g) return 'orta'; // kart adı okunamadı: temkinli başla
     if (/intel/.test(g) && /(hd|uhd) graphics/.test(g) && !/iris|arc/.test(g)) return mem && mem <= 4 ? 'dusuk' : 'orta'; // eski tümleşik kart
     return 'yuksek';
   }
+  // Safari çekirdek sayısını gizlilik için kısar (iPhone'da 4'ün altında bildirir), bellek hiç bildirmez: çekirdek kuralı bütün
+  // iPhone'ları Pil tasarrufuna (30 kare, düşük çözünürlük) düşürüyordu (2026-11-10 denetimi). Apple kartı Orta'yla açılır; zorlanan
+  // eski cihazda oyun kendiliğinden hafifler (main.js watchSpeed)
+  if (/apple/.test(g)) return 'orta';
   if ((mem && mem <= 2) || cores <= 4) return 'pil';
   if (/powervr|\bimg\b|ge8\d{3}/.test(g)) return 'pil';
-  let strong = /apple gpu|apple a1[5-9]|xclipse|immortalis/.test(g);
+  let strong = /xclipse|immortalis/.test(g);
   const adreno = g.match(/adreno[^0-9]*(\d{3})/), mali = g.match(/mali-?([gt])?(\d{2,3})/);
   if (adreno) { const n = +adreno[1]; if (n < 600) return mem >= 6 ? 'dusuk' : 'pil'; strong = n >= 640; }
   if (mali) {
@@ -59,9 +64,10 @@ function detectOnce() {
 // ilk açılışta (ya da ayarlarda Otomatik seçilince) kaliteyi cihaza göre kurar. Oyuncu elle seçtiyse (autoQ) dokunulmaz.
 // qv: kademe sürümü; eski kayıtların otomatik ayarı bir kez yeniden ölçülür. Yavaş giden oyunda main.js kaliteyi kademe kademe düşürür,
 // düşen ayar kalıcıdır (bir sonraki açılışta yeniden yükseltilmez)
+const QV = 3; // 3 (2026-11-10): iPhone kuralı düzeldi, sahne taraması hızlandı (matris.js): kendiliğinden düşmüş ayarlar bir kez yeniden ölçülür
 export function initQuality(force = false) {
-  if (force || (!settings.autoQ && settings.qv !== 2)) { settings.quality = detectTier(); settings.qv = 2; settings.autoQ = 0; saveSettings(); }
-  else if (settings.qv !== 2) { settings.qv = 2; saveSettings(); }
+  if (force || (!settings.autoQ && settings.qv !== QV)) { settings.quality = detectTier(); settings.qv = QV; settings.autoQ = 0; saveSettings(); }
+  else if (settings.qv !== QV) { settings.qv = QV; saveSettings(); }
   if (!TIER[settings.quality]) settings.quality = 'orta';
   return settings.quality;
 }

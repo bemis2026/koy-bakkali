@@ -26,7 +26,7 @@ async function firebaseRoom(host, uid) {
   const meRef = D.ref(db, `${base}/players/${uid}`);
   D.onDisconnect(meRef).remove();
   return {
-    count: async () => { const s = await D.get(D.ref(db, `${base}/players`)); return s.exists() ? Object.keys(s.val()).length : 0; },
+    count: async () => { const s = await D.get(D.ref(db, `${base}/players`)); return s.exists() ? Object.values(s.val()).filter((p) => p && Date.now() - (p.t || 0) < STALE).length : 0; }, // bayat giriş sayılmaz
     put: (data) => D.set(meRef, data).catch(() => {}),
     onPlayers: (cb) => D.onValue(D.ref(db, `${base}/players`), (s) => cb(s.val() || {})),
     say: (text) => D.push(D.ref(db, `${base}/chat`), { uid, name: me.name, text, t: Date.now() }).catch(() => {}),
@@ -116,7 +116,9 @@ function stocked(shelf, type) {
 // ev sahibi: misafirin emeğini kendi köyüne uygular
 function applyAct(a) {
   if (!a || a.uid === me.uid) return;
-  const who = others.get(a.uid), name = (who && who.d.n) || 'Komşu', from = who ? who.o.position : G.player.position;
+  const who = others.get(a.uid);
+  if (!who) return; // köyde görünmeyen birinden gelen iş sayılmaz (kurallar da odada olmayı şart koşar: database.rules.json)
+  const name = temiz((who.d && who.d.n) || 'Komşu'), from = who.o.position;
   if (!greeted.has(a.uid)) { greeted.add(a.uid); toast(`🤝 ${name} yardım ediyor: dizdiği ürünler ve topladığı para sana geliyor`); }
   if (a.k === 'para' && a.n > 0) {
     const n = Math.min(50000, Math.floor(a.n));
@@ -133,8 +135,8 @@ function applyAct(a) {
 }
 
 // ---------- yazışma ----------
-const CSS = `#chatBtn { position: absolute; right: 22px; bottom: 236px; width: 52px; height: 52px; border-radius: 50%; display: none; place-items: center; font-size: 26px; cursor: pointer; }
-#chatPan { position: absolute; right: 22px; bottom: 296px; width: min(320px, calc(100vw - 28px)); padding: 10px 12px; border-radius: 16px; display: none; z-index: 31; font: 14px/1.35 var(--font-body); }
+const CSS = `#chatBtn { position: absolute; right: 22px; bottom: 236px; width: 52px; height: 52px; border-radius: 50%; display: none; place-items: center; font-size: 26px; cursor: pointer; pointer-events: auto; }
+#chatPan { position: absolute; right: 22px; bottom: 296px; width: min(320px, calc(100vw - 28px)); padding: 10px 12px; border-radius: 16px; display: none; z-index: 31; font: 14px/1.35 var(--font-body); pointer-events: auto; }
 #chatPan.on { display: block; }
 #chatPan .em, #chatPan .ph { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 #chatPan button { border: 0; border-radius: 10px; padding: 5px 8px; background: rgba(0,0,0,.07); font: inherit; cursor: pointer; }
@@ -182,7 +184,7 @@ function drawLog() {
   if (!ui) return;
   ui.log.innerHTML = '';
   log.forEach((m, i) => {
-    const p = document.createElement('p'); const b = document.createElement('b'); b.textContent = `${m.name}: `; p.append(b, m.text);
+    const p = document.createElement('p'); p.setAttribute('translate', 'no'); const b = document.createElement('b'); b.textContent = `${m.name}: `; p.append(b, m.text);
     if (m.uid !== me.uid) {
       p.style.cursor = 'pointer';
       p.onclick = (e) => { e.stopPropagation(); if (e.target.closest('button')) return; openRow = openRow === i ? -1 : i; drawLog(); };
@@ -220,7 +222,7 @@ export function updateCanli(dt) {
   const p = G.player.position, r = G.player.rotation.y, w = G.world || 'koy';
   sendT -= dt; idleT -= dt;
   const moved = !last || Math.abs(p.x - last.x) + Math.abs(p.z - last.z) > 0.05 || Math.abs(r - last.r) > 0.1 || w !== last.w;
-  if ((moved && sendT <= 0) || idleT <= 0) {
+  if ((moved && sendT <= 0 && others.size > 0) || idleT <= 0) { // köyde başkası yokken yalnız 5 sn'lik nabız (kim çevrimiçi görünsün diye)
     sendT = SEND; idleT = IDLE; last = { x: p.x, z: p.z, r, w };
     room.put({ x: Math.round(p.x * 100) / 100, z: Math.round(p.z * 100) / 100, r: Math.round(r * 100) / 100, w, n: me.name, a: me.avatar, c: me.color, t: Date.now() });
   }

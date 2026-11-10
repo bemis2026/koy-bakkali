@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeCharacter, animateCharacter, randomLook, model, makeCucumber, makeHusk, makeWheat, makeWool, makeKilim, makeSheepMilk, makeYogurt, makeHayBale, makeTowel, makeLinen, makeFlourSack, makeSimit, makePogaca, makeMilkCan, makeCashDesk, makeRegister, faceRegister, villagerLook, makeMarker, makeBillMesh, makePlant, makeBed } from './models.js';
 import { play, unlockAudio, speak } from './audio.js';
+import { poke } from './matris.js'; // canlandırma başlarken uyuyan dalı uyandırır
 import { say, emoji } from './texts.js';
 import { destColor, PLACES } from './dest.js';
 
@@ -234,7 +235,11 @@ export function saveData() {
     if (s instanceof UnlockPad && s.paid >= 1) pads[s.def.id] = Math.floor(s.paid);
     else if (s instanceof MoneyPile && s.amount >= 1) piles[pileKey(s)] = (piles[pileKey(s)] || 0) + Math.floor(s.amount);
   }
-  return { v: 2, pzV: 1, money: Math.floor(G.money), xp: Math.floor(G.xp || 0), unlocked: [...G.unlocked], upg: G.upg, custom: G.custom, stats: G.stats, ach: [...G.ach], pads, piles, ...(G.fide ? { fide: G.fide } : {}) }; // fide: bostanların fide sayısı
+  // muhasebecinin çantasındaki para (yığından alındı, bankaya henüz yatmadı) kayıtta oyuncunun parasına sayılır: yoksa yenilemede
+  // kayboluyordu (2026-11-10 denetimi; çanta 600-60.000 ₺ alır)
+  let carry = 0;
+  for (const w of G.workers || []) if (w.bag > 0) carry += w.bag;
+  return { v: 2, pzV: 1, money: Math.floor(G.money + carry), xp: Math.floor(G.xp || 0), unlocked: [...G.unlocked], upg: G.upg, custom: G.custom, stats: G.stats, ach: [...G.ach], pads, piles, ...(G.fide ? { fide: G.fide } : {}) }; // fide: bostanların fide sayısı
 }
 export function writeSave(data) {
   try { localStorage.setItem(KEY, JSON.stringify(data)); return true; } catch (e) { return false; }
@@ -346,10 +351,12 @@ const easeBack = (t) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.
 export function popIn(obj, delay = 0) {
   const base = obj.scale.x || 1;
   obj.scale.setScalar(0.0001);
+  poke(obj);
   G.pops.push({ obj, t: -delay, mode: 'in', base });
 }
 export function bounce(obj, amt = 0.15) {
   if (G.pops.some((p) => p.obj === obj)) return;
+  poke(obj);
   G.pops.push({ obj, t: 0, mode: 'b', base: obj.scale.x || 1, amt });
 }
 
@@ -515,6 +522,9 @@ export class Station {
     const z = this.zone;
     if (z.has(p)) return !this.yields(p);
     const own = !!this.bodyFn, x0 = z.x - z.w / 2 - BODY_CLIP, x1 = z.x + z.w / 2 + BODY_CLIP, z0 = z.z - z.d / 2 - BODY_CLIP, z1 = z.z + z.d / 2 + BODY_CLIP;
+    // gövde kutuları zaten bu alana kırpılır: alanın erişim payı kadar dışındaki kişi hiçbirine değemez. Kutulara hiç bakılmaz; engel
+    // sayısı değişince (park eden araba, kamyon) uzaktaki yüzlerce istasyon gövdesini aynı karede yeniden kurmaz (2026-11-10 denetimi)
+    if (!own) { const r = this.reach ?? REACH; if (p.x < x0 - r || p.x > x1 + r || p.z < z0 - r || p.z > z1 + r) return false; }
     for (const c of this.bodyRects()) {
       // büyük binanın ön alandan uzak kısmı istasyonu tetiklemez
       const b0 = own ? c[0] : Math.max(c[0], x0), b1 = own ? c[1] : Math.min(c[1], x1), b2 = own ? c[2] : Math.max(c[2], z0), b3 = own ? c[3] : Math.min(c[3], z1);
@@ -1040,10 +1050,10 @@ export class Register extends Station {
       this.sale = null;
       this.queue.shift();
       // kasada sen servis edince müşteri bahşiş bırakır (kendi elinle bonusu; kasiyerin servisi normal)
-      const tip = this.inside ? Math.max(1, Math.round(c.bill * MINE_TIP)) : 0, pay = (c.bill + tip) * mult();
+      const tip = this.inside ? Math.max(1, Math.round(c.bill * MINE_TIP)) : 0, pay = Math.round((c.bill + tip) * mult()); // efsane çarpanı küsurat bırakmasın
       G.stats.customers++; G.stats.sold += c.got || 0;
       this.pile.add(pay, c.obj.position);
-      floatText(c.obj.position, tip ? `+${pay} ₺ · 💝 bahşiş` : `+${pay} ₺`, mult() > 1 ? 'pos x2' : 'pos');
+      floatText(c.obj.position, tip ? `+${pay} ₺ · 💝 bahşiş` : `+${pay} ₺`, G.boost > 0 ? 'pos x2' : 'pos');
       c.onPaid();
       if (this.cashier) bounce(this.cashier.obj, 0.08);
       sfx('cash', { at: c.obj.position });
@@ -1083,7 +1093,7 @@ export class UnlockPad extends Station {
     el.innerHTML = `<span class="pt"></span><span class="pp"><i class="coin">₺</i><b></b></span>`;
     el.querySelector('.pt').textContent = `${def.icon ? def.icon + ' ' : ''}${def.title}`;
     this.priceEl = el.querySelector('b');
-    this.label = G.labels.add(el, (v) => v.set(def.at[0], y + 0.9 + Math.sin(G.time * 3) * 0.08, def.at[1]));
+    this.label = G.labels.add(el, (v) => v.set(this.zone.x, y + 0.9 + Math.sin(G.time * 3) * 0.08, this.zone.z)); // kilidin kendi alanı: def.at aşamaya göre değişebiliyor (Manav Reyonu)
     this.refresh();
   }
   refresh() { this.priceEl.textContent = Math.ceil(this.def.price - this.paid).toLocaleString('tr-TR'); }

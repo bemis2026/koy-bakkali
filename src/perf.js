@@ -6,6 +6,7 @@
 //   her parçanın aslı sık sık yoklanır; değişen olursa birleşim bozulur (dekor) ya da yeniden kurulur (karakter).
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { refresh, setCull } from './matris.js'; // gizlenen ya da geri gelen parçanın tarama kaydı yenilenir; görüş dışındaki kişinin altı gezilmez
 
 // Birleşen parçanın aslı bu katmana geçer: sahnede durur, oyun kodu onu eskisi gibi taşır, gizler, siler; kamera çizmez.
 const HIDE = 30;
@@ -23,8 +24,10 @@ const MAPS = ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'metalnessMap',
 const plain = (m) => m.isMeshStandardMaterial && !m.map && !m.transparent && !m.vertexColors && !m.normalMap && !m.alphaMap
   && (m.emissive.getHex() === 0 || m.emissiveIntensity === 0) && m.onBeforeCompile === noCompile;
 const VC = new Map();
+// Toplu çizimin (coarse: karakter, ürün) ve birleşik parçaların köşe renkli malzemesi ayrıdır (anahtarın başındaki b/m): aynı malzeme hem
+// BatchedMesh'te hem düz parçada çizilince three her geçişte gölgelendiriciyi yeniden seçiyordu (2026-11-10 ölçümü: karede 1,6 ms getProgram)
 function vcMat(m, coarse) { // coarse: karakterde iki pürüzlülük basamağı yeter (göz ve ayakkabı biraz daha mat görünür)
-  const r = coarse ? (m.roughness < 0.4 ? 0.3 : 0.8) : Math.round(m.roughness * 5) / 5, key = `${r}|${m.metalness}|${+m.flatShading}|${m.side}`;
+  const r = coarse ? (m.roughness < 0.4 ? 0.3 : 0.8) : Math.round(m.roughness * 5) / 5, key = `${coarse ? 'b' : 'm'}|${r}|${m.metalness}|${+m.flatShading}|${m.side}`;
   let v = VC.get(key);
   if (!v) { VC.set(key, (v = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: r, metalness: m.metalness, flatShading: m.flatShading, side: m.side }))); OWN.add(v); }
   return v;
@@ -97,15 +100,17 @@ const drifted = (s, mtx) => s.o.material !== s.mat || s.o.geometry !== s.geo || 
 // Yoklamada şimdiki matrisi elle kurulur (nowMtx); oyun kodu onu taşırsa yine yakalanır, geri gelince donması çözülür.
 function hide(s) {
   const o = s.o;
-  o.userData.bk = true; o.layers.set(HIDE);
+  o.userData.bk = true; o.layers.set(HIDE); o.noDraw = true; // noDraw: çocuksuzsa çizim, gölge ve matris taramasında hiç gezilmez (matris.js)
   if (!o.children.length && o.matrixAutoUpdate && o.matrixWorldAutoUpdate) { s.fz = true; o.matrixAutoUpdate = o.matrixWorldAutoUpdate = false; }
+  refresh(o);
 }
 function restore(s) {
   const o = s.o;
-  o.layers.mask = s.mask; delete o.userData.bk;
-  if (!s.fz) return;
+  o.layers.mask = s.mask; delete o.userData.bk; o.noDraw = false;
+  if (!s.fz) { refresh(o); return; }
   s.fz = false; o.matrixAutoUpdate = o.matrixWorldAutoUpdate = true;
   o.updateMatrix(); if (o.parent) o.matrixWorld.multiplyMatrices(o.parent.matrixWorld, o.matrix);
+  refresh(o);
 }
 const tmpM = new THREE.Matrix4();
 function nowMtx(s, local) { // aslın şimdiki (yerel ya da dünya) matrisi; dünya için asıl sahneye bağlı olmalı
@@ -267,7 +272,7 @@ function compactNode(node, skip, self) {
   }
   const src = done.map((c) => {
     if (c !== node) { const s = rec(c, c.matrix.elements); hide(s); return s; }
-    const s = rec(c, I16); s.self = true; s.mask = c.layers.mask; c.userData.bk = true; c.layers.set(HIDE); return s; // kımıldar: dondurulmaz
+    const s = rec(c, I16); s.self = true; s.mask = c.layers.mask; c.userData.bk = true; c.layers.set(HIDE); c.noDraw = true; refresh(c); return s; // kımıldar: dondurulmaz
   });
   return { node, insts, src, sig: kidsSig(node), self };
 }
@@ -307,11 +312,12 @@ function attached(o, scene) { for (let a = o; a; a = a.parent) if (a === scene) 
 const changed = (s) => s.o.material !== s.mat || s.o.geometry !== s.geo || ck(s.o.material) !== s.col;
 function checkChar(i, scene) { // sahneden çıktıysa listeden düşer (true döner): geri dönerse yeniden sıkıştırılır
   const ch = chars[i];
-  if (!attached(ch.root, scene)) { for (const n of ch.nodes) releaseNode(n); delete ch.root.userData.cc; chars.splice(i, 1); return true; }
+  if (!attached(ch.root, scene)) { for (const n of ch.nodes) releaseNode(n); delete ch.root.userData.cc; ch.root.userData.cull = false; setCull(ch.root, false); chars.splice(i, 1); return true; }
   const sig = structSig(ch.root);
   if (sig !== ch.sig) { // baştan: geometriler önbellekte, hızlı
     for (const n of ch.nodes) releaseNode(n);
     ch.sig = sig; ch.nodes = charNodes(ch.root, ch.skip).map(({ n, self }) => compactNode(n, ch.skip, self));
+    ch.off = false;
     return false;
   }
   for (let k = 0; k < ch.nodes.length; k++) {
@@ -324,18 +330,35 @@ function checkChar(i, scene) { // sahneden çıktıysa listeden düşer (true d�
     if (!bad) continue;
     releaseNode(n);
     ch.nodes[k] = compactNode(n.node, ch.skip, n.self);
+    ch.off = false; // yeni örnekler kapalı doğar: bir sonraki çizimde görünürlüğü yeniden kurulur
   }
   return false;
 }
 // her çizimden önce (sahnenin matrisleri güncellendikten sonra: scene.onBeforeRender) düğümlerin dünya matrisleri örneklere yazılır.
 // Gizli ya da sahnede olmayan karakterin örnekleri kapanır
 function within(o, root) { for (let a = o; a; a = a.parent) { if (a === root) return true; if (!a.visible) return false; } return false; } // gruptan çıkan parça da kapanır
-function syncChars(renderer) {
+// Görüş alanının dışındaki kişinin ve ürünün örnekleri kapanır, matrisi yazılmaz (2026-11-10 ölçümü: kalabalık bütün haritaya yayılı,
+// karede 3.100 matris yazılıyor ve toplu çizim hepsini iki kez (çizim + gölge) görüş alanına karşı sınıyordu). PAD: ekranın hemen
+// dışındaki kişinin gölgesi ekrana düşebilir, görüş alanı o kadar geniş sayılır. Kamera her çizimde yeniden okunur (albüm kartpostalı,
+// sinematik kendi kamerasıyla çizer)
+const _fr = new THREE.Frustum(), _pm = new THREE.Matrix4(), _sp = new THREE.Sphere(), PAD = 8;
+function inView(o, r) { const e = o.matrixWorld.elements; _sp.center.set(e[12], e[13] + 1, e[14]); _sp.radius = r + PAD; return _fr.intersectsSphere(_sp); }
+function syncChars(renderer, camera) {
   if (renderer.info.render.frame === syncF) return;
   syncF = renderer.info.render.frame;
+  _fr.setFromProjectionMatrix(_pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
   syncItems();
   for (const ch of chars) {
-    const on = shown(ch.root, stage);
+    // atası görüş dışında olan (arabaya, ata binmiş) kişi de kapalıdır: atanın altı gezilmediği için yeri eski kalır (shownC)
+    const on = shownC(ch.root, stage) && inView(ch.root, ch.root.userData.wheels ? 7 : 3);
+    ch.root.userData.cull = !on; // görüş dışındaki kişinin duruşu da hesaplanmaz (models.js animateCharacter)
+    const was = ch.root.kbCull === true;
+    setCull(ch.root, !on); // alt düğümlerinin matrisi de gezilmez (matris.js)
+    // görüşe yeni giren kişinin alt düğümleri bu çizimden önce yenilenir: tarama bu karede onları atlamıştı, kamera kesmesinde
+    // (ışınlanma, sinematik, albüm kartpostalı) kişi bir kare eski yerinde çizilirdi
+    if (was && on) ch.root.updateMatrixWorld(true);
+    if (!on && ch.off) continue; // zaten kapalı: düğümleri gezilmez
+    ch.off = !on;
     for (const n of ch.nodes) {
       const vis = on && within(n.node, ch.root);
       for (const it of n.insts) {
@@ -382,12 +405,12 @@ function buildItem(e) {
       id = addInst(b, g);
     } catch (err) { continue; }
     e.parts.push({ o, b, g, id, mat: m, geo: o.geometry, col: ck(m), mask: o.layers.mask, on: false, m: new Float32Array(16) });
-    o.layers.set(HIDE); o.userData.inst = true;
+    o.layers.set(HIDE); o.userData.inst = true; o.noDraw = true; refresh(o);
   }
 }
 function releaseItem(e) {
   if (!e.parts) return;
-  for (const r of e.parts) { r.o.layers.mask = r.mask; delete r.o.userData.inst; dropInst(r.b, r.id, r.g); }
+  for (const r of e.parts) { r.o.layers.mask = r.mask; delete r.o.userData.inst; r.o.noDraw = false; refresh(r.o); dropInst(r.b, r.id, r.g); }
   e.parts = null;
 }
 const badPart = (r) => r.o.material !== r.mat || r.o.geometry !== r.geo || ck(r.mat) !== r.col;
@@ -403,7 +426,9 @@ function itemTick(dt, scene) {
 function syncItems() {
   for (const e of items.values()) {
     if (!e.parts) continue;
-    const on = shown(e.g, stage);
+    const on = shownC(e.g, stage) && inView(e.g, 2); // görüş dışındaki kişinin taşıdığı ürün de kapalı (yeri güncellenmiyor)
+    if (!on && e.off) continue;
+    e.off = !on;
     for (const r of e.parts) {
       const vis = on && within(r.o, e.g);
       if (vis) {
@@ -453,6 +478,11 @@ const CELL = 24, MAX_R = 12, WATCH = 6, MIN_BIN = 3;
 const living = (o) => { const u = o.userData; return u.legs || u.arms || u.walk !== undefined || u.type !== undefined || u.fruit || u.wheels; }; // ürünler (makeItem) sık el değiştirir; ürün, fide, karakter ve araçlar toplu çizilir
 function shown(o, scene) { // sahneye bağlı ve bütün ataları görünür mü
   for (let a = o; a; a = a.parent) { if (!a.visible) return false; if (a === scene) return true; }
+  return false;
+}
+function shownC(o, scene) { // shown + atalarından biri görüş dışındaki bir kişi ya da araç (kbCull) değil
+  if (!o.visible) return false;
+  for (let a = o.parent; a; a = a.parent) { if (!a.visible || a.kbCull === true) return false; if (a === scene) return true; }
   return false;
 }
 function candidate(o) {
@@ -534,7 +564,7 @@ function bake(b, t0) {
   geo.computeBoundingSphere();
   const mesh = new THREE.Mesh(geo, b.m);
   mesh.castShadow = b.cast; mesh.receiveShadow = b.recv; mesh.layers.set(b.layer);
-  mesh.userData.baked = true; mesh.userData.sd = true;
+  mesh.userData.baked = true; mesh.userData.sd = true; mesh.userData.zfix = null; // zemin düzeltmesi (zfix.js) birleşimi kaldırıp asıllarını "kımıldadı" saydırmasın
   b.root.add(mesh);
   const src = b.list.map(({ s }) => { s.mask = s.o.layers.mask; hide(s); return s; });
   const bin = { mesh, src };
@@ -562,7 +592,7 @@ export function bakeTick(dt, scene) {
   twinTick();
   if (!scene.userData.syncChars) { // sahnenin varsa önceki kancası korunur, senkron onun ardından çalışır
     const prev = scene.onBeforeRender;
-    scene.onBeforeRender = function (r, s, c, t) { prev.call(this, r, s, c, t); syncChars(r); };
+    scene.onBeforeRender = function (r, s, c, t) { prev.call(this, r, s, c, t); syncChars(r, c); };
     scene.userData.syncChars = true;
   }
   sweepMore();

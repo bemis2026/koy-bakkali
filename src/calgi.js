@@ -214,7 +214,7 @@ function pump(S, now) {
 // kayıttan çalan çalgı: dosya bir kez yüklenir; dünyada hep çalıyormuş gibi mutlak zamana göre ortasından başlar, döngüde döner
 function recPump(S) {
   if (S.src) return;
-  if (!S.buf) { if (!S.loading) { S.loading = true; fetch(S.rec).then((r) => r.arrayBuffer()).then((b) => A.decodeAudioData(b)).then((b) => { S.buf = b; }).catch(() => { S.loading = false; }); } return; }
+  if (!S.buf) { if (!S.loading && !(S.failAt && performance.now() - S.failAt < 60000)) { S.loading = true; fetch(S.rec).then((r) => r.arrayBuffer()).then((b) => A.decodeAudioData(b)).then((b) => { S.buf = b; }).catch(() => { S.loading = false; S.failAt = performance.now(); }); } return; } // inmeyen dosya bir dakika sonra yeniden denenir (eskiden her çağrıda, saniyede onlarca istek)
   const t = A.currentTime + 0.02, pos = t % S.buf.duration, s = A.createBufferSource();
   s.buffer = S.buf; s.loop = true; s.connect(S.inp); s.start(t, pos); S.src = s; S.loop0 = t - pos;
 }

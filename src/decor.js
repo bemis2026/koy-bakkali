@@ -146,7 +146,30 @@ function forest(parent) {
       }
     }
   });
-  for (const im of [crowns, trunks, cones, ...SP.flatMap((t) => t.ims)]) { im.castShadow = true; im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; parent.add(im); }
+  // Her türün tek InstancedMesh'i bütün haritayı kaplıyordu: sınır küresi hiç görüş dışına çıkmadığı için kamera dükkânın içine baksa da
+  // ormanın tamamı (yaklaşık 200 bin üçgen) her karede, gölgeli kademelerde iki kez çiziliyordu (2026-11-10 denetimi). Örnekler 56 m'lik
+  // karelere dağıtılır: yalnız görünen kareler çizilir. Yukarıdaki çekiliş sırası (R, RS) aynı kalır, ağaçların yeri değişmez
+  for (const im of [crowns, trunks, cones, ...SP.flatMap((t) => t.ims)]) { im.castShadow = true; for (const cell of splitCells(im)) parent.add(cell); }
+}
+function splitCells(im, size = 56) {
+  const e = im.instanceMatrix.array, c = im.instanceColor ? im.instanceColor.array : null, cells = new Map();
+  for (let i = 0; i < im.count; i++) {
+    const k = Math.floor(e[i * 16 + 12] / size) + ',' + Math.floor(e[i * 16 + 14] / size);
+    let L = cells.get(k);
+    if (!L) cells.set(k, (L = []));
+    L.push(i);
+  }
+  const out = [];
+  for (const L of cells.values()) {
+    const m = new THREE.InstancedMesh(im.geometry, im.material, L.length);
+    L.forEach((i, j) => m.instanceMatrix.array.set(e.subarray(i * 16, i * 16 + 16), j * 16));
+    if (c) { m.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(L.length * 3), 3); L.forEach((i, j) => m.instanceColor.array.set(c.subarray(i * 3, i * 3 + 3), j * 3)); }
+    m.castShadow = im.castShadow; m.receiveShadow = im.receiveShadow; m.name = 'orman';
+    m.computeBoundingSphere();
+    out.push(m);
+  }
+  im.dispose(); // boşalan asıl örnek tamponu bırakılır (geometri ve malzeme ortak, onlara dokunulmaz)
+  return out;
 }
 
 // komşu köyler: oynanan alandan uzakta, çevresi çitle kapalı (oraya gidilmez, manzaradır)

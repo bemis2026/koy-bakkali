@@ -321,6 +321,7 @@ function travel(go) {
     if (go) {
       if (M.setSwimwear) M.setSwimwear(G.player, true); // adada mayoyla gezer
       trip.t = 0; trip.keyif = 0; trip.full = false; trip.sik0 = S().sik || 0; G.world = 'ada';
+      S().trip = { keyif: 0, full: false }; // kayıtta: adadayken oyun kapanırsa keyif boşa gitmez (updateTatil ilk kare)
       voyage(true, () => { busy = false; });
     } else voyage(false, () => { // gemi açılınca köye geçilir
       el.querySelector('b').innerHTML = '🚢 Köye dönülüyor…';
@@ -329,6 +330,7 @@ function travel(go) {
         if (M.setSwimwear) M.setSwimwear(G.player, false);
         G.player.position.set(AGENCY.x - 3.6, 0, AGENCY.z + 3.4); G.player.rotation.set(0, -Math.PI / 2, 0); G.world = 'koy'; G.camSnap = true; // acentenin önü, istasyonun hemen dışı
         const kf = Math.round(trip.keyif), min = trip.full ? FULL_MIN : kf >= MIN_PART ? Math.round((FULL_MIN * kf) / 100) : 0;
+        delete S().trip;
         if (min) S().dincUntil = (S().time || 0) + 60 * min;
         if (trip.full) { if (G.hooks.fillEnergy) G.hooks.fillEnergy(); toast(`⚡ Tam enerjiyle döndün: ${FULL_MIN} dakika hızlı yürür, 1 ürün fazla taşırsın`); }
         else if (min) toast(`⚡ Tatil keyfi %${kf}: ${min} dakika dinçsin. Barı doldursaydın ${FULL_MIN} dakika olurdu`);
@@ -353,6 +355,7 @@ function addKeyif(n) {
   if (!onIsle() || trip.full) return;
   trip.keyif = Math.min(100, trip.keyif + n);
   S().sik = trip.sik0 * (1 - trip.keyif / 100);
+  if (S().trip) { S().trip.keyif = Math.round(trip.keyif); S().trip.full = trip.keyif >= 100; }
   if (trip.keyif < 100) return;
   trip.full = true; S().sik = 0;
   toast(`⚡ Tatil keyfi doldu: tam enerji! Köye dönünce ${FULL_MIN} dakika dinçsin. Bardaki 🚢 düğmesiyle dönebilirsin`); sfx('unlock');
@@ -429,7 +432,16 @@ export function setupTatil(scene) {
 let built = false;
 export function updateTatil(dt) {
   if (!G.player || !G.stats || !G.scene) return;
-  if (!built) { built = true; setupTatil(G.scene); if (agencyDue()) openAgency(true); } // ilk karede kurulur (services.js her kare çağırır)
+  if (!built) { // ilk karede kurulur (services.js her kare çağırır)
+    built = true; setupTatil(G.scene); if (agencyDue()) openAgency(true);
+    // adadayken oyun kapandıysa (sekme atıldı, sayfa yenilendi) oyuncu köyde açılır: parası ödenmiş tatilin keyfi kadar dinç döner
+    const t = S().trip;
+    if (t && !G.visit) {
+      delete S().trip;
+      const kf = Math.round(t.keyif || 0), min = t.full ? FULL_MIN : kf >= MIN_PART ? Math.round((FULL_MIN * kf) / 100) : 0;
+      if (min) { S().dincUntil = (S().time || 0) + 60 * min; if (t.full) S().sik = 0; toast(`🏝️ Tatilin yarıda kalmıştı: ${min} dakika dinç döndün`); }
+    }
+  }
   hook();
   ui();
   if ((posT -= dt) <= 0) {

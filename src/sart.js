@@ -12,12 +12,12 @@ export const NEEDS = {
   kk: [{ hire: 'vendor' }, { earn: 'pazar', n: 1000 }], // Çiftlik: pazar bir süre çalışsın
   kb: [{ u: 'k7' }, { earn: 'koy', n: 4500 }], // Meydan
   gs: [{ u: 'kS2' }, { hire: 'ka_pazar' }, { earn: 'pazar', n: 3500 }], // Sahil: dükkân büyümüş, pazarın kasası oturmuş olmalı
-  kc: [{ earn: 'sahil', n: 1500 }],
-  gh: [{ u: 'lt1' }, { earn: 'sahil', n: 4000 }], // Han
+  kc: [{ earn: 'sahil', n: 1000 }], // 2026-11-10 kullanıcı kararı: sahil kazanç şartları %30 indi (1500 → 1000, 4000 → 2800, 3000 → 2100); botta 25-37 dk sürüyordu
+  gh: [{ u: 'lt1' }, { earn: 'sahil', n: 2800 }], // Han
   gk: [{ u: 'xhan1' }, { earn: 'han', n: 3000 }], // Tatil köyü
   gm: [{ earn: 'sahil', n: 800 }], // Mera
   m2: [{ u: 'm1' }], // Dokuma: önce mera çalışsın
-  gb: [{ u: 's2' }, { earn: 'sahil', n: 3000 }], // İskele
+  gb: [{ u: 's2' }, { earn: 'sahil', n: 2100 }], // İskele (sıra bozulmasın diye aynı oranda)
   gt: [{ earn: 'koy', n: 7000 }], // At ahırı
   e0: [{ earn: 'koy', n: 9000 }], // Benzinlik
   gf: [{ earn: 'han', n: 1200 }], // Fırın
@@ -123,5 +123,8 @@ export function needTick(dt) {
       sfx('level');
     }
   }
+  // şartı bir kez sağlanıp sonra bozulan (eleman işten çıkarıldı), yeniden sağlanan sıradaki kilit: bir daha "yeni" sayılmadığı için
+  // kilit alanı yeniden yüklemeye kadar çıkmıyordu (2026-11-10 denetimi)
+  else if (!G.nextPad && G.nextWait && (G.nextWait.lvl || 1) <= G.level && needOk(G.nextWait)) G.hooks.padsCheck();
   needRefresh();
 }

@@ -97,9 +97,19 @@ function normalize(obj, size) {
 export async function loadModels(list, onProgress) {
   const loader = new GLTFLoader();
   let done = 0;
+  // 2026-11-10 denetimi: tek bir dosya inmezse (kopan bağlantı, 509) oyun hiç açılmıyordu. Dosya başına üç deneme, deneme başına 25 sn;
+  // yine olmazsa o model sade bir kutuyla açılır (oyun yürür, sonraki açılışta yeniden denenir)
+  const fetchOne = async (url) => {
+    for (let n = 0; ; n++) {
+      try { return await Promise.race([loader.loadAsync(url), new Promise((_, no) => setTimeout(() => no(new Error('zaman aşımı')), 25000))]); }
+      catch (e) { if (n >= 2) throw e; await new Promise((ok) => setTimeout(ok, 600 * (n * 2 + 1))); }
+    }
+  };
   await Promise.all([...list.map(async ([key, url, size]) => {
-    const gltf = await loader.loadAsync(url);
-    MODELS[key] = normalize(gltf.scene, size);
+    let obj;
+    try { obj = (await fetchOne(url)).scene; }
+    catch (e) { console.warn('model yüklenemedi', url, e); obj = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat('#d9c9a8')); }
+    MODELS[key] = normalize(obj, size);
     done++; onProgress && onProgress(done / list.length);
   }), loadAnimals(), loadNature(), loadBuildings(), loadChars(), loadVehicles(), loadEsya()]); // hayvan, doğa, yapı, karakter, araç ve eşya GLB'leri (hayvan.js, doga.js, yapi.js, karakter.js, arac.js, esya.js): yüklenemeyen model kodla çizilen eski haliyle kalır
 }
@@ -261,6 +271,9 @@ export function randomLook(r = Math.random) {
 // run: oyuncunun aceleci koşusu (sık adım, uzun salınım, kollar pompalar, daha çok zıplar)
 export function animateCharacter(g, speed01, dt, carrying, run = false) {
   const u = g.userData;
+  // görüş alanının dışındaki kişinin duruşu hesaplanmaz, yalnız adım sayacı yürür (perf.js syncChars u.cull; 2026-11-10 ölçümü: kalabalığın
+  // çoğu ekran dışında, duruş ve dönüş yazımları oyun adımının dörtte biriydi). Görüşe girince o anki adımından sürer
+  if (u.cull === true) { u.t = (u.t || 0) + dt; u.walk += dt * (run ? 16 : 11) * Math.max(0.15, speed01); return; }
   if (u.glbc) { // modelli karakter: adım, kol salınımı ve nefes modelin kliplerinde; kuklalar yalnız taşıma pozu ve etrafa bakma için
     u.t = (u.t || 0) + dt;
     const idle = 1 - Math.min(1, speed01 * 3);
@@ -450,7 +463,9 @@ export function makeTrolley() {
 // bisiklet: iki teker, renkli üçgen kadro, sele, gidon ve önde küçük sepet
 function rod(a, b, r, m, parent) {
   const d = new THREE.Vector3().subVectors(b, a), len = d.length();
-  const c = mesh(new THREE.CylinderGeometry(r, r, len, 6), m, (a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2, parent);
+  // ortak birim silindir ölçeklenir: her bisiklette 8 yeni geometri kurulup hiç silinmiyordu (2026-11-10 denetimi)
+  const c = mesh(cached('rod6', () => new THREE.CylinderGeometry(1, 1, 1, 6)), m, (a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2, parent);
+  c.scale.set(r, len, r);
   c.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
   return c;
 }
@@ -537,9 +552,10 @@ export function sitter(look, x, y, z, s, parent) {
   return d;
 }
 // camlı kabin: içindeki köylü dışarıdan görünür
+const CAB_GLASS = new THREE.MeshStandardMaterial({ color: '#cfeefa', roughness: 0.1, transparent: true, opacity: 0.32, depthWrite: false }); // ortak cam
 export function cabin(g, w, h, d, y, z, roof) {
-  const glass = new THREE.MeshStandardMaterial({ color: '#cfeefa', roughness: 0.1, transparent: true, opacity: 0.32, depthWrite: false });
-  const box = mesh(new THREE.BoxGeometry(w, h, d), glass, 0, y + h / 2, z, g);
+  // geometri boyuta göre önbellekten, cam ortak: her köy arabasında yenisi kurulup araba gidince silinmiyordu (2026-11-10 denetimi)
+  const box = mesh(cached(`cab${w}|${h}|${d}`, () => new THREE.BoxGeometry(w, h, d)), CAB_GLASS, 0, y + h / 2, z, g);
   box.castShadow = false; box.renderOrder = 3;
   rbox(w + 0.06, 0.1, d + 0.06, 0.04, roof, 0, y + h, z, g);
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) rbox(0.08, h, 0.08, 0.02, roof, sx * (w / 2 - 0.02), y + h / 2, z + sz * (d / 2 - 0.02), g);

@@ -746,7 +746,7 @@ function audienceOne() {
   const at = V(GISE.x + rand(-0.5, 0.5), 0, GISE.z + 1.35);
   c.state = 'gise'; c.path = [at]; c.wait = 0; c.setBubbleText('🎟️', 'pay');
   c.d = { o: c.obj, style: DANCES[Math.floor(rand(0, DANCES.length))], f: rand(4.2, 6.8), ph: rand(0, PI * 2), ry: Math.atan2(-38.25 - spot.x, -58.4 - spot.z) + rand(-0.3, 0.3) };
-  const gone = () => { if (spot.c === c) spot.c = null; c.clearBubble(); c.state = 'leave'; c.leaving = true; c.path = [V(SHOW_FROM.x + rand(-2, 2), 0, SHOW_FROM.z)]; };
+  const gone = () => { if (spot.c === c) spot.c = null; c.clearBubble(); c.obj.position.y = 0; c.obj.rotation.x = c.obj.rotation.z = 0; c.state = 'leave'; c.leaving = true; c.path = [V(SHOW_FROM.x + rand(-2, 2), 0, SHOW_FROM.z)]; };
   c.goHome = gone;
   c.think = (dt) => {
     if (c.state === 'gise') {
@@ -775,7 +775,7 @@ function idleOne() {
     if (c.state === 'seat') { if (c.walk(dt)) c.state = 'watch'; }
     else if (c.state === 'watch') {
       c.stay -= dt; danceStep(c.d, G.time, dt, show.on > 0 ? 0.7 : 0.25);
-      if (c.stay <= 0 && !(show.on > 0)) { c.state = 'leave'; c.leaving = true; c.path = [V(SHOW_FROM.x + rand(-2, 2), 0, SHOW_FROM.z)]; }
+      if (c.stay <= 0 && !(show.on > 0)) { c.obj.position.y = 0; c.obj.rotation.x = c.obj.rotation.z = 0; c.state = 'leave'; c.leaving = true; c.path = [V(SHOW_FROM.x + rand(-2, 2), 0, SHOW_FROM.z)]; }
     } else if (c.state === 'leave' && c.walk(dt)) { show.idle = show.idle.filter((q) => q !== c); c.destroy(); }
   };
   show.idle.push(c);

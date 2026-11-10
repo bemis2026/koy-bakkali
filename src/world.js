@@ -581,6 +581,10 @@ function buildKoy() {
     if (R.aisle) for (const t of [...R.aisle.pending]) R.aisle.ensure(t, instant);
     for (const sh of R.shelves || []) if (sh.applyLook) sh.applyLook(); // raflar dükkânla birlikte güzelleşir
     if (n >= 4) growEast();
+    // yeri aşamaya göre değişen yan kilit (Manav Reyonu, def.at alıcısı) eski yerinde kalmasın: alanı süt ve peynir rafının üstünde
+    // kalıyor, raf doldururken para sessizce kilide akıyordu (2026-11-10 denetimi). Yeniden kurulur, ödenen kısmı korunur
+    const old = sideOpen.kr3;
+    if (old) { if (old.paid >= 1) padSave.kr3 = Math.floor(old.paid); old.dispose(); delete sideOpen.kr3; sidePads(); }
   };
   // büyük köy marketi doğuya, köy caddesinin batı bordürüne kadar büyür (dukkan.js 4. aşama): oradaki ağaç kalkar, fenerler yan
   // basamaktan caddenin batı kenarına geçer; bölge sınırı da dükkânla birlikte uzar. Eskiden fenerler basamağın üstünde kalıyordu
@@ -963,8 +967,16 @@ function shopKoy(R, c, o = {}) {
         break;
       case 'queue': {
         const reg = c.reg || R.register;
+        // kasasında kimse kalmadıysa (kasiyer işten çıkarıldı, sen öbür kasaya geçtin) ve çalışan başka kasa varsa 8 sn sonra oraya geçer:
+        // eskiden ilk seçtiği kasada sonsuza dek bekliyor, acele müşteri kızıp gidiyordu (2026-11-10 denetimi)
+        if (!(reg.cashier || reg.inside) && !(reg.sale && reg.sale.c === c)) {
+          if ((c.qDead = (c.qDead || 0) + dt) > 8) {
+            c.qDead = 0;
+            if ((R.registers || [R.register]).some((r) => r !== reg && (r.cashier || r.inside))) { reg.leave(c); c.atRegister = false; toQueue(); break; }
+          }
+        } else c.qDead = 0;
         // acele müşteri kasa kuyruğunda da uzun bekleyemez: hesabı gecikirse kızıp gider
-        if (c.rush && (c.qWait = (c.qWait || 0) + dt) > 20) { reg.leave(c); c.atRegister = false; c.mood(false); leave(); break; }
+        if (c.rush && !(reg.sale && reg.sale.c === c) && (c.qWait = (c.qWait || 0) + dt) > 20) { reg.leave(c); c.atRegister = false; c.mood(false); leave(); break; } // ödemesi başladıysa beklemez sayılır (yoksa tezgâhtaki ürünler silinip ceza kesiliyordu)
         queueStep(c, reg, dt, reg.faceY ?? PI); // yerinde bekler, sıra ilerleyince ağır adımla geçer, uzun sırada sıkılır (game.js)
         break;
       }
@@ -1341,9 +1353,9 @@ function spawnPazar(R) {
         if (c.t > 0.4) {
           c.t = 0;
           const obj = c.myStall.takeType(c.want);
-          if (obj) { mineFx(c, obj); const pay = priceOf(c.want, obj) * mult(); c.stack.push(c.want, obj, 0.3); c.got++; G.stats.sold++; if (c.got === 1) G.stats.customers++; R.pile.add(pay, c.obj.position); floatText(c.obj.position, `+${pay} ₺`, mult() > 1 ? 'pos x2' : 'pos'); sfx('cash', { at: c.obj.position }); c.setBubble(c.want, c.need - c.got); }
+          if (obj) { mineFx(c, obj); const pay = Math.round(priceOf(c.want, obj) * mult()); c.stack.push(c.want, obj, 0.3); c.got++; G.stats.sold++; if (c.got === 1) G.stats.customers++; R.pile.add(pay, c.obj.position); floatText(c.obj.position, `+${pay} ₺`, G.boost > 0 ? 'pos x2' : 'pos'); sfx('cash', { at: c.obj.position }); c.setBubble(c.want, c.need - c.got); }
         }
-        if (c.got >= c.need || c.wait > 25 * pat(c)) { c.spot.c = null; if (c.got) R.rivals.note(true); c.mood(c.got > 0); away(); }
+        if (c.got >= c.need || c.wait > 25 * pat(c)) { c.spot.c = null; if (c.got) R.rivals.note(true); away(); c.mood(c.got > 0); } // önce yola çıkar (balonu siler), sonra memnuniyetini gösterir
         break;
       case 'walk2':
         if (c.walk(dt)) c.destroy();
@@ -1461,12 +1473,12 @@ function startDrown(R, c) {
   // kıyıya çıktı: teşekkür eder, bahşiş bırakır
   c.landed = () => {
     R.drowning = null; R.dCool = rand(28, 45);
-    const tip = 30 * mult();
+    const tip = Math.round(30 * mult());
     R.pile.add(tip, c.obj.position);
     floatText(c.obj.position, `Hayatımı kurtardın! +${tip} ₺`, 'pos');
     confetti(c.obj.position, 24);
     c.mood(true);
-    c.path = [onSand(c.obj.position.x), V(c.obj.position.x, 0, c.swim.zOut), V(c.swim.x0, 0, c.swim.zOut)];
+    c.path = [onSand(c.obj.position.x), V(c.obj.position.x, 0, c.swim.zOut), ...viaBridge(c.obj.position.x, c.swim.x0, c.swim.zOut), V(c.swim.x0, 0, c.swim.zOut)];
     c.leaving = true; c.state = 'leave';
   };
 }
@@ -1485,7 +1497,7 @@ function seaThink(R, c, dt) {
       if (seaPlay(c, dt)) return true; // yatakta, simitte ya da top oynarken (beach.js): dolaşmaz, boğulmaz
       swimAround(c, dt); // yerinde durmaz, çevresinde kulaç atarak dolaşır (sea.js)
       if (!R.drowning && R.dCool <= 0 && !havaIslak() && Math.random() < dt * 0.05) { startDrown(R, c); return true; }
-      if (c.swim.t <= 0) { c.path = [V(p.x, 0, shoreZ(p.x)), onSand(p.x), V(p.x, 0, c.swim.zOut), V(c.swim.x0, 0, c.swim.zOut)]; c.leaving = true; c.state = 'leave'; }
+      if (c.swim.t <= 0) { c.path = [V(p.x, 0, shoreZ(p.x)), onSand(p.x), V(p.x, 0, c.swim.zOut), ...viaBridge(p.x, c.swim.x0, c.swim.zOut), V(c.swim.x0, 0, c.swim.zOut)]; c.leaving = true; c.state = 'leave'; }
       return true;
     case 'drown': {
       c.timer -= dt;
@@ -1503,13 +1515,14 @@ function seaThink(R, c, dt) {
         floatText(p, 'Kimse kurtarmadı… plaj korktu', 'neg');
         c.mood(false);
         c.speed *= 0.5;
-        c.path = [V(p.x, 0, shoreZ(p.x)), onSand(p.x), V(p.x, 0, c.swim.zOut), V(c.swim.x0, 0, c.swim.zOut)];
+        c.path = [V(p.x, 0, shoreZ(p.x)), onSand(p.x), V(p.x, 0, c.swim.zOut), ...viaBridge(p.x, c.swim.x0, c.swim.zOut), V(c.swim.x0, 0, c.swim.zOut)];
         c.leaving = true; c.state = 'leave';
       }
       return true;
     }
     case 'towed':
       // oyuncu kurtardıysa kendi kıyıya yüzer; cankurtaran kurtardıysa o çeker (upgrades.js)
+      if (!c.rescuer) { c.rescuer = 'player'; c.path = [V(p.x, 0, shoreZ(p.x))]; } // cankurtaran çekerken işten çıkarıldı: sonsuza dek suda kalmasın
       if (c.rescuer === 'player' && c.walk(dt)) c.landed();
       swimY(c, dt, 0.5);
       return true;
@@ -1522,6 +1535,12 @@ function seaThink(R, c, dt) {
 
 // sahil müşterileri tahta yürüyüş yolunun harita dışındaki uçlarından gelir, çoğu yakın uçtan
 const SAHIL_FAR = [-105, 162]; // iki ucu da ormanın içinde (eskiden -65 ve 132)
+// Doğudan gelen ve doğuya giden müşteri dereyi (x 57-63) pazar caddesinin köprüsünden geçer: z 14'teki iskele köprü 2026-11-06'da kalkınca
+// müşteriler suyun üstünden yürüyordu (2026-11-10 denetimi). Köprünün iki ucu açık, kenarları korkuluklu: uçlarından girilir
+const CREEK_W = 51.6, CREEK_E = 68.6, CREEK_Z = 8.7; // dere x 57,5-64,5; iki yanında 4-5 m çimen kıyı: dönüşler yürünen zeminde (2026-11-10 ölçümü)
+const viaBridge = (fromX, toX, z) => ((fromX > 62) === (toX > 62) ? [] : fromX > toX
+  ? [V(CREEK_E, 0, z), V(CREEK_E, 0, CREEK_Z), V(CREEK_W, 0, CREEK_Z), V(CREEK_W, 0, z)]
+  : [V(CREEK_W, 0, z), V(CREEK_W, 0, CREEK_Z), V(CREEK_E, 0, CREEK_Z), V(CREEK_E, 0, z)]);
 function spawnSahil(R, L, from) {
   const near = L.x < 30 ? 0 : 1;
   // mera açıkken iskelenin batı ucu meranın içinden geçer (baraka, çit): müşteriler doğudan gelir. from: ikili şezlongda eşiyle aynı uçtan gelir
@@ -1529,7 +1548,7 @@ function spawnSahil(R, L, from) {
   const zIn = 13.6 + rand(-0.2, 0.2), zOut = 14.4 + rand(-0.2, 0.2);
   const c = new Customer(V(x0, 0, zIn), 'sahil', M.touristLook()); // tatilci: açık renk, güneş şapkası, gözlük
   L.c = c;
-  c.go(V(L.x, 0, zIn), V(L.x, 0, 24.6));
+  c.go(...viaBridge(x0, L.x, zIn), V(L.x, 0, zIn), V(L.x, 0, 24.6));
   c.state = 'toL';
   c.seat = V(L.x, 0.45, L.z);
   c.order = R.menu.includes('dondurma') && Math.random() < 0.6 * day.heat ? 'dondurma' : pick(R.menu); // siparişi şezlonga yürürken baloncukta görünür; sıcakta dondurma
@@ -1541,7 +1560,7 @@ function spawnSahil(R, L, from) {
     c.obj.rotation.set(0, PI, 0);
     c.obj.position.set(L.x, 0, 24.6);
     L.c = null;
-    c.path = [V(L.x, 0, zOut), V(x0, 0, zOut)];
+    c.path = [V(L.x, 0, zOut), ...viaBridge(L.x, x0, zOut), V(x0, 0, zOut)];
     c.leaving = true;
     c.state = 'leave';
   };
@@ -2329,7 +2348,7 @@ function levelUp(lv, old) {
   for (const s of G.stations) if (s instanceof UnlockPad && isBolum(s.def)) s.refresh(); // bölüm fiyatları yeni seviyeye göre
   if (!G.nextPad) nextPad(); else sidePads();
   const reward = levelReward(lv);
-  G.money += reward;
+  if (!G.visit) G.money += reward; // ziyarette komşunun seviye ödülü yardım parasına karışmasın
   banner(`SEVİYE ${lv}`, `⭐ ${titleOf(lv)}`);
   confetti(G.player.position, 90);
   feel('level');
@@ -2517,11 +2536,18 @@ export function buildWorld(saved) {
       G.unlocked.add(id); KS.setStage(n, true);
     }
     padSave = { ...(saved.pads || {}) };
-    // toplanmamış para yığınları yerinde durur
-    if (saved.piles) for (const s of G.stations) if (s instanceof MoneyPile && saved.piles[pileKey(s)] > 0) { s.add(saved.piles[pileKey(s)], s.base.position); saved.piles[pileKey(s)] = 0; }
+    G.pads0 = saved.pads || {}; // rakip tezgâh kilitleri ilk karede buradan okur (rivals.js)
+    // bu noktadan önce kurulmuş kilitler (bostanların fide kilitleri) yarım ödemesini geri alır: resume yalnız sonradan kurulanlarda
+    // çağrılıyordu, fideye dökülen para yenilemede kayboluyordu (2026-11-10 denetimi)
+    for (const s of G.stations) if (s instanceof UnlockPad && s.def && padSave[s.def.id] > 0) resume(s);
+    // kaldırılan bölümlerin (e-ticaret, kargo) yarım ödemesi oyuncuya döner
+    for (const id of ['ge', 'kp', 'xkargo1', 'xkargo2', 'xkargo3']) if (padSave[id] > 0) { G.money += padSave[id]; delete padSave[id]; }
+    // toplanmamış para yığınları yerinde durur (komşu ziyaretinde değil: komşunun kasasındaki para onun kaydında duruyor; ziyaretçi
+    // toplayıp "yardım" diye geri gönderince ikiye katlanıyordu)
+    if (saved.piles && !G.visit) for (const s of G.stations) if (s instanceof MoneyPile && saved.piles[pileKey(s)] > 0) { s.add(saved.piles[pileKey(s)], s.base.position); saved.piles[pileKey(s)] = 0; }
     // yeri değişen kasaların kayıttaki parası yeni kasaya: deniz bisikleti kiralamanın dere kenarındaki kasası (54,9/21,6) 2026-11-03'te büfeye katıldı
     const MOVED_PILES = { '549:216': () => G.regions.sahil && G.regions.sahil.pile, '493:8': () => G.regions.pazar && G.regions.pazar.pile, '498:24': () => G.regions.pazar && G.regions.pazar.pile }; // pazar kasası 2026-11-06'da U düzeninde, 2026-11-09'da kuzey sıranın ucuna taşındı
-    if (saved.piles) for (const [k, to] of Object.entries(MOVED_PILES)) { const P = to(); if (P && saved.piles[k] > 0) { P.add(saved.piles[k], P.base.position); saved.piles[k] = 0; } }
+    if (saved.piles && !G.visit) for (const [k, to] of Object.entries(MOVED_PILES)) { const P = to(); if (P && saved.piles[k] > 0) { P.add(saved.piles[k], P.base.position); saved.piles[k] = 0; } }
   }
   // mertebe: kayıttaki XP (eski kayıtta açık bölümlerin seviyesi garanti); seviyesi gelmeyen bölümler gizlenir
   initLevel(saved, Math.max(1, ...UNLOCKS.filter((u) => G.unlocked.has(u.id)).map((u) => u.lvl || 1)));
@@ -2551,6 +2577,8 @@ export function teleportTo(id) {
 export function goToRegion(id) {
   const R = G.regions[id];
   if (!R || !R.unlocked) return false;
+  // adadayken (ya da gemi yolundayken) gidilmez: köye dönüş gemiyle olur (mayo, tatil keyfi ve harita tatil.js'in dönüşünde toparlanır)
+  if (G.player.position.x > 700 || G.world === 'ada') { toast('🚢 Adadan köye gemiyle dönülür: tatil keyfi barındaki gemi düğmesine bas'); return false; }
   const e = ENTRY[id];
   if (!e) return false;
   if (G.hooks.goTo && G.hooks.goTo(e[0], e[2])) return 'run';
@@ -2562,12 +2590,15 @@ export function applyCustom() {
   const c = G.custom, K = G.regions.koy;
   const st = M.shopStyle(K.shop.userData.stage, c), was = K.shop.userData.style;
   if (was && Object.keys(st).some((k) => st[k] !== was[k])) K.restyle(); else M.paintShop(K.shop, c); // biçim değiştiyse bina yeniden kurulur
+  // adlar temizlenir: içe aktarılan (başkasının paylaştığı) kayıttaki HTML işaretleri menü, raf takip ve albümde sayfaya giriyordu
+  const tidy = (s, n) => String(s || '').replace(/[<>&"'`]/g, '').slice(0, n);
+  c.name = tidy(c.name, 24); if (c.player != null) c.player = tidy(c.player, 24);
   K.name = c.name || 'Köy Bakkalı';
   const m = new THREE.MeshStandardMaterial({ color: c.shirt, roughness: 0.85 });
   for (const s of G.player.userData.shirtMeshes) s.material = m;
   // oyuncunun adı başının üstünde (Özelleştir → Karakterinin adı); elemanların ad etiketiyle aynı görünüm, biraz daha belirgin
   const nm = (c.player || '').trim();
-  if (nm && !playerTag) { const el = document.createElement('div'); el.className = 'staff me'; playerTag = { el, h: G.labels.add(el, (v) => v.copy(G.player.position).setY(G.player.position.y + 2.3)) }; }
+  if (nm && !playerTag) { const el = document.createElement('div'); el.className = 'staff me'; el.setAttribute('translate', 'no'); playerTag = { el, h: G.labels.add(el, (v) => v.copy(G.player.position).setY(G.player.position.y + 2.3)) }; }
   if (playerTag) { playerTag.el.textContent = nm ? `⭐ ${nm}` : ''; playerTag.el.style.display = nm ? '' : 'none'; }
 }
 let playerTag = null;
@@ -2587,7 +2618,7 @@ export function updateWorld(dt) {
   updateLevel(); // XP: satış, müşteri, başarım
   nameAreas(dt); // açılış kilidi gelmeyen bölümün adı yazmaz (kilit yazısı, harita)
   // kıyı z ≈ 31.6: yaklaştıkça dalga sesi açılır (z 28'de tam, 14'te sessiz)
-  setAmbience(THREE.MathUtils.clamp((G.player.position.z - 14) / 14, 0, 1));
+  setAmbience(G.player.position.x > 300 && G.player.position.x < 700 ? 0 : THREE.MathUtils.clamp((G.player.position.z - 14) / 14, 0, 1)); // şehirde (x 300-700) deniz yok
   updateAmbience(dt); // bölgelerin arka plan sesleri, sınırlarda yumuşak geçiş
   updateBirds(dt); // gökyüzünde kuş sürüleri, deniz üstünde martılar
   updateFlags(G.time, G.player.position); // kule bayrakları rüzgârda dalgalanır (uzaktakiler durur)

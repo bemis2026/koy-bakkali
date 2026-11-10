@@ -5,7 +5,7 @@ import { G, ITEMS, Labels, Stack, makeItem, initAudio, updateCore, save, loadSav
 import { pickSave, applyFlag, markNewGame, diskSave } from './persist.js';
 import { onlineGate, onlineStart, cloudNewer } from './online-ui.js';
 import { initOnline } from './online.js';
-import { tekSekme, kaliciDepo, ekranKarti, hataRaporu, hata } from './koruma.js'; // tek sekme, yedek, ekran kartı, hata raporu
+import { tekSekme, kaliciDepo, ekranKarti, hataRaporu, hata, sekmeNobet } from './koruma.js'; // tek sekme, yedek, ekran kartı, hata raporu
 hataRaporu();
 import { initInstall } from './install.js';
 import * as M from './models.js';
@@ -19,7 +19,7 @@ import { updateTahsilat } from './tahsilat.js';
 import { startRun, stopRun, steer as runSteer, running } from './autorun.js';
 import { playCinema, playShots, cineActive, cineCamera } from './cinema.js';
 import { alignGroundUV } from './tex.js';
-import { renderDof } from './dof.js';
+import { renderDof, disposeDof } from './dof.js';
 import { initUpgrades, updateUpgrades, toggleMenu } from './upgrades.js';
 import { initUI, updateUI, setTip, initCustomize, openCustomize } from './ui.js';
 import { updateRehber } from './rehber.js';
@@ -45,6 +45,7 @@ import { updateSincap } from './sincap.js'; // ağaçlarda ve ağaç diplerinde 
 import { updateHoca } from './hoca.js'; // sürpriz: eşeğine ters binen Nasreddin Hoca
 import { updateColFit, shapeOf, pushPoly, inPoly, OUT as COL_OUT } from './colfit.js'; // engel kutuları nesnenin gerçek izine uyar
 import { TIERS, QNAME, tierOf, initQuality } from './kalite.js';
+import { fastMatrices } from './matris.js'; // sahne matrisleri yalnız değişen düğümde yeniden kurulur
 
 const canvas = document.getElementById('c');
 const TOUCH = matchMedia('(pointer: coarse)').matches;
@@ -52,7 +53,28 @@ const TOUCH = matchMedia('(pointer: coarse)').matches;
 // yalnız masaüstünde Yüksek/Orta'da (telefonda yüksek piksel yoğunluğunda farkı az, yükü çok); sonradan değişirse yeniden açılışta uygulanır
 const Q0 = initQuality();
 M.setDetail(tierOf(Q0).detail);
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: !TOUCH && tierOf(Q0).pr >= 1.5 });
+window.__kbBoot = true; // index.html'deki bekçi: oyun kodu çalışmaya başladı
+// açılamayan oyunda sonsuz "Yükleniyor…" yerine açıklama ve "Yeniden dene" düğmesi (2026-11-10 denetimi). Dil dosyası henüz gelmemiş
+// olabilir: iki dilde verilir (index.html açılışta <html lang>'ı kurar)
+function fatal(tr, en) {
+  const el = document.getElementById('loading');
+  if (!el) return;
+  const E = document.documentElement.lang === 'en';
+  el.classList.remove('hide'); el.style.display = '';
+  el.querySelector('span').textContent = E ? en : tr;
+  if (el.querySelector('button')) return;
+  const b = document.createElement('button');
+  b.type = 'button'; b.textContent = E ? 'Try again' : 'Yeniden dene'; b.setAttribute('translate', 'no');
+  b.style.cssText = 'font: 800 16px Nunito, sans-serif; padding: 10px 24px; border-radius: 999px; border: 3px solid #3b2a6b; background: #ffd23f; color: #3b2a6b; cursor: pointer;';
+  b.onclick = () => location.reload();
+  el.appendChild(b);
+}
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ canvas, antialias: !TOUCH && tierOf(Q0).pr >= 1.5 }); }
+catch (e) {
+  fatal('Tarayıcın 3B çizimi başlatamadı. Tarayıcını güncelle ya da ayarlarından donanım hızlandırmayı aç.', 'Your browser could not start 3D graphics. Update your browser or turn on hardware acceleration in its settings.');
+  throw e;
+}
 ekranKarti(canvas); // bağlam düşerse kayıt yazılır, yeniden aç perdesi (koruma.js)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
@@ -67,6 +89,7 @@ scene.background = new THREE.Color('#bfe6ff');
 scene.fog = new THREE.Fog('#bfe6ff', 80, 240);
 const camera = new THREE.PerspectiveCamera(38, 1, 0.5, 400);
 G.scene = scene; G.camera = camera;
+if (!/[?&]eskimatris=/.test(location.search)) fastMatrices(scene); // ?eskimatris=1: three'nin kendi yolu (karşılaştırma testi)
 
 const hemi = new THREE.HemisphereLight('#ffffff', '#9cc27e', 1.9);
 scene.add(hemi);
@@ -144,7 +167,9 @@ const joyEl = document.getElementById('joy'), knobEl = document.getElementById('
 const touches = new Map();
 let pinch = 0, zoom = 1, zoomT = 1;
 const ZOOM_MAX = 4.2; // tekerlekle ne kadar uzaklaşılabilir
-const typing = (e) => e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
+const TEXT_IN = /^(text|search|email|password|number|url|tel)$/;
+// yalnız yazı yazılan kutular tuşları yutar: kaydırıcı ya da onay kutusu odakta kalınca yürüme tuşları çalışmıyordu (2026-11-10 denetimi)
+const typing = (e) => { const t = e.target; return !!t && (t.tagName === 'TEXTAREA' || t.isContentEditable === true || (t.tagName === 'INPUT' && TEXT_IN.test(t.type))); };
 const isOpen = (id) => document.getElementById(id).classList.contains('open');
 addEventListener('keydown', (e) => {
   if (typing(e)) { if (e.code === 'Escape') e.target.blur(); return; }
@@ -161,8 +186,15 @@ addEventListener('keydown', (e) => {
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
+// tekerlek kaydırılabilir bir kutunun (yazışma listesi, açılır menü) üstündeyse o kutu kayar, kamera yakınlaşmaz
+const scrollsUnder = (el) => {
+  for (let a = el; a && a.nodeType === 1 && a !== document.body; a = a.parentElement) {
+    if (a.scrollHeight > a.clientHeight + 1) { const o = getComputedStyle(a).overflowY; if (o === 'auto' || o === 'scroll') return true; }
+  }
+  return false;
+};
 addEventListener('wheel', (e) => {
-  if (G.menuOpen) return;
+  if (G.menuOpen || scrollsUnder(e.target)) return;
   e.preventDefault();
   zoomT = THREE.MathUtils.clamp(zoomT * (e.deltaY > 0 ? 1.1 : 1 / 1.1), 0.55, ZOOM_MAX);
 }, { passive: false });
@@ -173,8 +205,10 @@ const PITCH_DEF = Math.atan2(18.5, 15), PITCH_MIN = 0.3, PITCH_MAX = 1.5, TAU = 
 let pitch = THREE.MathUtils.clamp(settings.camPitch ?? PITCH_DEF, PITCH_MIN, PITCH_MAX), pitchT = pitch;
 let yaw = settings.camYaw ?? 0, yawT = yaw; // 0 = kamera güneyde, kuzeye bakar
 let lastLz = 0, lastAz = 0;
+const labelsEl = document.getElementById('labels');
 const tilt = { on: false, id: null, x: 0, y: 0, moved: 0 };
 canvas.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); }); // tarayıcının otomatik kaydırması açılmasın
+canvas.addEventListener('contextmenu', (e) => e.preventDefault()); // sağ tık menüsü ("Resmi farklı kaydet") oyunun üstünde açılmasın
 canvas.addEventListener('pointerdown', (e) => {
   if (e.button !== 1) return;
   e.preventDefault(); e.stopImmediatePropagation();
@@ -201,6 +235,7 @@ canvas.addEventListener('pointercancel', endTilt);
 canvas.addEventListener('pointerdown', (e) => {
   initAudio();
   if (G.mini) { if (e.button === 0) G.mini.tap(e.clientX, e.clientY); return; } // mini oyunda dokunmak atıştır, joystick çıkmaz
+  if (e.pointerType === 'mouse' && e.button !== 0) return; // farede yalnız sol tuş yürütür
   if (e.pointerType === 'touch') {
     touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); endJoy({ pointerId: joy.id }); return; }
@@ -222,6 +257,7 @@ canvas.addEventListener('pointermove', (e) => {
     }
   }
   if (!joy.on || e.pointerId !== joy.id) return;
+  if (e.pointerType === 'mouse' && !(e.buttons & 1)) { endJoy(e); return; } // tuş pencerenin dışında bırakılmış (pointerup gelmedi): karakter fareyi izlemesin
   let dx = e.clientX - joy.ox, dy = e.clientY - joy.oy;
   // parmak halkanın dışına çıkınca halka parmağın peşinden gelir (yüzen joystick): yön değiştirmek için parmağı başa döndürmek
   // gerekmez, ters yöne birkaç milimetre kaydırmak yeter (index.html #joy 64 px)
@@ -315,6 +351,7 @@ function applyQuality(q) {
   if (!sh && sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } // gölgesiz kademede harita ekran kartı belleğinde boş durmasın (2048'lik 16 MB)
   if (sh && sun.shadow.mapSize.x !== T.shadow) { sun.shadow.mapSize.set(T.shadow, T.shadow); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
   dofOn = T.dof || (q === 'orta' && !TOUCH); // alan derinliği: Yüksek'te, masaüstünde Orta'da da (dof.js)
+  if (!dofOn) disposeDof(); // kapalı kademede çizim hedefi ekran kartı belleğinde boş durmasın
   shadowMin = T.shadowEvery; setArmShadows(T.shadowEvery === 1); // Orta: gölge haritası en sık 2 karede bir, kollar gölgesiz (perf.js)
   fpsCap = T.fps; fogK = T.fog; M.setDetail(T.detail); slowFor = 0;
   resize();
@@ -345,9 +382,11 @@ function switchQuality(q, quiet = false) {
       if (dofOn) renderDof(renderer, scene, camera, dofS, dofF);
     } catch (e) { /* eski tarayıcı: ilk karede derlenir */ }
     holdDraw = false;
-    renderFrame(); await qFrame();
-    if (veil) { await qWait(Math.max(0, 560 - (performance.now() - t0))); veil.classList.remove('on'); } // çok kısa yanıp sönmesin
-  });
+    // çizimde hata çıksa da perde kalkar, zincir kırılmaz (yoksa sonraki kalite geçişleri hiç çalışmaz, perde dokunmayı keserdi)
+    try { renderFrame(); await qFrame(); if (veil) await qWait(Math.max(0, 560 - (performance.now() - t0))); } // çok kısa yanıp sönmesin
+    catch (e) { console.error(e); }
+    finally { if (veil) veil.classList.remove('on'); }
+  }).catch((e) => { holdDraw = false; console.error(e); });
   return qChain;
 }
 
@@ -355,13 +394,29 @@ function switchQuality(q, quiet = false) {
 // dönünce ayarın üst sınırına çıkar. Yavaş ekran kartında kasmayı keser; hızlı makinede görüntü değişmez.
 // Her düşüşten sonra yeniden çıkmak için daha uzun beklenir, iki değer arasında gidip gelmez.
 let prMax = 2, prNow = 2, prMin = 1, slowT = 0, fastT = 0, frameAvg = 1 / 60, drops = 0;
+// Hızlı ekran (100 Hz ve üstü: yeni telefonların çoğu 120 Hz) algısı. Oyun eskiden ekranın hızında çiziyordu: 120 Hz telefonda iki kat
+// kare, iki kat ısı ve pil (2026-11-10 denetimi). Son 90 rAF aralığının çoğu 10,5 ms'den kısaysa ekran hızlıdır; tek tük kısa aralık
+// (Safari ve Firefox'ta zaman damgası oynar) saymaz. Bir kez açılınca aralıkların beşte birinden azı kısa kalmadıkça kapanmaz
+let hiHz = false, rafAt = 0, hzN = 0, hzFast = 0;
+function seeRaf(now) {
+  const d = now - rafAt; rafAt = now;
+  if (d <= 0 || d > 100) return;
+  hzN++; if (d < 10.5) hzFast++;
+  if (hzN < 90) return;
+  hiHz = hiHz ? hzFast > 18 : hzFast > 54;
+  hzN = hzFast = 0;
+}
+// kare hızı sınırı (kare/sn; 0: sınır yok). Pil tasarrufu 30. Hızlı ekranda telefon ve tabletler ile masaüstünün Yüksek dışındaki
+// kademeleri 60'ta tutulur (120 Hz'te iki karede bir, 144 Hz'te 72 kare); masaüstü Yüksek ekranın hızında çizer
+const capNow = () => (fpsCap < 60 ? fpsCap : hiHz && (TOUCH || settings.quality !== 'yuksek') ? 60 : 0);
+const frameBase = () => { const cap = capNow(); return cap ? 1 / cap : 1 / 60; }; // çözünürlük eşiklerinin dayandığı beklenen kare aralığı
 function adaptResolution(raw) {
   if (document.hidden || raw > 0.25) return; // arka plandan dönüş ve yükleme takılmaları sayılmaz
   frameAvg += (raw - frameAvg) * 0.05;
-  const slowAt = fpsCap < 60 ? 0.04 : 0.02, fastAt = fpsCap < 60 ? 0.036 : 0.0175; // 30 karede sınır: kare süresi 33 ms olağan
+  const base = frameBase(), slowAt = base * 1.2, fastAt = base * 1.05;
   if (frameAvg > slowAt && prNow > prMin) {
     fastT = 0;
-    if ((slowT += raw) > 1.5) { slowT = 0; drops++; prNow = Math.max(prMin, prNow - 0.25); renderer.setPixelRatio(prNow); } // Performans'ta 1'in altına da iner
+    if ((slowT += raw) > 1.5) { slowT = 0; drops = Math.min(5, drops + 1); prNow = Math.max(prMin, prNow - 0.25); renderer.setPixelRatio(prNow); } // Performans'ta 1'in altına da iner
   } else if (frameAvg < fastAt && prNow < prMax) {
     slowT = 0;
     if ((fastT += raw) > 8 + 20 * drops) { fastT = 0; prNow = Math.min(prMax, prNow + 0.25); renderer.setPixelRatio(prNow); }
@@ -372,6 +427,8 @@ function adaptResolution(raw) {
 let slowFor = 0, watchFrom = 15;
 function watchSpeed(raw) {
   if (settings.autoQ || document.hidden || raw > 0.25 || (watchFrom -= raw) > 0) return;
+  // eşik 28 kare: 30'a kilitli çizim "yavaş" sayılmaz. Bilerek: düşük güç kipindeki iPhone bütün sayfaları 30 karede çizer; eşik
+  // 30'un üstünde olsaydı o kipte oynanan her oyun kaliteyi kalıcı olarak en alta düşürürdü
   slowFor = raw > 1 / 28 ? slowFor + raw : Math.max(0, slowFor - raw / 2);
   if (slowFor < 6) return;
   slowFor = 0; watchFrom = 12;
@@ -526,10 +583,12 @@ function updateCamera(dt, snap) {
   const k = snap ? 1 : 1 - Math.exp(-10 * dt);
   // sipariş kutuları uzaklaştıkça küçülür (index.html .order --lz)
   const lz = THREE.MathUtils.clamp(0.85 / Math.pow(zoom, 0.8), 0.62, 1.05);
-  if (Math.abs(lz - lastLz) > 0.01) { lastLz = lz; document.documentElement.style.setProperty('--lz', lz.toFixed(3)); }
+  // değişkenler etiket katmanına yazılır (kullananların hepsi onun içinde): kökte değişince yakınlaştırırken her karede bütün sayfanın
+  // (menüler, HUD) stili yeniden hesaplanıyordu
+  if (Math.abs(lz - lastLz) > 0.01) { lastLz = lz; labelsEl.style.setProperty('--lz', lz.toFixed(3)); }
   // avatarların üstündeki balonlar ve ad etiketleri dünyayla aynı oranda büyüyüp küçülür: uzaklaşınca avatara göre büyümez (index.html --az)
   const az = THREE.MathUtils.clamp(1 / zoom, 0.2, 1.4);
-  if (Math.abs(az - lastAz) > 0.01) { lastAz = az; document.documentElement.style.setProperty('--az', az.toFixed(3)); }
+  if (Math.abs(az - lastAz) > 0.01) { lastAz = az; labelsEl.style.setProperty('--az', az.toFixed(3)); }
   // ipucu, kilit ve fiyat etiketleri de uzaklaştıkça küçülür, yakınlaşınca büyümez; çok uzakta ipuçları gizlenir (game.js Labels)
   G.labelScale = THREE.MathUtils.clamp(1 / zoom, 0.42, 1); G.farLabels = zoom > 1.9;
   pitch += (pitchT - pitch) * k;
@@ -630,12 +689,18 @@ function updateHud(dt) {
 }
 
 function resize() {
+  // piksel yoğunluğu değiştiyse (tarayıcı yakınlaştırması, pencere başka ekrana taşındı) çözünürlük sınırı yeniden kurulur: yoksa %50
+  // uzaklaştırmada dört kat piksel çizilir, oyun yavaşlar ve kalite kalıcı düşerdi
+  const T = tierOf(settings.quality), m = Math.min(window.devicePixelRatio, T.pr);
+  if (m !== prMax) { prMax = prNow = m; prMin = Math.min(m, T.prMin); slowT = fastT = 0; slowFor = 0; watchFrom = Math.max(watchFrom, 3); renderer.setPixelRatio(m); }
   const w = innerWidth, h = innerHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize);
+// aynı boyutlu başka ekrana taşınınca resize gelmeyebilir: yoğunluk değişimi ayrıca dinlenir
+(function watchDpr() { try { matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`).addEventListener('change', () => { resize(); watchDpr(); }, { once: true }); } catch (e) { /* eski tarayıcı */ } })();
 
 // ---------- başlat ----------
 async function start() {
@@ -699,12 +764,13 @@ async function start() {
   // alan derinliğinin çizim hedefi ve gölgelendiricisi de yükleme ekranında kurulur: ilk yakınlaşmada takılmasın (dof.js)
   if (dofOn) try { renderDof(renderer, scene, camera, 1, 20); } catch (e) { /* desteklemeyen cihaz: kalite ayarında kapanır */ }
   loadEl.classList.add('hide');
+  try { sessionStorage.removeItem('koyBakkali.yukle'); } catch (e) { /* yok */ } // açılış başarılı: yeniden deneme sayacı sıfırlanır (index.html __kbFail)
   kaliciDepo(); // tarayıcı yer açarken kaydı silmesin (koruma.js)
   if (G.fromBackup) toast('💾 Son kayıt okunamadı: 5 dakika önceki yedekten devam ediyorsun');
   if (!G.custom.named) setTimeout(() => openCustomize(true), 500);
   onlineStart(); // gelen kutusu, haftalık ödül; komşu ziyaretinde yardım vardiyası (online-ui.js)
   initCanli(); // canlı ziyaret: aynı köydeki oyuncular birbirini görür, yazışır (canli.js)
-  setInterval(() => { if (!resetting) { save(); diskSave(); } }, 3000); // diske 10 sn'de bir
+  setInterval(() => { sekmeNobet(); if (!resetting) { save(); diskSave(); } }, 3000); // diske 10 sn'de bir
   watchForUpdates();
   // sekme ya da tarayıcı kaydetmeden kapanınca da son hal diske gider
   addEventListener('beforeunload', () => { if (!resetting) { save(); diskSave(true); } });
@@ -753,25 +819,32 @@ async function start() {
     updateMenu(dt);
     updateCursor(dt);
     updateMinimap(dt);
+  };
+  // karenin sonu: etiketler, boy taraması, birleştirme. Oyun adımından ayrı korunur: bir alt sistem her karede hata verse de etiketler
+  // yerinde kalır, birleştirme sürer (yoksa çizim sayısı sessizce patlardı)
+  const tail = (dt) => {
     G.labels.update(camera, VIEW.w, VIEW.h, dt);
     if ((sizeT -= dt) <= 0) { sizeT = 2; sweepSizes(scene); } // sonradan eklenen parçalar da boyuna göre ayrılır (perf.js)
     bakeTick(dt, scene); // kımıldamayan parçalar birleşir, değişen olursa geri ayrılır (perf.js)
   };
   const loopErr = new Set();
+  const guard = (where, fn) => { try { fn(); } catch (e) { const k = String(e); if (!loopErr.has(k)) { loopErr.add(k); console.error(e); hata(k, where, e && e.stack); } } };
   const loop = (now) => {
-    // kare hızı sınırı (Pil tasarrufu: 30): erken gelen kare atlanır, ekran kartı ve işlemci yarı yarıya dinlenir
-    if (fpsCap < 60 && now - last < 1000 / fpsCap - 3) { requestAnimationFrame(loop); return; }
-    if (holdDraw) { last = now; requestAnimationFrame(loop); return; } // kalite geçişinde gölgelendiriciler hazırlanırken çizilmez
-    const raw = Math.max(0, (now - last) / 1000), dt = Math.min(0.05, raw); // ilk karede rAF zamanı last'tan geride kalabilir: oyun zamanı eksiye düşmesin
+    requestAnimationFrame(loop); // sıradaki kare en başta istenir: aşağıda ne olursa olsun döngü durmaz
+    seeRaf(now);
+    // kare hızı sınırı (capNow): erken gelen kare atlanır, ekran kartı ve işlemci dinlenir. Pay: 3-4 ms (zaman damgası oynaması)
+    const cap = capNow();
+    if (cap && now - last < 1000 / cap - (cap < 60 ? 3 : 4)) return;
+    if (holdDraw) { last = now; return; } // kalite geçişinde gölgelendiriciler hazırlanırken çizilmez
+    const raw = Math.max(0, (now - last) / 1000), dt = Math.min(0.05, raw); // ilk karede rAF zamanı son çizimden geride kalabilir: oyun zamanı eksiye düşmesin
     last = now;
     adaptResolution(raw);
     watchSpeed(raw);
     // menü açıkken oyun durur; kamera yalnızca yakınlık ayarını göstermek için çalışır
-    // bir karede çıkan hata oyunu kalıcı dondurmasın: o karenin kalanı atlanır, döngü ve çizim sürer (aynı hata bir kez yazılır)
-    try { if (G.paused) { updateCamera(dt); G.labels.measure(); G.labels.update(camera, VIEW.w, VIEW.h, 0); } else tick(dt); }
-    catch (e) { const k = String(e); if (!loopErr.has(k)) { loopErr.add(k); console.error(e); hata(k, 'kare', e && e.stack); } }
-    renderFrame();
-    requestAnimationFrame(loop);
+    // bir karede çıkan hata oyunu kalıcı dondurmasın: o adımın kalanı atlanır, döngü ve çizim sürer (aynı hata bir kez yazılır)
+    if (G.paused) guard('kare', () => { updateCamera(dt); G.labels.measure(); G.labels.update(camera, VIEW.w, VIEW.h, 0); });
+    else { guard('kare', () => tick(dt)); guard('kare sonu', () => tail(dt)); }
+    guard('çizim', renderFrame);
   };
   requestAnimationFrame(loop);
   // test kancası: oyunu elle ileri sarar (sekme arka plandayken doğrulama için)
@@ -780,7 +853,7 @@ async function start() {
   window.__q = { switchQuality, applyQuality, scene, camera }; // test kancası: kalite geçişini ölçmek için (eski yol: applyQuality)
   window.__bake = bakeStats;
   window.__cam = (z, p, y, dof) => { zoom = zoomT = z; pitch = pitchT = p ?? PITCH_DEF; if (y != null) yaw = yawT = y; if (dof != null) dofOn = dof; return { dofS, dofF }; }; // test: yakınlık, eğim, dönüş, alan derinliği
-  window.__step = (seconds, dt = 1 / 30, draw = true) => { for (let t = 0; t < seconds; t += dt) tick(dt); if (draw) renderFrame(); }; // draw=false: denetim botu için hızlı
+  window.__step = (seconds, dt = 1 / 30, draw = true) => { for (let t = 0; t < seconds; t += dt) { tick(dt); tail(dt); } if (draw) renderFrame(); }; // draw=false: denetim botu için hızlı
   window.__keys = keys;
   window.__mk = makeItem;
 }
@@ -815,6 +888,6 @@ function watchForUpdates() {
 const PI_ = Math.PI;
 start().catch((e) => {
   console.error(e);
-  const el = document.getElementById('loading');
-  el.querySelector('span').textContent = 'Yüklenemedi: ' + e.message;
+  fatal('Oyun yüklenemedi. Bağlantını kontrol edip yeniden dene. (' + e.message + ')', 'The game could not load. Check your connection and try again. (' + e.message + ')');
+  hata(String(e), 'açılış', e && e.stack);
 });

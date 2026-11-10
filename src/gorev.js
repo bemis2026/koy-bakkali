@@ -36,7 +36,7 @@ const prog = (t) => Math.min(t.goal, Math.max(0, KINDS[t.k].val() - t.from));
 
 export function initGorev() {
   G.stats.dailyDone = G.stats.dailyDone || 0;
-  if (!G.stats.daily || !Array.isArray(G.stats.daily.list) || G.stats.daily.list.some((t) => !KINDS[t.k])) newDay(G.stats.dayN || 0);
+  if (!G.stats.daily || !Array.isArray(G.stats.daily.list) || G.stats.daily.list.some((t) => !t || !KINDS[t.k] || typeof t.goal !== 'number')) newDay(G.stats.dayN || 0);
   G.hooks.newDay = (n) => { G.stats.dayN = n; newDay(n); if (G.player) toast('📋 Yeni gün, yeni görevler: saatin altındaki rozete dokun'); };
   const st = document.createElement('style');
   st.textContent = `#taskChip { position: absolute; top: 194px; left: 14px; padding: 4px 12px 4px 8px; border-radius: 999px; font: 16px var(--font-title); cursor: pointer; white-space: nowrap; pointer-events: auto; }
@@ -77,11 +77,11 @@ export function updateGorev(dt) {
   for (const t of d.list) {
     if (t.done || prog(t) < t.goal) continue;
     t.done = true; G.stats.dailyDone++;
-    const m = reward(); G.money += m; addXp(15); addGems(1); // ödül kazanca sayılmaz: kazanç görevi kendini beslemesin; elmas tatil içindir (tatil.js)
+    const m = reward(); if (!G.visit) G.money += m; addXp(15); addGems(1); // ödül kazanca sayılmaz: kazanç görevi kendini beslemesin; elmas tatil içindir (tatil.js)
     banner('GÖREV TAMAM', `${KINDS[t.k].icon} +${m.toLocaleString('tr-TR')} ₺ · 💎 +1`); sfx('buy');
   }
   if (!d.all && d.list.every((t) => t.done)) {
-    d.all = true; const m = reward() * 2; G.money += m; addGems(1);
+    d.all = true; const m = reward() * 2; if (!G.visit) G.money += m; addGems(1);
     banner('GÜNÜN GÖREVLERİ TAMAM', `🎁 +${m.toLocaleString('tr-TR')} ₺ · 💎 +1`); sfx('hire');
   }
   const n = d.list.filter((t) => t.done).length, txt = `📋 ${n}/${d.list.length}`;

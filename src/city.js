@@ -481,7 +481,7 @@ function loadBed(truck, types) {
 // köy kamyonu: köyün fazlasını (tepside en az iki tane bekleyen) toplar, depoya boşaltır, nakliyeyi alır
 function villageCargo(R, cap) {
   const want = [...new Set(R.shelves.flatMap((s) => s.acc()))].filter((t) => !ITEMS[t] || !ITEMS[t].cost);
-  const bag = { full: false, types: [], push(type, obj) { if (obj && obj.parent) obj.parent.remove(obj); this.types.push(type); this.full = this.types.length >= cap; } };
+  const bag = { full: false, types: [], push(type, obj) { for (let i = G.flights.length - 1; i >= 0; i--) if (G.flights[i].obj === obj) G.flights.splice(i, 1); if (obj && obj.parent) obj.parent.remove(obj); this.types.push(type); this.full = this.types.length >= cap; } };
   const srcs = G.stations.filter((s) => s.zone && s.zone.x < 300 && want.includes(s.type) && ((s.harvestTo && s.ripeCount() >= 2) || (Array.isArray(s.items) && s.max !== undefined && s.items.length >= 2)));
   for (let moved = true; moved && !bag.full;) {
     moved = false;
@@ -616,7 +616,7 @@ function spawnCustomer(R) {
   const leave = () => { c.state = 'leave'; c.leaving = true; c.path = [V(CX + 1.6, 0, FRONT_Z - 1.4), V(CX + 1.6, 0, WALK_N + 0.4), V(CX + 1.6, 0, WALK_S), V(exitX, 0, WALK_S)]; };
   const toQueue = () => {
     c.clearBubble();
-    if (!c.got) { c.mood(false); leave(); return; }
+    if (!c.got) { if (c.tried) c.mood(false); leave(); return; } // hiçbir rafın önünde yer bulamadıysa (tried yok) kızmaz: kusur dükkânda değil
     const ln = lane(last || steps[0].shelf); // son durduğu rafın önünden kasaya (sıradaki rafın önü doluysa st boş kalır)
     // çalışan kasalardan (kasiyeri olan ya da başında senin durduğun) kuyruğu kısa olanı seçer; hiçbiri çalışmıyorsa birinci kasa
     const regs = R.registers || [R.register], live = regs.filter((r) => r.cashier || r.inside);
@@ -629,7 +629,7 @@ function spawnCustomer(R) {
     if (!st) { toQueue(); return; }
     st.spot = st.shelf.spots.find((q) => !q.c);
     if (!st.spot) { i++; goStep(); return; } // reyonun önü dolu: sıradakine geçer
-    st.spot.c = c; last = st.shelf;
+    st.spot.c = c; last = st.shelf; c.tried = true;
     const ln = lane(st.shelf);
     c.path = [V(LANE, 0, c.obj.position.z), V(LANE, 0, ln), V(st.spot.p.x, 0, ln), st.spot.p.clone()];
     c.state = 'toShelf'; bubble();
@@ -652,7 +652,15 @@ function spawnCustomer(R) {
         if (st.got >= st.need || c.stack.full || c.wait > patience) { st.spot.c = null; i++; if (i >= steps.length || c.stack.full) toQueue(); else goStep(); }
         break;
       case 'toQueue': if (c.walk(dt)) c.state = 'queue'; break;
-      case 'queue': queueStep(c, c.reg || R.register, dt, PI); break; // yerinde bekler, sıra ilerleyince ağır adımla geçer (game.js)
+      case 'queue': { // yerinde bekler, sıra ilerleyince ağır adımla geçer (game.js)
+        const reg = c.reg || R.register, px = G.player.position.x;
+        // kasada kimse yokken ve sen şehirde değilken (otobüsle köye döndün) 25 sn bekleyen müşteri sırayı bırakıp gider: yoksa sonsuza
+        // dek bekleyip köy, pazar ve sahilin müşteri payını tüketiyordu (rating.js crowd). Sen şehirdeyken eskisi gibi bekler
+        if (!(reg.cashier || reg.inside) && !(reg.sale && reg.sale.c === c) && (px < 300 || px > 700)) {
+          if ((c.qIdle = (c.qIdle || 0) + dt) > 25) { reg.leave(c); leave(); break; }
+        } else c.qIdle = 0;
+        queueStep(c, reg, dt, PI); break;
+      }
       case 'leave': if (c.walk(dt)) c.destroy(); break;
     }
   };

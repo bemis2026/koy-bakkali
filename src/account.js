@@ -75,7 +75,7 @@ export function updateKasa(dt) {
       if (s > 0) { G.money += s; toast(`🏦 Kasa hesaplarında bekleyen ${tl(s)} hesabına geçti. Artık kasalardaki parayı yanına gidip topluyorsun`); }
     }
     const k = G.stats.kasa || (G.stats.kasa = {});
-    for (const id in k) if (BOX[id] && k[id] >= 1) { const P = kasaBox(id); P.add(k[id], P.base.position); }
+    if (!G.visit) for (const id in k) if (BOX[id] && k[id] >= 1) { const P = kasaBox(id); P.add(k[id], P.base.position); } // ziyarette komşunun kutusu boş başlar (para onun kaydında)
   }
   if ((refreshT -= dt) > 0) return;
   refreshT = 0.25;

@@ -38,7 +38,7 @@ function makeTrough(bee) {
 class Yemlik extends Station {
   constructor(gen, x, z, def, instant) {
     super(x, z, 2.4, 1.3, { dashed: true, instant });
-    this.gen = gen; this.key = keyOf(gen); this.feeds = def.feeds; this.cap = gen.feedCap || CAP; this.input = []; // feedCap: büyüyen kümes 20 (world.js twinCoop) this.role = 'take';
+    this.gen = gen; this.key = keyOf(gen); this.feeds = def.feeds; this.cap = gen.feedCap || CAP; this.input = []; this.role = 'take'; // feedCap: büyüyen kümes 20 (world.js twinCoop). 2026-11-10: role satırı yorumun içinde kalmıştı, yemlik rolsüzdü
     this.obj = makeTrough(gen.type === 'bal'); this.obj.position.set(x, 0, z - 1.3); G.scene.add(this.obj); if (!instant) popIn(this.obj);
     this.tray = new THREE.Group(); this.tray.position.set(0, 0.4, 0); this.obj.add(this.tray);
     this.col = [x - 1.05, x + 1.05, z - 1.62, z - 0.98]; G.colliders.push(this.col);

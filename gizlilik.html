@@ -45,12 +45,12 @@
 <div class="wrap"><table>
   <tr><th>Veri</th><th>Ne zaman</th><th>Amaç</th></tr>
   <tr><td>Oyun kaydı (para, açılan bölgeler, ayarlar)</td><td>Her zaman, cihazında. Üyeysen bulutta da</td><td>Oyunun kaldığı yerden sürmesi, cihazlar arası geçiş</td></tr>
-  <tr><td>Kullanıcı adı, görünen ad, avatar, renk, "hakkında" yazısı, köy adı, puanlar</td><td>Üye olunca</td><td>Profil, sıralama tabloları, komşu ziyareti</td></tr>
-  <tr><td>E-posta adresi ve şifre (şifre bize görünmez, Google tarafından şifrelenir)</td><td>E-postayla ya da Google ile üye olunca</td><td>Giriş yapabilmen, şifre yenileme</td></tr>
+  <tr><td>Kullanıcı adı, görünen ad, avatar, renk, "hakkında" yazısı, köy adı, puanlar, üyelik tarihi ve son görülme zamanı</td><td>Üye olunca</td><td>Profil, sıralama tabloları, komşu ziyareti. Bu bilgiler herkese açıktır</td></tr>
+  <tr><td>E-posta adresi ve şifre (şifre bize görünmez, Google tarafından şifrelenir)</td><td>E-postayla ya da Google ile üye olunca</td><td>Giriş yapabilmen</td></tr>
   <tr><td>Hediye ve yardım kayıtları</td><td>Komşuna hediye gönderince ya da yardım edince</td><td>Hediyenin komşuna ulaşması</td></tr>
-  <tr><td>Canlı ziyarette konumun ve yazdıkların</td><td>Aynı köyde başka oyuncu varken</td><td>Birbirinizi görmeniz ve yazışmanız. Her köyde yalnız son 20 yazı tutulur</td></tr>
+  <tr><td>Canlı ziyarette köydeki konumun ve yazdıkların</td><td>Üye olarak oynarken (köyünde kimse yokken yalnız "çevrimiçi" işareti gider)</td><td>Birbirinizi görmeniz ve yazışmanız. Konum oyundan çıkınca silinir; köyün sahibi oyunu açtıkça eski yazılar silinir, son 20 yazı kalır</td></tr>
   <tr><td>Öneri ve şikâyet yazıları</td><td>Öneri kutusuna yazınca ya da bir oyuncuyu bildirince</td><td>Oyunu düzeltmek, kötüye kullanımı önlemek</td></tr>
-  <tr><td>Hata raporu: hata yazısı, dosya ve satır, tarayıcı adı, oyun süresi</td><td>Oyunda beklenmeyen bir hata çıkınca (en çok 3 kez)</td><td>Hataları bulup düzeltmek. Kimliğini içermez</td></tr>
+  <tr><td>Hata raporu: hata yazısı, dosya ve satır, tarayıcı ve cihaz türü, oyun süresi ve seviyesi</td><td>Oyunda beklenmeyen bir hata çıkınca (oturum başına en çok 3)</td><td>Hataları bulup düzeltmek. Adın ve hesabın rapora yazılmaz</td></tr>
 </table></div>
 <p>Hukuki sebep: üyelik sözleşmesinin kurulması ve ifası (KVKK m. 5/2-c) ve oyunu güvenli tutmaktaki meşru menfaat (m. 5/2-f).</p>
 
@@ -58,7 +58,7 @@
 <p>Üyelik verileri Google'ın Firebase hizmetlerinde (Authentication, Firestore, Realtime Database, Hosting) saklanır. Google'ın sunucuları Türkiye dışında olabilir. Üye olarak verilerinin bu amaçla yurt dışındaki sunuculara aktarılmasına açık rıza vermiş olursun. Oyun dosyaları GitHub Pages ve Firebase Hosting üzerinden, yazı tipleri Google Fonts'tan gelir; bu hizmetler bağlantı için IP adresini görür. Veriler başka hiçbir üçüncü kişiyle paylaşılmaz.</p>
 
 <h3>Ne kadar süre?</h3>
-<p>Üyelik verileri hesabını silene kadar durur. Sildiğinde profilin, bulut kaydın, kullanıcı adın, gelen kutun, son 12 haftanın sıralama satırları ve kendi köyündeki yazışmalar hemen silinir. Öneri, şikâyet ve hata yazıları en çok 1 yıl tutulur. Cihazındaki kayıt sende kalır; tarayıcı verilerini silerek kaldırabilirsin.</p>
+<p>Üyelik verileri hesabını silene kadar durur. Sildiğinde profilin, bulut kaydın, kullanıcı adın, gelen kutun, son 12 haftanın sıralama satırları ve kendi köyündeki yazışmalar hemen silinir. Başka oyunculara gönderdiğin hediyeler onların gelen kutusunda, başka köylerde yazdıkların o köyün yazışmasında kalır (köy sahibi oyunu açtıkça eskiler silinir). Öneri, şikâyet ve hata yazıları en çok 1 yıl tutulur; daha eski bir kaydının silinmesini öneri kutusundan isteyebilirsin. Cihazındaki kayıt sende kalır; tarayıcı verilerini silerek kaldırabilirsin.</p>
 
 <h3>Hakların (KVKK m. 11)</h3>
 <p>Verilerinin işlenip işlenmediğini öğrenme, bilgi isteme, düzeltilmesini ya da silinmesini isteme, aktarıldığı kişileri bilme ve zarara uğrarsan giderilmesini talep etme hakkın vardır. Profilini <b>Menü › Profil</b>'den düzeltebilir, hesabını aynı yerden silebilirsin. Diğer talepler için oyundaki <b>Menü › Öneri kutusu</b>'na yaz.</p>
@@ -86,10 +86,10 @@
 <p class="soft">Village Grocer (Köy Bakkalı) · last updated 10 November 2026</p>
 <ul>
   <li>Village Grocer is a free browser game. There are no ads, no purchases and no analytics. Your data is never sold or shared.</li>
-  <li><b>As a guest</b>, your game is stored only in this browser on this device. Nothing is sent to us except anonymous error reports (error text, file and line, browser name, play time; at most 3 per session).</li>
-  <li><b>As a member</b>, your username, display name, avatar, colour, bio, village name and scores are public on the leaderboards, and your save is stored in the cloud. If you sign up with email or Google, your email address is stored for sign-in. Gifts, help visits, live-visit positions and chat (the last 20 messages per village), suggestions, reports and error reports are also stored.</li>
+  <li><b>As a guest</b>, your game is stored only in this browser on this device. Nothing is sent to us except error reports without your name or account (error text, file and line, browser and device type, play time and level; at most 3 per session).</li>
+  <li><b>As a member</b>, your username, display name, avatar, colour, bio, village name, scores, sign-up date and last-seen time are public on the leaderboards, and your save is stored in the cloud. If you sign up with email or Google, your email address is stored for sign-in. Gifts, help visits, live-visit positions and chat (the last 20 messages per village), suggestions, reports and error reports are also stored.</li>
   <li>Data is stored with Google Firebase (Authentication, Firestore, Realtime Database, Hosting), possibly outside Turkey. Game files are served by GitHub Pages and Firebase Hosting and fonts by Google Fonts, which see your IP address to deliver them.</li>
-  <li>You can delete your account at any time from <b>Menu › Profile › Delete my account</b>. This immediately removes your profile, cloud save, username, inbox, leaderboard rows for the last 12 weeks and the chat in your own village. Suggestions, reports and error reports are kept for at most one year.</li>
+  <li>You can delete your account at any time from <b>Menu › Profile › Delete my account</b>. This immediately removes your profile, cloud save, username, inbox, leaderboard rows for the last 12 weeks and the chat in your own village. Gifts you sent stay in the recipients' inboxes and messages you wrote in other villages stay in those villages' chat until they are trimmed. Suggestions, reports and error reports are kept for at most one year.</li>
   <li>No cookies are used. The save, settings and sign-in session live in your browser's local storage, and game files are cached for offline play.</li>
   <li>Children under 13 should sign up only with a parent's permission. No information is needed to play as a guest.</li>
   <li>The game is provided as is. In-game money, gems and goods are virtual and have no real value. Swearing, insults, hate speech, personal information and advertising are not allowed in names, bios or chat; offensive words are masked automatically. You can mute or report a player by tapping their name in the chat. Accounts that cheat or break these rules may be closed.</li>

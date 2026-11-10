@@ -118,42 +118,51 @@ export function updateUI(dt, region) {
   if (region && (region !== lastRegion || region.name !== lastName)) {
     lastRegion = region; lastName = region.name;
     $('region').querySelector('.ri').textContent = REGION_ICON[region.id];
-    $('region').querySelector('.rn').textContent = region.name;
+    const rn = $('region').querySelector('.rn');
+    // oyuncunun koyduğu dükkân adı İngilizcede sözlükten geçmesin ("Bahar" → "Spring"); varsayılan ad çevrilir
+    if (region.id === 'koy' && region.name !== 'Köy Bakkalı') rn.setAttribute('translate', 'no'); else rn.removeAttribute('translate');
+    rn.textContent = region.name;
   }
   // mertebe rozeti: seviye, unvan, XP çubuğu; seviye atlayınca zıplar
   if (G.level) {
     const lv = $('lvl');
     if (G.level !== lastLv) { if (lastLv) { lv.classList.remove('up'); void lv.offsetWidth; lv.classList.add('up'); } lastLv = G.level; $('lvlN').textContent = G.level; $('lvlT').textContent = titleOf(G.level); }
-    $('lvlBar').style.width = `${levelProgress() * 100}%`;
+    const lw = `${(levelProgress() * 100).toFixed(1)}%`;
+    if (lv._bw !== lw) { lv._bw = lw; $('lvlBar').style.width = lw; }
   }
   const pad = G.nextPad, goal = $('goal'), wait = !pad && G.nextWait;
+  // Hedef kartının fiyatı, ipucu ve çubuğu her karede yazılıyordu: textContent aynı yazıyla da metin düğümünü değiştirir (stil ve
+  // yerleşim yeniden hesaplanır, İngilizcede çeviri gözlemcisi her karede çalışır), fiyat her karede toLocaleString ile kuruluyordu
+  // (2026-11-10 denetimi). Anahtar değişmedikçe yazılmaz
+  const price = (k, make) => { if (goal._pk !== k) { goal._pk = k; $('goalPrice').textContent = make(); } };
+  const tipOf = (k, make) => { if (goal._tk !== k) { goal._tk = k; goal.title = make(); } };
+  const bar = (f) => { const w = `${(f * 100).toFixed(1)}%`; if (goal._bw !== w) { goal._bw = w; $('goalBar').style.width = w; } };
   if (wait && G.needGoal) {
     // bölge şartı bekleniyor (sart.js): kart sıradaki işi yazar, çubuk o işin ilerlemesi
     const q = G.needGoal;
     goal.classList.remove('done');
     if (q.key !== goalDef) { goalDef = q.key; $('goalName').textContent = q.text; goal.querySelector('.gi').textContent = q.icon; goal.querySelector('small').textContent = q.small; }
-    $('goalBar').style.width = `${q.frac * 100}%`;
-    $('goalPrice').textContent = q.right;
+    bar(q.frac);
+    price('n' + q.right, () => q.right);
     goal.classList.toggle('ready', q.ready);
-    if (goal.title !== q.small) goal.title = q.small;
+    tipOf('n' + q.small, () => q.small);
   } else if (wait) {
     // sıradaki bölümün seviyesi gelmedi: adı gizli kalır, çubuk XP'yi gösterir
     goal.classList.remove('done', 'ready');
     if (wait !== goalDef) { goalDef = wait; $('goalName').textContent = 'Yeni bölüm'; goal.querySelector('.gi').textContent = '❓'; goal.querySelector('small').textContent = `⭐ Seviye ${wait.lvl} gerekli`; }
     const a = xpFor(G.nextWaitFrom || G.level), b = xpFor(wait.lvl); // hedef seviyeye ne kadar kaldı (seviye atlayınca sıfırlanmaz)
-    $('goalBar').style.width = `${Math.max(0, Math.min(1, (G.xp - a) / (b - a))) * 100}%`;
-    $('goalPrice').textContent = `⭐ ${wait.lvl}`;
-    const tip = `Seviye ${wait.lvl} için ${Math.max(0, Math.ceil(b - G.xp)).toLocaleString('tr-TR')} XP kaldı`;
-    if (goal.title !== tip) goal.title = tip;
+    bar(Math.max(0, Math.min(1, (G.xp - a) / (b - a))));
+    price('w' + wait.lvl, () => `⭐ ${wait.lvl}`);
+    const xpLeft = Math.max(0, Math.ceil(b - G.xp));
+    tipOf(`w${wait.lvl}:${xpLeft}`, () => `Seviye ${wait.lvl} için ${xpLeft.toLocaleString('tr-TR')} XP kaldı`);
   } else if (!pad && G.finalQuest) {
     // son görev (final.js): ana sıra bitti, yan kilitler kaldı; çubuk açılan kilitlerin oranı, ok en yakın açık kilidi gösterir
     const q = G.finalQuest;
     goal.classList.remove('done', 'ready');
     if (goalDef !== 'final') { goalDef = 'final'; $('goalName').textContent = 'Köy Efsanesi'; goal.querySelector('.gi').textContent = '🏆'; goal.querySelector('small').textContent = 'Son görev'; }
-    $('goalBar').style.width = `${((q.total - q.left) / q.total) * 100}%`;
-    $('goalPrice').textContent = `${q.left} kilit`;
-    const tip = `Köy Efsanesi olmak için ${q.left} kilit kaldı`;
-    if (goal.title !== tip) goal.title = tip;
+    bar((q.total - q.left) / q.total);
+    price('f' + q.left, () => `${q.left} kilit`);
+    tipOf('f' + q.left, () => `Köy Efsanesi olmak için ${q.left} kilit kaldı`);
   } else if (!pad) goal.classList.add('done');
   else {
     goal.classList.remove('done');
@@ -166,8 +175,8 @@ export function updateUI(dt, region) {
       goal.querySelector('small').textContent = g ? 'İlk adımlar' : G.guideOn ? 'Kilidin üstünde dur' : 'Sıradaki hedef';
     }
     const left = Math.max(1, pad.def.price - pad.paid);
-    $('goalBar').style.width = `${Math.min(1, G.money / left) * 100}%`;
-    $('goalPrice').textContent = `${Math.ceil(left).toLocaleString('tr-TR')} ₺`;
+    bar(Math.min(1, G.money / left));
+    price('p' + Math.ceil(left), () => `${Math.ceil(left).toLocaleString('tr-TR')} ₺`);
     goal.classList.toggle('ready', G.money >= left);
   }
   const b = $('boost');

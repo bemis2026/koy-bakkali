@@ -40,7 +40,10 @@ const XP_PAGE = 150, XP_WEEK = 120;
 const ANIMAL_R = 7, VISIT_R = 16;
 
 const regionIds = () => Object.keys(G.regions).filter((id) => id !== 'yol');
-const entries = (p) => (p === 'urun' ? Object.keys(ITEMS) : p === 'hayvan' ? ANIMAL.map((a) => a[0]) : p === 'bolge' ? regionIds() : p === 'ziyaretci' ? VISIT.map((v) => v[0]) : WEEKS.map((w) => w.id));
+// oyuncunun eline hiç geçmeyen ürünler sayfada yok (salçayı salçacı satar, patlamış mısır ve pamuk şekeri yalnız müşteriye): yoksa
+// sayfa hiç dolmuyor, ödülü alınamıyordu (2026-11-10 denetimi)
+const NO_ALBUM = new Set(['salca', 'patlamis', 'pamuk']);
+const entries = (p) => (p === 'urun' ? Object.keys(ITEMS).filter((t) => !NO_ALBUM.has(t)) : p === 'hayvan' ? ANIMAL.map((a) => a[0]) : p === 'bolge' ? regionIds() : p === 'ziyaretci' ? VISIT.map((v) => v[0]) : WEEKS.map((w) => w.id));
 const pageOf = (id) => PAGES.find((p) => p.id === id);
 const tl = (n) => Math.round(n).toLocaleString('tr-TR');
 
@@ -58,7 +61,8 @@ function got(page, id, quiet) {
 // sayfa dolduysa ödül (kayıt açılır açılmaz değil: sinematik ve menü bitince)
 function checkPages() {
   for (const P of PAGES) {
-    if (A.paid.includes(P.id) || A[P.id].length < entries(P.id).length) continue;
+    const list = entries(P.id);
+    if (A.paid.includes(P.id) || A[P.id].filter((x) => list.includes(x)).length < list.length) continue; // kalkmış bölge/ürün kimliği sayılmaz
     A.paid.push(P.id);
     const m = P.money; G.money += m; addXp(XP_PAGE);
     banner('ALBÜM SAYFASI TAMAM', `${P.icon} ${P.name} · +${tl(m)} ₺`);

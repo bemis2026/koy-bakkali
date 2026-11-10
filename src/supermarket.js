@@ -168,9 +168,11 @@ export function pylon() {
 }
 
 // toptancı kamyonunun üstündeki pano (kargo aracının KARGO panosu gibi)
+let TB = null; // pano geometrisi ve yazı dokusu bir kez kurulur: her kamyon seferinde yenisi kurulup silinmiyordu (2026-11-10 denetimi)
 export function toptanBoard() {
   const g = new THREE.Group();
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.58), new THREE.MeshStandardMaterial({ map: textTex('TOPTAN', { bg: '#c9962b', border: '#ffffff', w: 512, h: 134 }), side: THREE.DoubleSide, roughness: 0.6 }));
+  if (!TB) TB = { geo: new THREE.PlaneGeometry(2.2, 0.58), mat: new THREE.MeshStandardMaterial({ map: textTex('TOPTAN', { bg: '#c9962b', border: '#ffffff', w: 512, h: 134 }), side: THREE.DoubleSide, roughness: 0.6 }) };
+  const m = new THREE.Mesh(TB.geo, TB.mat);
   g.add(m);
   return g;
 }

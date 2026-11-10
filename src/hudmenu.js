@@ -108,6 +108,7 @@ body.no-labels #labels { display: none !important; }
   #hud #goal { top: 46px; left: 8px; right: 8px; width: auto; box-sizing: border-box; }
   #hud #toast { top: 118px; left: 8px; transform: none; text-align: left; max-width: calc(100vw - 204px); }
   #hud #toast.show { animation-name: toastL; }
+  body:not(:has(#alerts .al)) #hud #toast { max-width: calc(100vw - 70px); } /* sağda bildirim yokken dar sütuna sıkışmasın */
   #hud #alerts { top: 118px; right: 8px; width: min(180px, 46vw); }
   #hud #boost { top: 160px; }
   body:has(#goal.done) #hud #toast, body:has(#goal.done) #hud #alerts { top: 50px; }

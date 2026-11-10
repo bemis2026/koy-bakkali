@@ -44,7 +44,7 @@ function ensure() {
     voiceGain = AC.createGain(); voiceGain.gain.value = voiceLevel(); voiceGain.connect(AC.destination);
     ambGain = AC.createGain(); ambGain.gain.value = ambLevel(); ambGain.connect(AC.destination);
     loadAll();
-    loadVoices();
+    if (settings.voice) loadVoices(); // sesler kapalıysa inmez; açılınca setVoice yükler
     return true;
   } catch (e) { AC = null; return false; }
 }
@@ -84,7 +84,13 @@ function primeDeck() {
 // Telefonda dokunuşun başı (pointerdown) tarayıcıya kullanıcı izni sayılmıyor; yalnız parmak kalkınca (pointerup, touchend), click ve tuş
 // sayılıyor. Oyun sesi yalnız pointerdown'da açmaya çalıştığı için telefonda ses bağlamı askıda kalıyor, müzik hiç başlamıyordu. Bu olaylar
 // pencerede yakalanır (düğmelerin stopPropagation'ı engellemez); ses çalarken bir şey yapmaz, kesintiden sonraki ilk dokunuşta yeniden açar
-for (const ev of ['pointerup', 'touchend', 'click', 'keydown']) addEventListener(ev, () => { if (!AC || AC.state !== 'running') unlockAudio(); }, { capture: true, passive: true });
+for (const ev of ['pointerup', 'touchend', 'click', 'keydown']) addEventListener(ev, () => {
+  if (!AC || AC.state !== 'running') unlockAudio();
+  // şarkı ilk dokunuşun başında (pointerdown) başlatılmaya çalışılır, telefon bunu izin saymaz ve çalar duraklamış kalır: ses efektleri
+  // çalar, müzik sessizdi (panel parça adını gösterirken). İzin sayılan her olayda duraklamış çalar yeniden denenir (2026-11-10 denetimi)
+  const d = deck[cur];
+  if (d && d.el.src && d.el.src !== silent && d.el.paused && settings.music && !document.hidden) d.el.play().catch(() => {});
+}, { capture: true, passive: true });
 
 const sfxLevel = () => (settings.sfx ? 0.9 * (settings.sfxVol ?? 1) : 0);
 const musicLevel = () => (settings.music ? 0.32 * (settings.musicVol ?? 1) : 0);
@@ -138,7 +144,7 @@ export function setSfxVol(v) { settings.sfxVol = v; saveSettings(); applyLevels(
 export function setMusicVol(v) { settings.musicVol = v; saveSettings(); applyLevels(); }
 // menü açıkken müzik kısılır
 export function duckMusic(on) { ducked = on; applyLevels(); }
-export function setVoice(on) { settings.voice = on; saveSettings(); applyLevels(); }
+export function setVoice(on) { settings.voice = on; saveSettings(); applyLevels(); if (on && AC) loadVoices(); }
 export function setVoiceVol(v) { settings.voiceVol = v; saveSettings(); applyLevels(); }
 
 // ---------- insan sesleri ----------
@@ -154,7 +160,10 @@ let moodLog = [];
 const lastKeys = [];
 const voiceLevel = () => (settings.voice ? 0.45 * (settings.voiceVol ?? 1) : 0);
 // list.json: üretilmiş dosyaların adları (ör. "a_happy2_kiz"); listede olmayan karakter/söz yalnızca çalmaz
+let voicesAsked = false;
 function loadVoices() {
+  if (voicesAsked) return; // bir kez
+  voicesAsked = true;
   fetch('assets/voice/list.json').then((r) => r.json()).then((names) => {
     for (const key of names) {
       fetch(`assets/voice/${key}.mp3`).then((r) => r.arrayBuffer()).then((b) => AC.decodeAudioData(b)).then((buf) => {
@@ -410,13 +419,21 @@ function makeDeck() {
     const d = { el, g };
     el.addEventListener('ended', () => { if (deck[cur] === d && el.src !== silent) nextTrack(); }); // açılış sessizliği bitince şarkı atlanmaz
     el.addEventListener('error', () => { // Opus kopyası açılmadı: bundan sonra hep m4a
-      if (!/\.webm$/.test(el.src)) return;
+      if (!/\.webm$/.test(el.src)) {
+        // m4a da açılmadı (bağlantı koptu, dosya inmedi): biraz bekleyip sıradaki parça denenir; art arda dört hatadan sonra vazgeçilir.
+        // Eskiden hiçbir şey olmuyor, "bitti" olayı da gelmediği için müzik oturum boyunca susuyordu
+        if (deck[cur] !== d || el.src === silent || ++songFails > 4) return;
+        setTimeout(() => { if (deck[cur] === d && settings.music) nextTrack(); }, 4000 * songFails);
+        return;
+      }
       OPUS = false; el.src = el.src.replace(/\.webm$/, '.m4a');
       if (deck[cur] === d && settings.music && !document.hidden) el.play().catch(() => {});
     });
+    el.addEventListener('playing', () => { songFails = 0; });
     deck.push(d);
   }
 }
+let songFails = 0;
 // iki çalar arasında 2 sn yumuşak geçiş
 function playUrl(url) {
   if (!deck.length) makeDeck();

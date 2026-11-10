@@ -1,7 +1,7 @@
 // Çevrimiçi ekranlar: açılıştaki giriş/üye ol kapısı, menüde Köyler (sıralama, oyuncu kartı, ziyaret, hediye), Profil ve
 // Öneri kutusu bölümleri, komşunun köyündeki yardım vardiyası çubuğu, evde gelen kutusu. Arka uç online.js'te.
 import * as THREE from 'three';
-import { G, ITEMS, Shelf, makeItem, fly, sfx, toast, save, saveData } from './game.js';
+import { G, ITEMS, Shelf, makeItem, fly, sfx, toast, save, saveData, writeSave } from './game.js';
 import { EN } from './dil.js';
 import { banner } from './ui.js';
 import { canInstall, promptInstall } from './install.js';
@@ -11,6 +11,7 @@ import {
   ON, initOnline, signIn, signUp, signInGoogle, chooseName, signOut, playGuest, isGuest, signedIn, loadCloud, getProfile, saveProfile,
   board, weeklyAward, helpedToday, finishHelp, takePendingHelp, giftsLeft, sendGift, inbox, dropInbox, sendFeedback, listFeedback, dropFeedback,
   errText, computeScore, weekScore, publishScore, saveCloud, setOwner, localOwner, myKey, cleanName, setPassword, rememberMe, lastLogin, deleteAccount,
+  cloudReady, cloudIsReady,
 } from './online.js';
 
 const VISIT_T = 240, PURSE = 300; // yardım vardiyası: 4 dakika, komşu 300 ₺ harçlık verir (malzeme alımı için)
@@ -18,6 +19,8 @@ const $ = (id) => document.getElementById(id);
 const tl = (n) => `${Math.floor(n || 0).toLocaleString('tr-TR')} ₺`;
 const num = (n) => Math.floor(n || 0).toLocaleString('tr-TR');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// başka oyuncunun profilindeki renk style içine girer: yalnız onaltılık renk kodu kabul edilir (url(...) ile dışarıya istek attırılamasın)
+const hue = (c) => (/^#[0-9a-f]{6}$/i.test(c || '') ? c : '#eeeeee');
 const AVATARS = ['🧑‍🌾', '👩‍🌾', '👨‍🍳', '👩‍🍳', '🧔', '👵', '👴', '🧒', '🐄', '🐔', '🐑', '🐴', '🌻', '🍉', '🧀', '🥖'];
 const COLORS = ['#3b8beb', '#e8604c', '#3fae6b', '#f6c343', '#9c6cf0', '#ff6fa8', '#2fb5a8', '#7a5230'];
 const BADGE = { 1: '🥇', 2: '🥈', 3: '🥉' };
@@ -90,8 +93,18 @@ const busy = (btn, on) => { if (btn) { btn.disabled = on; btn.style.opacity = on
 // =====================================================================
 // açılış kapısı: kayıt seçiminden önce (main.js); çevrimdışıysa hemen geçer
 // =====================================================================
+// Firebase kitaplığı (gstatic) ve oturum yoklaması ağdan gelir: bağlantı yavaşsa ya da takılırsa oyun onu süresiz beklemez. Eskiden
+// yükleme ekranı kitaplık inene kadar duruyordu; denetim botu bunu yakaladı (2026-11-10: kitaplık 5 dakikada inmedi, oyun açılmadı).
+// Misafir 3 sn, öbürleri 12 sn bekler; yetişmezse bu açılış çevrimdışı sürer, kitaplık arkada yüklenir ve gelince çevrimiçi düğmeler kurulur
+let startedOnce = false;
 export async function onlineGate() {
-  await initOnline();
+  const guest = isGuest() && !visitId();
+  const late = await Promise.race([initOnline().then(() => false, () => false), new Promise((r) => setTimeout(() => r(true), guest ? 3000 : 12000))]);
+  if (late) {
+    console.warn('çevrimiçi bağlantı gecikti: oyun çevrimdışı açılıyor');
+    initOnline().then(() => { if (startedOnce) onlineStart(); }).catch(() => {});
+    return;
+  }
   if (ON.mode === 'off') return;
   if (ON.user && ON.needName) await nameStep();
   if (signedIn()) return;
@@ -203,6 +216,13 @@ export async function visitSave() {
   if (!uid || !signedIn() || uid === ON.user.uid) return null;
   const [data, prof] = await Promise.all([loadCloud(uid).catch(() => null), getProfile(uid).catch(() => null)]);
   if (!data) return null;
+  if (!data || typeof data !== 'object') return null;
+  // komşunun kaydı onun serbestçe yazabildiği veridir: içindeki yazılardan HTML işaretleri atılır (görev satırı, rozetler sayfaya
+  // innerHTML ile giriyor), günlük ve mevsim görevi taşınmaz (ziyaretçiye yenisi kurulur)
+  const scrub = (v, d = 0) => (typeof v === 'string' ? v.replace(/[<>&"'`]/g, '') : d > 12 ? null : Array.isArray(v) ? v.map((x) => scrub(x, d + 1))
+    : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).filter(([k]) => !/[<>&"'`]|^__proto__$|^constructor$/.test(k)).map(([k, x]) => [k, scrub(x, d + 1)])) : v);
+  for (const k of Object.keys(data)) data[k] = scrub(data[k]);
+  if (data.stats && typeof data.stats === 'object') { delete data.stats.daily; delete data.stats.season; delete data.stats.trip; }
   if (data.custom) for (const k in data.custom) if (typeof data.custom[k] === 'string') data.custom[k] = temiz(data.custom[k]); // tabela ve dükkân adı (filtre.js)
   G.visit = { uid, name: prof ? prof.name : 'Komşu', avatar: prof ? prof.avatar : '🧑‍🌾', t: VISIT_T, purse: PURSE, first: !helpedToday(uid) };
   return data;
@@ -212,8 +232,10 @@ export async function cloudPick(pick, flag) {
   if (!signedIn()) return pick;
   const uid = ON.user.uid, owner = localOwner();
   let best = !owner || owner === uid ? pick : null;
-  if (!flag) {
-    const cloud = await loadCloud().catch(() => null);
+  if (flag) cloudReady(true); // yeni oyun ya da içe aktarma bilerek seçildi: bulutun üstüne yazılır
+  else {
+    let cloud = null;
+    try { cloud = await loadCloud(); cloudReady(true); } catch (e) { console.warn('bulut kaydı okunamadı: bu oturumda üstüne yazılmayacak', e); } // cloudTick yeniden dener
     // başka cihazda yeni oyuna başlandıysa (daha yeni resetAt) o geçer; yoksa uzun oynanmış kayıt
     if (cloud && cloud.unlocked && (resetOf(cloud) > resetOf(best) || (resetOf(cloud) === resetOf(best) && playTime(cloud) > playTime(best)))) best = cloud;
   }
@@ -225,6 +247,7 @@ export async function cloudPick(pick, flag) {
 // oyun açıldıktan sonra (main.js): evde gelen kutusu ve haftalık ödül; ziyarette yardım vardiyası
 // =====================================================================
 export async function onlineStart() {
+  startedOnce = true;
   if (ON.mode === 'off') return;
   css();
   if (G.visit) { startVisit(); return; }
@@ -241,7 +264,29 @@ export async function onlineStart() {
   publishScore(true);
 }
 // bulut kaydı ve puan: persist.js diskSave'den (60 sn'de bir, çıkışta hemen)
-export function cloudTick(exit) { if (signedIn() && !G.visit) saveCloud(saveData(), exit); }
+export function cloudTick(exit) {
+  if (!signedIn() || G.visit) return;
+  if (cloudIsReady()) saveCloud(saveData(), exit); else cloudRetry();
+}
+// açılışta bulut okunamadıysa dakikada bir yeniden denenir: buluttaki kayıt daha ilerideyse o yüklenir (cloudNewer gibi), değilse yazmaya başlanır
+let retryAt = 0;
+async function cloudRetry() {
+  if (Date.now() - retryAt < 60000) return;
+  retryAt = Date.now();
+  // bu cihazdaki kayıt başka bir hesabınsa (oturum geç geldi, oyun yerel kayıtla açıldı) o kayıt bu hesabın bulutuna yazılmaz
+  const own = localOwner();
+  if (own && own !== ON.user.uid) return;
+  let c;
+  try { c = await loadCloud(); } catch (e) { return; }
+  const mine = (G.stats && G.stats.resetAt) || 0;
+  if (c && c.unlocked && resetOf(c) >= mine && (resetOf(c) > mine || playTime(c) > ((G.stats && G.stats.time) || 0) + 5)) {
+    G.tabStop = true; // bu oturumun kaydı artık yazılmaz (game.js save, persist.js diskSave)
+    writeSave(c); toast('☁️ Buluttaki kaydın daha ileride: o yükleniyor'); setTimeout(() => location.reload(), 1200);
+    return;
+  }
+  setOwner(ON.user.uid);
+  cloudReady(true);
+}
 
 function hudButton() {
   if ($('onlineBtn')) return;
@@ -282,6 +327,11 @@ async function applyInbox(items) {
   for (const it of items.sort((a, b) => a.ts - b.ts)) {
     try { await dropInbox(it.id); } catch (e) { continue; } // önce silinir: iki kez alınmasın
     const who = `${it.avatar || '🧑‍🌾'} ${it.fromName || 'Komşu'}`;
+    // kayıt başkasının yazdığı veridir: sayılar sınırlanır, ürün türü yalnız gerçek bir ürünse kabul edilir ('__proto__' gibi bir tür
+    // döngüyü hatayla kesiyordu; 2026-11-10 denetimi)
+    it.money = Math.max(0, Math.min(100000, Math.floor(+it.money) || 0)); it.items = Math.max(0, Math.min(10000, Math.floor(+it.items) || 0));
+    if (it.goods && !(typeof it.goods.type === 'string' && Object.prototype.hasOwnProperty.call(ITEMS, it.goods.type))) it.goods = null;
+    if (it.goods) it.goods.n = Math.max(1, Math.min(10, Math.floor(+it.goods.n) || 1));
     if (it.money > 0) { dropMoney(it.money); total += it.money; }
     if (it.kind === 'help') lines.push(`${who} köyüne yardım etti: ${tl(it.money)}, ${it.items || 0} satış`);
     else {
@@ -378,7 +428,7 @@ function mountBoard(body) {
       if (!rows.length) { list.innerHTML = `<p class="mm-lead">${tab === 'week' ? 'Bu hafta henüz kimse puan almadı. İlk sen ol!' : 'Henüz kimse yok.'}</p>`; return; }
       list.innerHTML = rows.map((r, i) => {
         return `<button type="button" class="ob-row${r.id === ON.user.uid ? ' me' : ''}" data-u="${esc(r.id)}">
-          <span class="rk">${BADGE[i + 1] || i + 1}</span><span class="av" style="background:${esc(r.color || '#eee')}33">${esc(r.avatar || '🧑‍🌾')}</span>
+          <span class="rk">${BADGE[i + 1] || i + 1}</span><span class="av" style="background:${hue(r.color)}33">${esc(r.avatar || '🧑‍🌾')}</span>
           <span><b>${esc(r.name || r.username)}</b><small>${esc(r.village || '')} · @${esc(r.username || '')}</small></span>
           <span class="val">${valueOf(tab, r)}</span></button>`;
       }).join('');
@@ -397,7 +447,7 @@ async function showPlayer(body, uid) {
   const me = uid === ON.user.uid, s = p.score || {}, helped = helpedToday(uid);
   body.innerHTML = `
     <button type="button" class="ob-back">← Köyler</button>
-    <div class="ob-card"><span class="av" style="background:${esc(p.color || '#eee')}33">${esc(p.avatar || '🧑‍🌾')}</span>
+    <div class="ob-card"><span class="av" style="background:${hue(p.color)}33">${esc(p.avatar || '🧑‍🌾')}</span>
       <span><b>${esc(p.name)}</b><small>@${esc(p.username)} · ${esc(p.village || '')}</small>${p.bio ? `<small>${esc(p.bio)}</small>` : ''}
       ${(p.badges || []).length ? `<span class="ob-badges">${p.badges.map((b) => `<span>${esc(badgeText(b))}</span>`).join('')}</span>` : ''}</span></div>
     <div class="mm-tiles">
@@ -465,7 +515,7 @@ function mountProfile(body) {
   let avatar = P.avatar || AVATARS[0], color = P.color || COLORS[0];
   const rec = recent();
   body.innerHTML = `
-    <div class="ob-card"><span class="av" style="background:${esc(color)}33">${esc(avatar)}</span>
+    <div class="ob-card"><span class="av" style="background:${hue(color)}33">${esc(avatar)}</span>
       <span><b>${esc(P.name)}</b><small>@${esc(P.username)} · ${esc((G.custom && G.custom.name) || P.village || '')}</small>
       ${(P.badges || []).length ? `<span class="ob-badges">${P.badges.map((b) => `<span>${esc(badgeText(b))}</span>`).join('')}</span>` : ''}</span></div>
     <div class="mm-tiles">
@@ -550,7 +600,7 @@ function mountFeedback(body) {
     try {
       const rows = await listFeedback();
       const icon = Object.fromEntries(KINDS.map(([k, n]) => [k, n.split(' ')[0]]));
-      list.innerHTML = rows.length ? rows.map((r) => `<div class="ob-fb"><small><span>${icon[r.kind] || '💬'} ${esc(r.name)} · Sv ${r.level || 1} · ${new Date(r.ts).toLocaleString('tr-TR')}</span><button type="button" data-d="${esc(r.id)}">sil</button></small><p>${esc(r.text)}</p></div>`).join('') : '<p class="mm-lead">Henüz öneri yok.</p>';
+      list.innerHTML = rows.length ? rows.map((r) => `<div class="ob-fb"><small><span>${icon[r.kind] || '💬'} ${esc(r.name)} · Sv ${Number(r.level) || 1} · ${new Date(r.ts).toLocaleString('tr-TR')}</span><button type="button" data-d="${esc(r.id)}">sil</button></small><p>${esc(r.text)}</p></div>`).join('') : '<p class="mm-lead">Henüz öneri yok.</p>';
     } catch (e) { list.innerHTML = `<p class="og-err">${esc(errText(e))}</p>`; }
   };
   list.addEventListener('click', async (e) => { const b = e.target.closest('[data-d]'); if (!b) return; await dropFeedback(b.dataset.d).catch(() => {}); load(); });

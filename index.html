@@ -613,6 +613,8 @@ kbd { display: inline-block; background: rgba(0,0,0,.08); border-radius: 8px; pa
 /* yükleme */
 #loading { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: radial-gradient(circle at 50% 40%, #e6f7ff, #9fd8f5); transition: opacity .6s; z-index: 5; font-family: var(--font-body); }
 #loading.hide { opacity: 0; pointer-events: none; }
+/* "hareketi azalt" seçili cihazda (erişilebilirlik) sürekli nabız, sallanma ve yanıp sönmeler durur */
+@media (prefers-reduced-motion: reduce) { #thiefAlarm.on, #goal.ready, #musicBtn svg, .dot::after, #loading img { animation: none !important; } }
 #loading img { width: 150px; height: 150px; animation: logo 1.4s ease-in-out infinite; filter: drop-shadow(0 8px 0 rgba(0,0,0,.12)); }
 @keyframes logo { 50% { transform: translateY(-10px) rotate(-3deg); } }
 #loading h1 { margin: 0; font: 58px 'Lilita One', 'Baloo 2', sans-serif; color: #fff; -webkit-text-stroke: 8px #e8604c; paint-order: stroke fill; }
@@ -816,6 +818,30 @@ button, .tog, .th, .seg, .mini, .big2, #minimap, input[type="range"], #mmNav but
 <div id="loading"><img src="assets/logo.webp" alt=""><h1>Köy Bakkalı</h1><div class="bar"><b></b></div><span id="tip">Yükleniyor…</span></div>
 <script>/* İngilizcede yükleme ekranı dil.js gelmeden önce de İngilizce görünsün (dil.js ile aynı seçim) */
 try { var l = localStorage.getItem('koyBakkali.lang'); if (l === 'en' || (l !== 'tr' && !/^tr\b/i.test(navigator.language || ''))) { document.documentElement.lang = 'en'; document.title = 'Village Grocer'; document.querySelector('#loading h1').textContent = 'Village Grocer'; document.getElementById('tip').textContent = 'Loading…'; } } catch (e) {}</script>
-<script type="module" src="./src/main.js"></script>
+<script>/* Bekçi (2026-11-10): modül haritasını (importmap) tanımayan eski tarayıcıda oyun kodu hiç çalışmaz, ekran sonsuza dek
+"Yükleniyor…" derdi. Açıklama yazılır; kod 40 sn'de çalışmaya başlamadıysa bağlantı ipucu verilir (src/main.js __kbBoot'u kurar) */
+(function () {
+  var en = document.documentElement.lang === 'en', tip = document.getElementById('tip');
+  var ok = window.HTMLScriptElement && HTMLScriptElement.supports && HTMLScriptElement.supports('importmap');
+  if (!ok) { tip.textContent = en ? 'Your browser is too old for this game. Please update it (Chrome, Edge, Firefox or Safari 16.4+).' : 'Tarayıcın bu oyun için eski kalmış. Lütfen güncelle (Chrome, Edge, Firefox ya da Safari 16.4+).'; return; }
+  setTimeout(function () { if (!window.__kbBoot) tip.textContent = en ? 'Still loading… If it does not open, check your connection and reload the page.' : 'Hâlâ yükleniyor… Açılmazsa bağlantını kontrol edip sayfayı yenile.'; }, 40000);
+  // Kod dosyalarından biri inemezse (bağlantı bir an koptu) oyun hiç başlamaz: bir kez kendiliğinden yeniden denenir, yine olmazsa
+  // açıklama ve "Yeniden dene" düğmesi çıkar. Sayaç oyun açılınca sıfırlanır (src/main.js)
+  window.__kbFail = function () {
+    if (window.__kbBoot) return;
+    var n = 0;
+    try { n = +sessionStorage.getItem('koyBakkali.yukle') || 0; sessionStorage.setItem('koyBakkali.yukle', n + 1); } catch (e) { n = 1; }
+    if (n < 1) { tip.textContent = en ? 'Connection hiccup, trying again…' : 'Bağlantı takıldı, yeniden deneniyor…'; setTimeout(function () { location.reload(); }, 1500); return; }
+    tip.textContent = en ? 'The game could not load. Check your connection and try again.' : 'Oyun yüklenemedi. Bağlantını kontrol edip yeniden dene.';
+    if (document.querySelector('#loading button')) return;
+    var b = document.createElement('button');
+    b.type = 'button'; b.textContent = en ? 'Try again' : 'Yeniden dene';
+    b.style.cssText = 'font: 800 16px Nunito, sans-serif; padding: 10px 24px; border-radius: 999px; border: 3px solid #3b2a6b; background: #ffd23f; color: #3b2a6b; cursor: pointer;';
+    b.onclick = function () { location.reload(); };
+    document.getElementById('loading').appendChild(b);
+  };
+})();
+</script>
+<script type="module" src="./src/main.js" onerror="window.__kbFail && window.__kbFail()"></script>
 </body>
 </html>

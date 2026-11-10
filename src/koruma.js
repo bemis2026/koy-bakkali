@@ -28,9 +28,23 @@ export function perde(title, text, btn, onClick) {
 }
 
 // ---------- tek sekme ----------
+// Sahiplik jetonu (localStorage 'koyBakkali.sekme'): oyunu alan sekme kimliğini yazar. Açılıştaki yoklamaya cevap veremeyen sekme
+// (tarayıcının dondurduğu arka plan sekmesi) sonradan uyanınca jetonun başkasına geçtiğini görür ve kaydetmeyi bırakır; eskiden
+// eski halini üç saniyede bir yeni sekmenin ilerlemesinin üstüne yazıyordu (2026-11-10 denetimi). main.js kayıt zamanlayıcısı çağırır
+const TOK = 'koyBakkali.sekme', ME = Math.random().toString(36).slice(2);
+let owner = false;
+function claim() { try { localStorage.setItem(TOK, ME); owner = true; } catch (e) { /* depo yok */ } }
+export function sekmeNobet() {
+  if (!owner || G.tabStop) return;
+  let t = null;
+  try { t = localStorage.getItem(TOK); } catch (e) { return; }
+  if (t === null || t === ME) return;
+  owner = false; G.tabStop = true;
+  perde('Oyun başka sekmede açıldı', 'İlerlemen orada sürüyor. Bu sekmeyi kapatabilirsin.', 'Burada oyna', () => location.reload());
+}
 export function tekSekme() {
   if (typeof BroadcastChannel === 'undefined' || /[?&](ziyaret|deneme)=/.test(location.search)) return Promise.resolve();
-  const ch = new BroadcastChannel('koyBakkali.tek'), me = Math.random().toString(36).slice(2);
+  const ch = new BroadcastChannel('koyBakkali.tek'), me = ME;
   let mine = false, wait = null;
   ch.onmessage = (e) => {
     const m = e.data || {};
@@ -39,7 +53,7 @@ export function tekSekme() {
     if (!mine) return;
     if (m.k === 'kim') ch.postMessage({ k: 'ben', to: m.from });
     else if (m.k === 'al') {
-      flush(); G.tabStop = true; mine = false;
+      flush(); G.tabStop = true; mine = false; owner = false;
       ch.postMessage({ k: 'tamam', to: m.from });
       perde('Oyun başka sekmede açıldı', 'İlerlemen orada sürüyor. Bu sekmeyi kapatabilirsin.', 'Burada oyna', () => location.reload());
     }
@@ -54,7 +68,7 @@ export function tekSekme() {
       await new Promise((go) => perde('Oyun başka sekmede açık', 'İki sekmede birden oynarsan ilerlemen kaybolabilir. Burada oynamak istersen öbür sekme durur.', 'Burada oyna', go));
       await ask('al', 2500, 'tamam');
     }
-    mine = true;
+    mine = true; claim();
   })();
 }
 

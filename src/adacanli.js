@@ -245,7 +245,9 @@ function rideTick(dt) {
     if ((ride.vk = (ride.vk || 0) + 1) % 2 === 0) wake(p.x + Math.sin(ry) * 0.6, p.z + Math.cos(ry) * 0.6, ry, me.sp);
   }
   if (ride.t <= 10 && !ride.warned) { ride.warned = true; floatText(p.clone(), '⏱️ 10 sn', ''); }
-  if (ride.t <= 0 || (ride.max - ride.t > 4 && Math.hypot(p.x - ride.home.x, p.z - ride.home.z) < 2)) endRide(true);
+  const homeD = Math.hypot(p.x - ride.home.x, p.z - ride.home.z);
+  if (homeD > 4) ride.away = true; // iskeleden bir kez uzaklaştıktan sonra dönünce biter: hiç ayrılmadan bekleyenin binişi 4 sn'de bitmesin
+  if (ride.t <= 0 || (ride.away && ride.max - ride.t > 4 && homeD < 2)) endRide(true);
 }
 function endRide(say) {
   if (!ride.kind) return;
