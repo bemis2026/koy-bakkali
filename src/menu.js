@@ -408,7 +408,8 @@ const RENDER = {
       <h3>Bölgeler</h3>
       <ul class="mm-list"><li>🍉 <b>Semt Pazarı:</b> toptancıdan al, tezgahta sat, BAĞIR ile müşteri çek.</li><li>🏖️ <b>Sahil Büfesi:</b> siparişi şezlongdaki müşteriye götür, çabuk gidene bahşiş.</li><li>🐫 <b>Kervansaray:</b> kervanın siparişini süresi bitmeden tamamla, ödeme katlanır.</li><li>🚗 <b>Paket servis:</b> Köy Meydanı'ndaki paket servis cebinde bekleyen arabanın siparişini getir.</li><li>✨ <b>Bereket sandığı:</b> yakında belirince kap, 60 saniye kazanç 2 kat.</li></ul>
       <h3>Tuşlar</h3><table class="mm-table keys"><tbody>${keys.map(([k, d]) => `<tr><td><kbd>${k}</kbd></td><td>${d}</td></tr>`).join('')}</tbody></table>
-      <h3>Emeği geçenler</h3>${credits()}`;
+      <h3>Emeği geçenler</h3>${credits()}
+      <p><a href="gizlilik.html" target="_blank" rel="noopener">Gizlilik ve kullanım şartları</a></p>`;
   },
 };
 
@@ -421,7 +422,8 @@ function credits() {
     <p class="mm-note mm-kredi">At kişnemesi: ${ln('Lemasson ve ark. 2015, PLOS ONE', 'https://commons.wikimedia.org/wiki/File:Mares-Prefer-the-Voices-of-Highly-Fertile-Stallions-pone.0118468.s003.oga')} kaydı, ${ln('CC BY 4.0', 'https://creativecommons.org/licenses/by/4.0/')} lisansıyla; kısaltıldı.</p>
     <p class="mm-note mm-kredi">Hayvan ve doğa sesleri (Wikimedia Commons, kesildi, düzeyleri eşitlendi): ${SESLER.map(([t, w, l, u]) => `${ln(t, u)} (${escapeHtml(w)}, ${l})`).join(', ')}.</p>
     <p class="mm-note mm-kredi">Araç sesleri ve akordeon (Wikimedia Commons, kesildi, düzeyleri eşitlendi): ${ARACSES.map(([t, w, l, u]) => `${ln(t, u)} (${escapeHtml(w)}, ${l})`).join(', ')}.</p>
-    <p class="mm-note mm-kredi">Yağmur ve gök gürültüsü (Wikimedia Commons, kesildi, düzeyleri eşitlendi): ${HAVASES.map(([t, w, l, u]) => `${ln(t, u)} (${escapeHtml(w)}, ${l})`).join(', ')}.</p>`;
+    <p class="mm-note mm-kredi">Yağmur ve gök gürültüsü (Wikimedia Commons, kesildi, düzeyleri eşitlendi): ${HAVASES.map(([t, w, l, u]) => `${ln(t, u)} (${escapeHtml(w)}, ${l})`).join(', ')}.</p>
+    <p class="mm-note mm-kredi">Arka plan müziği: Suno ile üretildi (ücretli plan, ticari kullanım hakkıyla).</p>`;
 }
 // hayvanses.js kayıtları: [ne, kimden, lisans, kaynak] (assets/sfx/hayvan/License.txt)
 const SESLER = [

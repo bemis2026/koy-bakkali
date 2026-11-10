@@ -996,17 +996,17 @@ export function buildIsle(scene) {
   { const K = new A.Kit(), ball = M.mat('#f6c343'), post = M.mat('#7a4f2b'), P0 = L.pen; // yunus havuzu: şamandıra halkası
     for (let i = 0; i < 16; i++) { const a = (i / 16) * PI * 2; K.add(A.part(BALL(0.2, 7, 5), P0.x + Math.cos(a) * 3.6, -0.05, P0.z + Math.sin(a) * 3.6), ball); if (i % 4 === 0) K.add(A.part(CYL(0.08, 0.08, 1.6, 6), P0.x + Math.cos(a) * 3.6, -0.3, P0.z + Math.sin(a) * 3.6), post); }
     K.build(L.root); }
-  penD = [0, 1].map((i) => { const o = A.makeDolphin(); L.root.add(o); return { o, a: i * PI, hop: 0 }; });
+  penD = [0, 1].map((i) => { const o = A.makeDolphin(); o.position.set(L.pen.x + Math.cos(i * PI) * 2.3, -0.5, L.pen.z + Math.sin(i * PI) * 2.3); L.root.add(o); return { o, a: i * PI, hop: 0 }; }); // ada ziyaretinden önce de havuzda: konumsuz yunus dünyanın ortasında, bakkalın önündeki yolda "balık" gibi yatıyordu (2026-11-10)
   POD.list = [0, 1, 2].map(() => { const o = A.makeDolphin(); o.visible = false; L.root.add(o); return { o }; });
   paxBuild();
   addEventListener('keydown', (e) => { if (e.code === 'KeyF' && !e.repeat && onIsle() && !/INPUT|TEXTAREA/.test((e.target && e.target.tagName) || '')) dismount(); });
   // voleybol ve futbol
   { const c = L.volley;
     VB.s = VB_HOME.map(([lx, lz], i) => { const o = person(M.touristLook(), true), [x, z] = c.F.at(lx, lz); place(o, x, z, faceX(c, i < 2 ? 1 : -1)); return { o, i, team: i < 2 ? 0 : 1, hx: x, hz: z, gx: x, gz: z, up: 0 }; });
-    VB.ball = ballMesh('#f7f1d8', 0.12); VB.out = c.F.at(-5.2, -5.4); }
+    VB.ball = ballMesh('#f7f1d8', 0.12); VB.out = c.F.at(-5.2, -5.4); VB.ball.position.set(VB.out[0], gy(VB.out[0], VB.out[1]) + 0.12, VB.out[1]); } // ada ziyaretinden önce de yerinde (konumsuz top bakkalın önündeydi, 2026-11-10)
   { const c = L.foot;
     FB.s = FB_HOME.map(([lx, lz], i) => { const o = person(M.touristLook(), true), [x, z] = c.F.at(lx, lz); place(o, x, z, faceX(c, i < 2 ? 1 : -1)); return { o, i, team: i < 2 ? 0 : 1, lx0: lx, hz0: lz, kickT: 0 }; });
-    FB.ball = ballMesh('#ffffff', 0.17); FB.out = c.F.at(-6, -5.6); }
+    FB.ball = ballMesh('#ffffff', 0.17); FB.out = c.F.at(-6, -5.6); FB.ball.position.set(FB.out[0], gy(FB.out[0], FB.out[1]) + 0.17, FB.out[1]); }
   // ateş başı: dört kütük, üçünde gitarcılar
   { const g = L.guitar;
     for (let k = 0; k < 4; k++) { const a = (k / 4) * PI * 2 + PI / 4, [x, z] = g.F.at(Math.cos(a) * 1.85, Math.sin(a) * 1.85); GT.seats.push({ x, z, y: gy(x, z), ry: Math.atan2(g.x - x, g.z - z) }); }
@@ -1038,7 +1038,7 @@ export function buildIsle(scene) {
   { const f = L.frisbee, w = person(M.touristLook(), true); place(w, f.x, f.z, f.ry + PI / 2); DOG.owner = w;
     const dog = makePetDog({ fur: '#c98a4a', dark: '#8a5a2a', belly: '#f2dcb8' }); L.root.add(dog); place(dog, f.x + Math.sin(f.ry) * 1.2, f.z + Math.cos(f.ry) * 1.2);
     DOG.pet = { o: dog, pose: 'sit', cur: { drop: 1, pitch: 0, head: 0, tailUp: 0.3, curl: 0, eyes: 1, front: 0 }, spdNow: 0, look: 0, ph: rand(0, 6), happy: true };
-    DOG.disc = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.03, 14), new THREE.MeshStandardMaterial({ color: '#e8343a', roughness: 0.5 })); DOG.disc.castShadow = true; DOG.disc.userData.bkNo = true; L.root.add(DOG.disc); }
+    DOG.disc = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.03, 14), new THREE.MeshStandardMaterial({ color: '#e8343a', roughness: 0.5 })); DOG.disc.castShadow = true; DOG.disc.userData.bkNo = true; DOG.disc.position.set(dog.position.x + 0.5, dog.position.y + 0.02, dog.position.z); L.root.add(DOG.disc); }
   // köy meydanı: tavla oynayanlar, bankta oturan, kapı önünü süpüren
   L.locals = [];
   { const t = L.tavla[0];

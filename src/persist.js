@@ -36,7 +36,7 @@ export function markNewGame() { try { localStorage.setItem(FLAG, String(Date.now
 
 let last = 0;
 export function diskSave(exit = false) {
-  if (!G.player || G.visit) return; // komşu ziyaretinde hiçbir kayıt yazılmaz
+  if (!G.player || G.visit || G.tabStop) return; // komşu ziyaretinde ya da oyun başka sekmeye geçtiyse hiçbir kayıt yazılmaz (koruma.js)
   cloudTick(exit); // üyeyse buluta da (60 sn'de bir, çıkışta hemen)
   if (ls('koyBakkali.nodisk') === '1' || !LOCAL) return;
   const now = Date.now();

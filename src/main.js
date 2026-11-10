@@ -5,6 +5,8 @@ import { G, ITEMS, Labels, Stack, makeItem, initAudio, updateCore, save, loadSav
 import { pickSave, applyFlag, markNewGame, diskSave } from './persist.js';
 import { onlineGate, onlineStart, cloudNewer } from './online-ui.js';
 import { initOnline } from './online.js';
+import { tekSekme, kaliciDepo, ekranKarti, hataRaporu, hata } from './koruma.js'; // tek sekme, yedek, ekran kartı, hata raporu
+hataRaporu();
 import { initInstall } from './install.js';
 import * as M from './models.js';
 import { buildWorld, updateWorld, walkable, heightAt, regionAt, doShout, applyCustom } from './world.js';
@@ -51,6 +53,7 @@ const TOUCH = matchMedia('(pointer: coarse)').matches;
 const Q0 = initQuality();
 M.setDetail(tierOf(Q0).detail);
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: !TOUCH && tierOf(Q0).pr >= 1.5 });
+ekranKarti(canvas); // bağlam düşerse kayıt yazılır, yeniden aç perdesi (koruma.js)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -637,6 +640,7 @@ addEventListener('resize', resize);
 // ---------- başlat ----------
 async function start() {
   await initLang(); // İngilizcede sözlük gelir, ekrana çıkan metinler çevrilir (dil.js)
+  const tekP = tekSekme(); // oyun başka sekmede açık mı: cevap modeller inerken gelir (koruma.js)
   const loadEl = document.getElementById('loading');
   setTip(`İpucu: ${say('tips')}`);
   initOnline().catch(() => {}); // Firebase SDK ve oturum modellerle birlikte iner (hata olursa kapı yine görür)
@@ -654,6 +658,7 @@ async function start() {
   arrow = M.makeArrow();
   scene.add(arrow);
   await onlineGate(); // çevrimiçiyse giriş/üye ol kapısı (online-ui.js); çevrimdışıysa hemen geçer
+  await tekP;
   const { saved, flag } = await pickSave(); // yerel kayıt ya da disk kaydı: oyun süresi uzun olan (persist.js)
   await breathe();
   buildWorld(saved);
@@ -694,6 +699,8 @@ async function start() {
   // alan derinliğinin çizim hedefi ve gölgelendiricisi de yükleme ekranında kurulur: ilk yakınlaşmada takılmasın (dof.js)
   if (dofOn) try { renderDof(renderer, scene, camera, 1, 20); } catch (e) { /* desteklemeyen cihaz: kalite ayarında kapanır */ }
   loadEl.classList.add('hide');
+  kaliciDepo(); // tarayıcı yer açarken kaydı silmesin (koruma.js)
+  if (G.fromBackup) toast('💾 Son kayıt okunamadı: 5 dakika önceki yedekten devam ediyorsun');
   if (!G.custom.named) setTimeout(() => openCustomize(true), 500);
   onlineStart(); // gelen kutusu, haftalık ödül; komşu ziyaretinde yardım vardiyası (online-ui.js)
   initCanli(); // canlı ziyaret: aynı köydeki oyuncular birbirini görür, yazışır (canli.js)
@@ -762,7 +769,7 @@ async function start() {
     // menü açıkken oyun durur; kamera yalnızca yakınlık ayarını göstermek için çalışır
     // bir karede çıkan hata oyunu kalıcı dondurmasın: o karenin kalanı atlanır, döngü ve çizim sürer (aynı hata bir kez yazılır)
     try { if (G.paused) { updateCamera(dt); G.labels.measure(); G.labels.update(camera, VIEW.w, VIEW.h, 0); } else tick(dt); }
-    catch (e) { const k = String(e); if (!loopErr.has(k)) { loopErr.add(k); console.error(e); } }
+    catch (e) { const k = String(e); if (!loopErr.has(k)) { loopErr.add(k); console.error(e); hata(k, 'kare', e && e.stack); } }
     renderFrame();
     requestAnimationFrame(loop);
   };

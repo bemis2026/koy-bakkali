@@ -6,10 +6,11 @@ import { EN } from './dil.js';
 import { banner } from './ui.js';
 import { canInstall, promptInstall } from './install.js';
 import { confetti } from './fx.js';
+import { temiz } from './filtre.js';
 import {
   ON, initOnline, signIn, signUp, signInGoogle, chooseName, signOut, playGuest, isGuest, signedIn, loadCloud, getProfile, saveProfile,
   board, weeklyAward, helpedToday, finishHelp, takePendingHelp, giftsLeft, sendGift, inbox, dropInbox, sendFeedback, listFeedback, dropFeedback,
-  errText, computeScore, weekScore, publishScore, saveCloud, setOwner, localOwner, myKey, cleanName, setPassword, rememberMe, lastLogin,
+  errText, computeScore, weekScore, publishScore, saveCloud, setOwner, localOwner, myKey, cleanName, setPassword, rememberMe, lastLogin, deleteAccount,
 } from './online.js';
 
 const VISIT_T = 240, PURSE = 300; // yardım vardiyası: 4 dakika, komşu 300 ₺ harçlık verir (malzeme alımı için)
@@ -119,6 +120,7 @@ function loginStep() {
         <label class="og-keep"><input type="checkbox" name="keep" ${rememberMe() ? 'checked' : ''}> Açık kal <small>(çıkış yapana kadar bu cihazda girili kalırsın)</small></label>
         <button type="button" class="og-alt" data-a="google">G Google ile ${mode === 'in' ? 'gir' : 'üye ol'}</button>
         <p class="og-err">${ON.authErr ? esc(errText(ON.authErr)) : ''}</p>
+        <p class="ob-note" style="text-align:center;margin:4px 0 0">Girerek ya da üye olarak <a href="gizlilik.html" target="_blank" rel="noopener">gizlilik ve kullanım şartlarını</a> kabul edersin.</p>
         <button type="button" class="og-link" data-a="guest">Üye olmadan oyna (kayıt bu cihazda kalır, sıralamaya girmez)</button>
         ${canInstall() ? '<button type="button" class="og-link" data-a="install">📲 Uygulama olarak kur: ana ekrandan tam ekran açılır</button>' : ''}`;
       const f = [...card.querySelectorAll('input[name]')].find((i) => i.type !== 'checkbox' && !i.value); if (f) setTimeout(() => f.focus(), 50); // kullanıcı adı hatırlandıysa şifreye odaklanır
@@ -201,6 +203,7 @@ export async function visitSave() {
   if (!uid || !signedIn() || uid === ON.user.uid) return null;
   const [data, prof] = await Promise.all([loadCloud(uid).catch(() => null), getProfile(uid).catch(() => null)]);
   if (!data) return null;
+  if (data.custom) for (const k in data.custom) if (typeof data.custom[k] === 'string') data.custom[k] = temiz(data.custom[k]); // tabela ve dükkân adı (filtre.js)
   G.visit = { uid, name: prof ? prof.name : 'Komşu', avatar: prof ? prof.avatar : '🧑‍🌾', t: VISIT_T, purse: PURSE, first: !helpedToday(uid) };
   return data;
 }
@@ -481,6 +484,8 @@ function mountProfile(body) {
     <label class="fld"><span>🔑 Şifre <i>(@${esc(P.username)} ve bu şifreyle her cihazdan girersin; en az 6 harf)</i></span><input name="pw" type="password" autocomplete="new-password" placeholder="Yeni şifre"></label>
     <button type="button" class="og-alt" data-o="pw">Şifreyi kaydet</button><p class="og-err pwerr"></p>
     <button type="button" class="og-alt" data-o="out">Çıkış yap</button>
+    <button type="button" class="og-alt" data-o="del" style="color:#d23c3c;font-size:15px">Hesabımı sil</button><p class="og-err delerr"></p>
+    <p class="ob-note"><a href="gizlilik.html" target="_blank" rel="noopener">Gizlilik ve kullanım şartları</a></p>
     ${ON.mode === 'mock' ? '<p class="og-mock">Deneme sunucusu açık</p>' : ''}`;
   for (const box of body.querySelectorAll('.ob-pick')) box.addEventListener('click', (e) => {
     const b = e.target.closest('[data-v]'); if (!b) return;
@@ -507,6 +512,15 @@ function mountProfile(body) {
     busy(pw, false);
   });
   body.querySelector('[data-o=out]').addEventListener('click', async () => { save(); try { await saveCloud(saveData(), true); } catch (e) { /* yok */ } await signOut(); location.reload(); });
+  // hesabı sil: ilk basış uyarır, ikinci basış siler (online.js deleteAccount)
+  const del = body.querySelector('[data-o=del]'), derr = body.querySelector('.delerr');
+  let armed = false;
+  del.addEventListener('click', async () => {
+    if (!armed) { armed = true; del.textContent = 'Emin misin? Silmek için yeniden bas'; derr.textContent = 'Profilin, buluttaki kaydın ve sıralamadaki adın kalıcı olarak silinir. Bu cihazdaki oyunun misafir olarak sürer.'; return; }
+    busy(del, true);
+    try { await deleteAccount(); toast('🗑️ Hesabın ve buluttaki verilerin silindi'); setTimeout(() => location.reload(), 1500); }
+    catch (e) { derr.textContent = errText(e); busy(del, false); armed = false; del.textContent = 'Hesabımı sil'; }
+  });
 }
 
 // ---------- Öneri kutusu ----------

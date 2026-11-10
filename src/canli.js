@@ -10,7 +10,8 @@
 // Yerel denemede (?deneme=1) aynı arayüz tarayıcı kanalıyla (BroadcastChannel) çalışır.
 import { G, ITEMS, Shelf, makeItem, fly, floatText, toast } from './game.js';
 import * as M from './models.js';
-import { ON, signedIn, liveDb } from './online.js';
+import { ON, signedIn, liveDb, sendFeedback } from './online.js';
+import { temiz } from './filtre.js'; // kötü söz süzgeci: adlar ve yazışma yıldızlanır
 
 const MAX = 4, SEND = 1 / 6, IDLE = 5, STALE = 20000;
 const EMOJI = ['👋', '👍', '❤️', '😂', '🎉', '🙏', '😮', '🔥'];
@@ -70,7 +71,7 @@ function avatar(uid, d) {
   const o = M.makeCharacter({ shirt: d.c || '#3b8beb', pants: '#2d3e66', hat: 'cap', hatColor: '#ffd23f', skin: '#f3cfae' });
   o.position.set(d.x, 0, d.z); o.rotation.y = d.r || 0;
   G.scene.add(o);
-  const el = document.createElement('div'); el.className = 'staff live'; el.textContent = `${d.a || '🧑‍🌾'} ${d.n || 'Komşu'}`;
+  const el = document.createElement('div'); el.className = 'staff live'; el.textContent = `${d.a || '🧑‍🌾'} ${temiz(d.n) || 'Komşu'}`;
   const tag = G.labels.add(el, (v) => v.copy(o.position).setY(o.position.y + 2.5));
   return { uid, o, tag, el, d, tx: d.x, tz: d.z, tr: d.r || 0, bub: null, bubT: 0 };
 }
@@ -83,7 +84,7 @@ function players(map) {
     const d = map[uid];
     if (now - (d.t || 0) > STALE || (d.w || 'koy') !== (G.world || 'koy')) { const p = others.get(uid); if (p) drop(p); continue; } // başka dünyada (şehir) olan görünmez
     let p = others.get(uid);
-    if (!p) { p = avatar(uid, d); others.set(uid, p); toast(`${d.a || '🧑‍🌾'} ${d.n || 'Bir komşu'} köyde`); }
+    if (!p) { p = avatar(uid, d); others.set(uid, p); toast(`${d.a || '🧑‍🌾'} ${temiz(d.n) || 'Bir komşu'} köyde`); }
     p.d = d; p.tx = d.x; p.tz = d.z; p.tr = d.r || 0;
   }
   if (ui) ui.btn.style.display = others.size ? 'flex' : 'none';
@@ -162,14 +163,40 @@ function buildUi() {
 function send(text) {
   text = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 80);
   if (!text || !room) return;
-  room.say(text);
+  room.say(temiz(text));
 }
 let joined = 0;
 function heard(msg) {
-  if (!msg || typeof msg.text !== 'string') return;
+  if (!msg || typeof msg.text !== 'string' || muted().includes(msg.uid)) return;
+  msg = { ...msg, name: temiz(String(msg.name || 'Komşu')), text: temiz(msg.text) };
   if ((msg.t || 0) > joined - 30000) bubble(msg.uid, msg.text); // girişten önceki eski yazılar balon olmaz, yalnız listede
   log.push(msg); if (log.length > 6) log.shift();
-  if (ui) { ui.log.innerHTML = ''; for (const m of log) { const p = document.createElement('p'); const b = document.createElement('b'); b.textContent = `${m.name}: `; p.append(b, m.text); ui.log.append(p); } }
+  drawLog();
+}
+// susturma ve bildirme (2026-11-10): başkasının satırına dokununca 🔇 Sustur / 🚩 Bildir çıkar. Susturulan oyuncunun yazısı
+// bu cihazda bir daha görünmez; bildirim öneri kutusuna 'sikayet' olarak gider (yalnız yönetici okur)
+const MUTE = 'koyBakkali.sustur';
+const muted = () => { try { return JSON.parse(localStorage.getItem(MUTE) || '[]'); } catch (e) { return []; } };
+let openRow = -1;
+function drawLog() {
+  if (!ui) return;
+  ui.log.innerHTML = '';
+  log.forEach((m, i) => {
+    const p = document.createElement('p'); const b = document.createElement('b'); b.textContent = `${m.name}: `; p.append(b, m.text);
+    if (m.uid !== me.uid) {
+      p.style.cursor = 'pointer';
+      p.onclick = (e) => { e.stopPropagation(); if (e.target.closest('button')) return; openRow = openRow === i ? -1 : i; drawLog(); };
+      if (openRow === i) {
+        const row = document.createElement('span'); row.style.cssText = 'display:flex;gap:6px;margin:3px 0 4px';
+        const mute = document.createElement('button'); mute.type = 'button'; mute.textContent = '🔇 Sustur';
+        mute.onclick = () => { const l = muted(); if (!l.includes(m.uid)) l.push(m.uid); try { localStorage.setItem(MUTE, JSON.stringify(l.slice(-200))); } catch (err) { /* yok */ } for (let k = log.length - 1; k >= 0; k--) if (log[k].uid === m.uid) log.splice(k, 1); openRow = -1; drawLog(); toast(`🔇 ${m.name} susturuldu`); };
+        const rep = document.createElement('button'); rep.type = 'button'; rep.textContent = '🚩 Bildir';
+        rep.onclick = () => { sendFeedback('sikayet', `uid ${m.uid} · ${m.name}: ${m.text} · köy ${G.visit ? G.visit.uid : me.uid}`).catch(() => {}); openRow = -1; drawLog(); toast('🚩 Bildirildi, teşekkürler'); };
+        row.append(mute, rep); p.append(row);
+      }
+    }
+    ui.log.append(p);
+  });
 }
 
 // ---------- giriş ve her kare ----------

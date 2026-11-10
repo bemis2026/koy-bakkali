@@ -65,12 +65,14 @@ function view(w, q) {
 export function needRows(def) {
   return (NEEDS[def.id] || []).map((q) => { const r = view(def, q), done = met(q); return { ...r, done, sub: done ? 'Tamam' : r.sub }; });
 }
-// ok ve küçük harita: kilidin yeri ya da kazanılacak bölgenin kasası (içinde para varsa)
+// ok ve küçük harita: kilidin yeri ya da kazanılacak bölgenin kasası. Kasa boşken de oyuncu o bölgenin dışındaysa ok kasayı
+// gösterir (eskiden ok hiç çıkmıyor, nereye gidileceği belli olmuyordu; 2026-11-10 denetimi); bölgenin içindeyken boş kasaya ok yok
 function target(q) {
   if (q.u) return padOf(q.u) || null;
   if (!q.earn) return null;
   const R = G.regions[q.earn], P = R && R.pile;
-  return P && P.zone && P.amount >= 1 ? { zone: P.zone, def: { at: [P.zone.x, P.zone.z] } } : null;
+  if (!P || !P.zone) return null;
+  return P.amount >= 1 || (G.player && placeName(G.player.position) !== q.earn) ? { zone: P.zone, def: { at: [P.zone.x, P.zone.z] } } : null;
 }
 export function needRefresh() {
   const w = !G.nextPad && G.nextWait, L = w && ready && !needOk(w) ? NEEDS[w.id] : null, q = L && L.find((x) => !met(x));

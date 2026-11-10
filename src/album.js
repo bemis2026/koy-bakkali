@@ -177,7 +177,7 @@ function info(page, id) {
 }
 function stepPop(dt) {
   if (popT > 0) { popT -= dt; if (popT <= 0) popEl.classList.remove('on'); return; }
-  if (popT > -0.35 || !popQueue.length || G.cine || G.menuOpen) { popT -= dt; return; }
+  if (popT > -0.35 || !popQueue.length || G.cine || G.menuOpen || G.guideOn || document.querySelector('.modal.open')) { popT -= dt; return; } // açılış penceresinin ve ilk adımlar rehberinin üstüne çıkmaz (2026-11-10)
   const [page, id] = popQueue.shift(), [ic, name] = info(page, id), P = pageOf(page);
   if (!popEl) { popEl = document.createElement('div'); popEl.id = 'albPop'; document.body.appendChild(popEl); }
   popEl.innerHTML = `<span class="ic">${ic}</span><span><small>📔 Albüme eklendi</small><b>${name}</b></span><span class="n">${P.icon} ${A[page].length}/${entries(page).length}</span>`;

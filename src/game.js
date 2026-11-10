@@ -213,10 +213,14 @@ export const legendK = () => (G.stats && G.stats.legendLv ? 1 + Math.min(LEGEND.
 export const mult = () => (G.boost > 0 ? 2 : 1) * legendK();
 
 // ---------- kayıt ----------
-const KEY = 'koyBakkali.v1';
+const KEY = 'koyBakkali.v1', BAK = 'koyBakkali.v1.yedek';
+const goodSave = (d) => !!(d && Array.isArray(d.unlocked) && typeof d.money === 'number');
+let bakAt = 0;
 export function save() {
-  if (G.visit) return; // komşunun köyündeyken kendi kaydının üstüne yazılmaz (online-ui.js)
+  if (G.visit || G.tabStop) return; // komşunun köyündeyken ya da oyun başka sekmeye geçtiyse kendi kaydının üstüne yazılmaz (online-ui.js, koruma.js)
   try {
+    // 5 dakikada bir eski kayıt yedeğe geçer: kayıt bozulursa oyun sıfırdan değil yedekten açılır (loadSave)
+    if (Date.now() - bakAt > 300000) { const old = localStorage.getItem(KEY); bakAt = Date.now(); try { if (old && goodSave(JSON.parse(old))) localStorage.setItem(BAK, old); } catch (e) { /* bozuk: yedeğe alınmaz */ } }
     localStorage.setItem(KEY, JSON.stringify(saveData()));
     G.lastSave = Date.now();
   } catch (e) { /* kayıt yok */ }
@@ -236,9 +240,12 @@ export function writeSave(data) {
   try { localStorage.setItem(KEY, JSON.stringify(data)); return true; } catch (e) { return false; }
 }
 export function loadSave() {
-  try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return null; }
+  let d = null, raw = null;
+  try { raw = localStorage.getItem(KEY); d = JSON.parse(raw || 'null'); } catch (e) { d = null; }
+  if (raw && !goodSave(d)) { try { const b = JSON.parse(localStorage.getItem(BAK) || 'null'); if (goodSave(b)) { G.fromBackup = true; return b; } } catch (e) { /* yedek de yok */ } } // bozuk kayıt: sessizce yeni oyun açılmasın
+  return d;
 }
-export function clearSave() { try { localStorage.removeItem(KEY); } catch (e) { /* yok */ } }
+export function clearSave() { try { localStorage.removeItem(KEY); localStorage.removeItem(BAK); } catch (e) { /* yok */ } }
 
 // ---------- HTML etiketleri ----------
 // pencerenin boyu: karede innerWidth/innerHeight okumak, aynı karede değişen yazılar yüzünden tarayıcıya bütün sayfanın yerleşimini kare

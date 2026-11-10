@@ -5,6 +5,9 @@
 import { G } from './game.js';
 import { stars } from './rating.js';
 import { FIREBASE, AUTH_SAME_SITE } from './firebase-config.js';
+import { temiz, uygun } from './filtre.js';
+// başkasından gelen ad, köy adı ve hakkımda yazısı gösterilmeden önce süzülür (filtre.js)
+const cleanRow = (r) => { if (r) for (const k of ['name', 'village', 'bio', 'fromName', 'note']) if (typeof r[k] === 'string') r[k] = temiz(r[k]); return r; };
 
 const SDK = 'https://www.gstatic.com/firebasejs/10.14.1/';
 const MAIL = 'oyuncu.koybakkali.app'; // kullanıcı adıyla üye olanın sahte e-postası: ad@oyuncu.koybakkali.app
@@ -82,6 +85,7 @@ async function afterLogin(u) {
 export async function signUp({ username, password, email, name }) {
   const un = cleanName(username);
   if (!validName(un)) throw fail('name', 'Kullanıcı adı 3-16 harf olmalı: a-z, 0-9 ve _');
+  if (!uygun(un) || !uygun(name)) throw fail('name', 'Bu ad kullanılamaz, başka bir ad seç');
   if (await B.get('usernames', un)) throw fail('name', 'Bu kullanıcı adı alınmış');
   const mail = email ? email.trim() : `${un}@${MAIL}`;
   await keep();
@@ -99,6 +103,7 @@ export async function signUp({ username, password, email, name }) {
 export async function chooseName(username, name, password) {
   const un = cleanName(username);
   if (!validName(un)) throw fail('name', 'Kullanıcı adı 3-16 harf olmalı: a-z, 0-9 ve _');
+  if (!uygun(un) || !uygun(name)) throw fail('name', 'Bu ad kullanılamaz, başka bir ad seç');
   const own = await B.get('usernames', un);
   if (own && own.uid !== ON.user.uid) throw fail('name', 'Bu kullanıcı adı alınmış'); // kendi yarım kalan adı geri alınır
   if (password) {
@@ -138,6 +143,25 @@ export async function signInGoogle() { await keep(); const u = await B.google();
 // çıkışta yerel kaydın sahibi silinmez: başka hesap girerse bu kaydı devralmasın (kendi bulut kaydı ya da yeni oyun)
 export const myKey = (k) => mine(k);
 export async function signOut() { await B.logout(); ON.user = null; ON.profile = null; }
+// hesabı sil (2026-11-10, KVKK/mağaza şartı): bulut kaydı, profil, kullanıcı adı, gelen kutusu, son 12 haftanın sıralama satırları,
+// kendi köy odasının yazışması ve giriş hesabı silinir. Firebase hesabı silmek için yakın zamanda girilmiş olmayı ister:
+// 5 dakikadan eski oturumda önce yeniden giriş istenir (yoksa veri silinip hesap kalabilirdi). Bu cihazdaki oyun misafir olarak sürer
+export async function deleteAccount() {
+  if (!signedIn()) throw fail('login', 'Önce giriş yap');
+  const u = ON.user, uid = u.uid, un = ON.profile.username;
+  const t = Date.parse((u.metadata && u.metadata.lastSignInTime) || '') || 0;
+  if (ON.mode === 'firebase' && Date.now() - t > 280000) throw fail('login', 'Güvenlik için önce çıkış yapıp yeniden gir, sonra hemen hesabını sil');
+  const off = () => {};
+  for (let i = 0; i < 12; i++) await B.remove(`weekly/${weekId(new Date(Date.now() - i * 7 * 86400000))}/scores`, uid).catch(off);
+  for (const it of await B.list(`inbox/${uid}/items`).catch(() => [])) await B.remove(`inbox/${uid}/items`, it.id).catch(off);
+  await B.remove('villages', uid).catch(off);
+  try { const L = await liveDb(); if (L) { const c = await L.D.get(L.D.ref(L.db, `rooms/${uid}/chat`)); if (c.exists()) for (const k of Object.keys(c.val())) await L.D.remove(L.D.ref(L.db, `rooms/${uid}/chat/${k}`)).catch(off); } } catch (e) { /* oda yok */ } // kurallar yazıları tek tek siler (database.rules.json)
+  if (un) await B.remove('usernames', un).catch(off);
+  await B.remove('users', uid).catch(off);
+  await B.deleteUser();
+  ON.user = null; ON.profile = null;
+  ls('koyBakkali.owner', null); ls('koyBakkali.lastId', null); playGuest();
+}
 export const playGuest = () => ls('koyBakkali.guest', '1');
 export const isGuest = () => ls('koyBakkali.guest') === '1';
 export const signedIn = () => !!(ON.user && ON.profile);
@@ -185,10 +209,11 @@ export function publishScore(force = false) {
 export async function saveProfile(patch) {
   const p = {};
   for (const k of ['name', 'avatar', 'color', 'bio', 'village']) if (patch[k] !== undefined) p[k] = String(patch[k]).slice(0, k === 'bio' ? 120 : 24);
+  for (const k of ['name', 'bio', 'village']) if (p[k] && !uygun(p[k])) throw fail('name', 'Yazdıklarında uygun olmayan bir sözcük var');
   await B.update('users', ON.user.uid, p);
   Object.assign(ON.profile, p);
 }
-export const getProfile = (uid) => B.get('users', uid);
+export const getProfile = (uid) => B.get('users', uid).then(cleanRow);
 export async function addBadge(b) {
   const list = ON.profile.badges || [];
   if (list.includes(b)) return;
@@ -199,9 +224,9 @@ export async function addBadge(b) {
 // ---------- sıralamalar ----------
 // kind: koy | earned | level | help → kullanıcı belgelerinden; week → haftalık tablodan
 export async function board(kind, n = 50) {
-  if (kind === 'week') return (await B.top(`weekly/${weekId()}/scores`, 'score', n)).map((r) => ({ ...r, value: r.score }));
+  if (kind === 'week') return (await B.top(`weekly/${weekId()}/scores`, 'score', n)).map((r) => cleanRow({ ...r, value: r.score }));
   const rows = await B.top('users', `score.${kind}`, n);
-  return rows.map((r) => ({ ...r, value: r.score ? r.score[kind] : 0 }));
+  return rows.map((r) => cleanRow({ ...r, value: r.score ? r.score[kind] : 0 }));
 }
 // geçen haftanın ilk üçü rozet alır (yeni haftada ilk açılışta, kendi rozetini kendisi işler)
 export async function weeklyAward() {
@@ -259,7 +284,7 @@ export async function sendGift(to, gift) {
   if (d.day !== today()) d = { day: today(), n: 0 };
   d.n++; ls(mine(GIFT_DAY), JSON.stringify(d));
 }
-export const inbox = () => B.list(`inbox/${ON.user.uid}/items`);
+export const inbox = () => B.list(`inbox/${ON.user.uid}/items`).then((l) => l.map(cleanRow));
 export const dropInbox = (id) => B.remove(`inbox/${ON.user.uid}/items`, id);
 
 // ---------- öneri kutusu ----------
@@ -322,6 +347,7 @@ async function firebaseBackend(cfg) {
       }
     },
     logout: () => U.signOut(auth),
+    deleteUser: () => U.deleteUser(auth.currentUser),
     get: async (col, id) => { const s = await F.getDoc(ref(col, id)); return s.exists() ? { id: s.id, ...s.data() } : null; },
     set: (col, id, data) => F.setDoc(ref(col, id), data),
     update: (col, id, data) => F.updateDoc(ref(col, id), data),
@@ -385,6 +411,7 @@ function mockBackend() {
       return later({ uid });
     },
     logout: async () => { ls('koyBakkali.mockuid', null); },
+    deleteUser: async () => { ls('koyBakkali.mockuid', null); },
     get: async (c, id) => { const d = col(load(), c)[id]; return later(d ? { id, ...JSON.parse(JSON.stringify(d)) } : null); },
     set: async (c, id, data) => { const db = load(); col(db, c)[id] = data; store(db); return later(); },
     update: async (c, id, data) => { const db = load(), d = col(db, c)[id]; if (!d) throw fail('not-found', 'Belge yok'); Object.assign(d, data); store(db); return later(); },
