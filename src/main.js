@@ -520,6 +520,7 @@ function updatePlayer(dt) {
   if (G.onRide) { vel.set(0, 0, 0); J.y = J.v = 0; J.run = false; G.onRide(dt, inputVec(dt)); G.stack.update(dt); return; }
   const p = G.player.position;
   const inp = inputVec(dt);
+  G.inMag = Math.hypot(inp.x, inp.z); // basılan yönün gücü: adada oturan/uzanan oyuncu yürümek isteyince kalkar (adacanli.js)
   const speed = runSpeed(6.6 * G.speedMul, keys.has('ShiftLeft') || keys.has('ShiftRight'), Math.hypot(inp.x, inp.z) > 0.6 && lastSp > 1, dt); // hızlı koşu ve enerji (yetenek.js)
   // tepki seri: hız hedefe hızlı ulaşır, karakter basılan yöne hemen döner
   vel.x += (inp.x * speed - vel.x) * (1 - Math.exp(-22 * dt));
@@ -766,6 +767,15 @@ async function start() {
   loadEl.classList.add('hide');
   try { sessionStorage.removeItem('koyBakkali.yukle'); } catch (e) { /* yok */ } // açılış başarılı: yeniden deneme sayacı sıfırlanır (index.html __kbFail)
   kaliciDepo(); // tarayıcı yer açarken kaydı silmesin (koruma.js)
+  // servis çalışanı ilk açılışta sayfayı denetlemiyordu: yüklenen kod ve modeller önbelleğine girmez, bağlantısız açılış ikinci ziyareti
+  // beklerdi. Açılış bitince yüklenen dosyaların listesi ona verilir; tarayıcı önbelleğinden alır (sw.js warm)
+  try {
+    if (navigator.serviceWorker && !navigator.serviceWorker.controller) navigator.serviceWorker.ready.then((reg) => {
+      const urls = performance.getEntriesByType('resource').map((e) => e.name.split('#')[0])
+        .filter((u) => u.startsWith(location.origin) && /\.(js|json|glb|png|webp|ogg|mp3|woff2?)(\?|$)/.test(u));
+      if (reg.active && urls.length) reg.active.postMessage({ warm: urls });
+    }).catch(() => {});
+  } catch (e) { /* servis çalışanı yok */ }
   if (G.fromBackup) toast('💾 Son kayıt okunamadı: 5 dakika önceki yedekten devam ediyorsun');
   if (!G.custom.named) setTimeout(() => openCustomize(true), 500);
   onlineStart(); // gelen kutusu, haftalık ödül; komşu ziyaretinde yardım vardiyası (online-ui.js)

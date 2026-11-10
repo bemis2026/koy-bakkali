@@ -16,7 +16,7 @@ self.addEventListener('fetch', (e) => {
   const u = new URL(r.url), same = u.origin === location.origin, font = /^fonts\.(googleapis|gstatic)\.com$/.test(u.hostname);
   if (!same && !font) return;
   if (same && (u.pathname.startsWith('/__/') || u.pathname.startsWith('/kayit'))) return;
-  const media = font || /\.(png|jpe?g|webp|mp3|ogg|wav|glb|woff2?)$/i.test(u.pathname);
+  const media = font || /\.(png|jpe?g|webp|mp3|ogg|m4a|wav|glb|woff2?)$/i.test(u.pathname);
   e.respondWith(media ? cacheFirst(r) : networkFirst(r));
 });
 // mobil ağda kopan istek iki kez daha denenir (tek bir model yüklenemezse oyun açılmaz)
@@ -40,6 +40,20 @@ async function networkFirst(r) {
     return (await c.match(r)) || (r.mode === 'navigate' && ((await c.match(r, { ignoreSearch: true })) || (await c.match('./')))) || Response.error();
   }
 }
+// ilk açılışta sayfa servis çalışanının denetiminde değildi: oyun açılınca yüklediği dosyaların listesini yollar (main.js), önbellekte
+// olmayanlar alınır (çoğu tarayıcı önbelleğinden gelir, ağa gitmez). Yalnız bu sitenin dosyaları, en çok 800
+self.addEventListener('message', (e) => {
+  const list = e.data && e.data.warm;
+  if (!Array.isArray(list)) return;
+  e.waitUntil(caches.open(V).then(async (c) => {
+    for (const x of list.slice(0, 800)) {
+      try {
+        if (typeof x !== 'string' || new URL(x).origin !== location.origin || (await c.match(x))) continue;
+        keep(c, x, await fetch(x));
+      } catch (err) { /* inmeyen dosya: sonraki açılışta ağdan */ }
+    }
+  }));
+});
 async function cacheFirst(r) {
   const c = await caches.open(V), hit = await c.match(r);
   const net = get(r).then((res) => keep(c, r, res)).catch(() => null);

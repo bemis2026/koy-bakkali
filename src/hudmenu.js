@@ -187,7 +187,6 @@ export function initHudMenu() {
     for (const id of OBST) { const el = document.getElementById(id); if (seen(el)) busy.push(rect(el)); }
     for (const [id, ic] of MINS) {
       const el = document.getElementById(id), on = mins.has(id);
-      mbtn[id].style.display = '';
       if (!el) continue;
       if (el.dataset.kbi !== ic) el.dataset.kbi = ic;
       if (el.classList.contains('kbm') !== on) el.classList.toggle('kbm', on); // sonradan kurulan ya da sınıfı yenilenen gösterge
@@ -195,16 +194,22 @@ export function initHudMenu() {
       const r = rect(el); busy.push(r);
       if (!on) live.push([mbtn[id], r]);
     }
-    if (document.body.classList.contains('hh-kbMins')) return;
+    // önce bütün okumalar, sonra yazmalar: döngüde her düğmeye yazıp sonraki göstergeyi ölçmek her seferinde yerleşimi baştan hesaplatıyordu
+    const placed = new Set();
+    const hideRest = () => { for (const id in mbtn) if (!placed.has(mbtn[id]) && mbtn[id].style.display !== '') mbtn[id].style.display = ''; };
+    if (document.body.classList.contains('hh-kbMins')) { hideRest(); return; }
     const hit = (x, y, own) => x < 2 || y < 2 || x + S > W - 2 || y + S > H - 2 || busy.some((q) => q !== own && x < q.r && x + S > q.l && y < q.b && y + S > q.t);
     for (const [b, r] of live) {
       const y = (r.t + r.b - S) / 2, side = [[r.r + 4, y], [r.l - S - 4, y]];
       if ((r.l + r.r) / 2 > W * 0.6) side.reverse();
       const c = [...side, [r.r - S + 5, r.t - S + 7], [r.r - S + 5, r.b - 7], [r.r - S - 2, r.t + 2]]; // yan, üst köşe, alt köşe, iç köşe
       const p = c.find(([x, cy], i) => !hit(x, cy, i > 1 ? r : null)) || c[4];
-      b.style.display = 'grid'; b.style.transform = `translate(${Math.round(p[0])}px,${Math.round(p[1])}px)`;
-      busy.push({ l: p[0], t: p[1], r: p[0] + S, b: p[1] + S });
+      const tf = `translate(${Math.round(p[0])}px,${Math.round(p[1])}px)`;
+      if (b.style.display !== 'grid') b.style.display = 'grid';
+      if (b.style.transform !== tf) b.style.transform = tf;
+      placed.add(b); busy.push({ l: p[0], t: p[1], r: p[0] + S, b: p[1] + S });
     }
+    hideRest();
   };
   // küçük göstergeye dokunmak onu açar; dokunuş göstergenin kendi işine (panel açma, yükseltme menüsü) gitmez
   let eat = null, eatT = 0;
@@ -247,9 +252,10 @@ export function initHudMenu() {
     const right = r ? hr.right - r.right : phone.matches ? 8 : 14;
     const bottom = r ? hr.bottom - r.top + 6 + (parseFloat(getComputedStyle(mm).outlineWidth) || 0) : phone.matches ? 8 : 16;
     bar.style.right = `${Math.round(right)}px`; bar.style.bottom = `${Math.round(bottom)}px`;
-    const top = bottom + bar.offsetHeight; // çubuğun üst kenarının alttan uzaklığı
+    const br = bar.getBoundingClientRect(), bw = br.width || bar.offsetWidth, bh = br.height || bar.offsetHeight; // görünen boy (yan ekranda çubuk küçülür)
+    const top = bottom + bh; // çubuğun üst kenarının alttan uzaklığı
     const chat = document.getElementById('chatBtn');
-    if (chat) Object.assign(chat.style, { right: `${Math.round(right + bar.offsetWidth + 6)}px`, bottom: `${Math.round(bottom + (bar.offsetHeight - (chat.offsetHeight || 34)) / 2)}px` });
+    if (chat) { const ch = chat.getBoundingClientRect().height || chat.offsetHeight || 34; Object.assign(chat.style, { right: `${Math.round(right + bw + 6)}px`, bottom: `${Math.round(bottom + (bh - ch) / 2)}px` }); }
     const sh = document.getElementById('shout');
     if (sh) sh.style.bottom = phone.matches ? `${Math.round(top + 8)}px` : '';
     box.style.bottom = phone.matches ? `${Math.round(top + 8)}px` : '';

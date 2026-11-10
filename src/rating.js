@@ -140,9 +140,9 @@ export function updateRating(dt) {
   const s = stars();
   starI.style.width = `${(s / 5) * 100}%`;
   const t = s.toFixed(1);
-  if (numB.textContent !== t) numB.textContent = t;
+  if (numB._t !== t) { numB._t = t; numB.textContent = t; }
   const P = G.regions.pazar, share = P && P.unlocked && P.rivals ? P.rivals.share() : null;
   const sub = share !== null ? `Mahalle · pazar %${share}` : 'Mahalle';
-  if (shareS.textContent !== sub) shareS.textContent = sub;
+  if (shareS._t !== sub) { shareS._t = sub; shareS.textContent = sub; } // ekrandaki metin İngilizcede çevrilmiş olur: kaynak metinle karşılaştırılır
   if (panel.classList.contains('open')) fillPanel();
 }

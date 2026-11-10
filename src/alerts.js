@@ -249,6 +249,7 @@ function refresh() {
 }
 
 const v = new THREE.Vector3();
+let edgeRT = -1e9; const edgeR = [null, null];
 function toScreen(x, y, z, out) {
   v.set(x, y, z).project(G.camera);
   out.x = (v.x * 0.5 + 0.5) * VIEW.w; out.y = (-v.y * 0.5 + 0.5) * VIEW.h; out.z = v.z; // VIEW: pencere boyu önbellekte (game.js)
@@ -295,9 +296,12 @@ export function updateAlerts(dt) {
   const k = Math.max(0, Math.min(kx, ky, 1));
   let ex = sp.x + dx * k, ey = sp.y + dy * k;
   // kenar oku bildirim listesinin ve mini haritanın üstüne binmez: kenar boyunca kayar
-  const hit = (el) => { if (!el || !el.offsetParent) return null; const r = el.getBoundingClientRect(); return ex > r.left - 26 && ex < r.right + 26 && ey > r.top - 26 && ey < r.bottom + 26 ? r : null; };
-  let r = hit(root); if (r) { if (ey <= top + 1) ex = r.left - 30; else ey = r.bottom + 30; }
-  r = hit(document.getElementById('minimap')); if (r) ey = r.top - 30;
+  // bildirim listesinin ve haritanın yeri 0,5 sn'de bir ölçülür (her karede iki zorunlu yerleşim okumasıydı)
+  const now = performance.now();
+  if (now - edgeRT > 500) { edgeRT = now; const mm = document.getElementById('minimap'); edgeR[0] = root.offsetParent ? root.getBoundingClientRect() : null; edgeR[1] = mm && mm.offsetParent ? mm.getBoundingClientRect() : null; }
+  const hit = (r) => (r && ex > r.left - 26 && ex < r.right + 26 && ey > r.top - 26 && ey < r.bottom + 26 ? r : null);
+  let r = hit(edgeR[0]); if (r) { if (ey <= top + 1) ex = r.left - 30; else ey = r.bottom + 30; }
+  r = hit(edgeR[1]); if (r) ey = r.top - 30;
   edge.style.display = 'grid';
   edge.style.transform = `translate(${ex.toFixed(0)}px,${ey.toFixed(0)}px)`;
   edge.firstChild.style.transform = `rotate(${ang.toFixed(2)}rad)`;

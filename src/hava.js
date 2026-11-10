@@ -11,6 +11,7 @@
 // Ses: gerçek yağmur, sağanak ve gök gürültüsü kaydı (assets/sfx/hava, Wikimedia Commons; kesme KoyBakkali-araclar/ses/kes3.py;
 // kredi menu.js, final.js); tipinin rüzgârı kodla.
 import * as THREE from 'three';
+import { loadSound } from './sesyukle.js'; // eski Safari: .ogg yerine .m4a
 import { G, toast } from './game.js';
 import { ambienceBus, settings } from './audio.js';
 import { mat } from './models.js';
@@ -249,7 +250,7 @@ let A = null, OUT = null;
 const loops = {};
 function load(S) {
   if (S.buf) return true;
-  if (!S.loading) { S.loading = true; fetch('assets/sfx/hava/' + S.f).then((r) => r.arrayBuffer()).then((b) => A.decodeAudioData(b)).then((b) => { S.buf = b; }).catch(() => { S.loading = false; }); }
+  if (!S.loading) { S.loading = true; loadSound(A, 'assets/sfx/hava/' + S.f).then((b) => { S.buf = b; }).catch(() => { S.loading = false; }); }
   return false;
 }
 function noiseBuf() { const n = A.sampleRate * 2, b = A.createBuffer(1, n, A.sampleRate), d = b.getChannelData(0); let l = 0; for (let i = 0; i < n; i++) { l = (l + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = l * 3.5; } return b; }

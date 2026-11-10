@@ -4,6 +4,7 @@
 // Kilitli bölge doğa sesi verir. Martı çığlıkları birds.js'teki görünen martılardan gelir. Ses ayarı: Ortam sesleri.
 // Kuş cıvıltısı, tavuk, horoz, inek, köpek, kedi ve yaprak hışırtısı gerçek kayıt (hayvanses.js); geçen araba, korna, araç motorları ve bisiklet zili de (aracses.js).
 import { G } from './game.js';
+import { loadSound } from './sesyukle.js'; // eski Safari: .ogg yerine .m4a
 import { ambienceBus } from './audio.js';
 import { realBird, updateVoices } from './hayvanses.js';
 import { havaW } from './hava.js';
@@ -276,7 +277,7 @@ function thump(t, v, pan) { voice('sine', t, 0.16, outNode(v, pan), (p) => { p.s
 let neighBuf = null, neighLoad = false;
 function neigh(t, v, pan) {
   if (!neighBuf) {
-    if (!neighLoad) { neighLoad = true; fetch('assets/sfx/at_kisneme.ogg').then((r) => r.arrayBuffer()).then((b) => A.decodeAudioData(b)).then((b) => { neighBuf = b; neigh(A.currentTime + 0.02, v, pan); }).catch(() => { neighLoad = false; }); }
+    if (!neighLoad) { neighLoad = true; loadSound(A, 'assets/sfx/at_kisneme.ogg').then((b) => { neighBuf = b; neigh(A.currentTime + 0.02, v, pan); }).catch(() => { neighLoad = false; }); }
     return;
   }
   const s = A.createBufferSource(), g = A.createGain(); s.buffer = neighBuf; s.playbackRate.value = rnd(0.92, 1.06); g.gain.value = 0.7;

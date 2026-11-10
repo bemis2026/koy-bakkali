@@ -1,5 +1,6 @@
 // Ana menü: oyun durur; genel bakış, yükseltmeler, dükkanım, ürünler, başarımlar, ayarlar, kayıt, nasıl oynanır
 import { G, ITEMS, save, saveData, writeSave } from './game.js';
+import { backOpen, backClose } from './geri.js';
 import { settings, saveSettings, setSfx, setMusic, setVoice, setAmb, setSfxVol, setMusicVol, setVoiceVol, setAmbVol, duckMusic, play, nextTrack, musicInfo } from './audio.js';
 import { toggleSoundPanel, syncSoundBtn } from './soundpanel.js';
 import { applyTheme, banner, PALETTES } from './ui.js';
@@ -179,8 +180,7 @@ function askReset() {
 let openedAt = 0;
 // Telefonun Geri tuşu (ve tarayıcının geri hareketi) açık menüyü kapatır: menü açılırken geçmişe bir adım eklenir, Geri o adımı
 // geri alır. Eskiden Geri oyundan çıkıyor, kurulu uygulamayı kapatıyordu (2026-11-10 denetimi). Menü düğmeyle kapanınca adım geri alınır
-let histOn = false;
-addEventListener('popstate', () => { if (!histOn) return; histOn = false; closeMenu(); });
+const menuBack = () => closeMenu(); // geri.js
 export function openMenu(sec) {
   if (G.visit) return; // komşunun köyünde menü yok (online-ui.js yardım vardiyası)
   if (open) { show(sec || section); return; }
@@ -189,7 +189,7 @@ export function openMenu(sec) {
   if (G.custom.name && G.custom.name !== 'Köy Bakkalı') $('mmShop').setAttribute('translate', 'no'); else $('mmShop').removeAttribute('translate');
   $('mmShop').textContent = G.custom.name;
   open = true; G.menuOpen = true; G.paused = true; openedAt = performance.now();
-  if (!histOn) try { history.pushState({ kbMenu: 1 }, ''); histOn = true; } catch (e) { /* geçmişe yazılamadı: Geri eskisi gibi */ }
+  backOpen(menuBack);
   $('mainMenu').classList.add('open');
   duckMusic(true);
   play('open');
@@ -200,7 +200,7 @@ export function closeMenu() {
   if (!open) return;
   if (section === 'upg') unmountUpgrades();
   open = false; G.menuOpen = false; G.paused = false;
-  if (histOn) { histOn = false; try { history.back(); } catch (e) { /* yok */ } } // menü için eklenen geçmiş adımı geri alınır
+  backClose(menuBack); // menü için eklenen geçmiş adımı geri alınır (hemen başka pencere açılmadıysa)
   $('mainMenu').classList.remove('open');
   $('resetAsk')?.remove();
   duckMusic(false);
@@ -369,10 +369,10 @@ const RENDER = {
     return `<h3 translate="no">🌐 Dil · Language</h3>
       <div class="segs" translate="no" style="margin:2px 0 10px">${[['tr', 'Türkçe'], ['en', 'English']].map(([k, n]) => `<button type="button" class="seg${LANG === k ? ' on' : ''}" data-lang="${k}">${n}</button>`).join('')}</div>
       <h3>Ses</h3>
-      <div class="srow"><span>🔊 Ses efektleri</span><input type="range" min="0" max="100" value="${Math.round((settings.sfxVol ?? 1) * 100)}" data-vol="sfx"><button class="tog${settings.sfx ? ' on' : ''}" type="button" data-tog="sfx" aria-label="Ses efektleri"></button></div>
-      <div class="srow"><span>🎵 Müzik</span><input type="range" min="0" max="100" value="${Math.round((settings.musicVol ?? 1) * 100)}" data-vol="music"><button class="tog${settings.music ? ' on' : ''}" type="button" data-tog="music" aria-label="Müzik"></button></div>
-      <div class="srow"><span>🗣️ Özel sesler</span><input type="range" min="0" max="100" value="${Math.round((settings.voiceVol ?? 1) * 100)}" data-vol="voice"><button class="tog${settings.voice ? ' on' : ''}" type="button" data-tog="voice" aria-label="Özel sesler"></button></div>
-      <div class="srow"><span>🌿 Ortam sesleri</span><input type="range" min="0" max="100" value="${Math.round((settings.ambVol ?? 1) * 100)}" data-vol="amb"><button class="tog${settings.amb !== false ? ' on' : ''}" type="button" data-tog="amb" aria-label="Ortam sesleri"></button></div>
+      <div class="srow"><span>🔊 Ses efektleri</span><input type="range" min="0" max="100" value="${Math.round((settings.sfxVol ?? 1) * 100)}" data-vol="sfx" aria-label="Ses efektleri seviyesi"><button class="tog${settings.sfx ? ' on' : ''}" type="button" data-tog="sfx" aria-label="Ses efektleri"></button></div>
+      <div class="srow"><span>🎵 Müzik</span><input type="range" min="0" max="100" value="${Math.round((settings.musicVol ?? 1) * 100)}" data-vol="music" aria-label="Müzik seviyesi"><button class="tog${settings.music ? ' on' : ''}" type="button" data-tog="music" aria-label="Müzik"></button></div>
+      <div class="srow"><span>🗣️ Özel sesler</span><input type="range" min="0" max="100" value="${Math.round((settings.voiceVol ?? 1) * 100)}" data-vol="voice" aria-label="Özel sesler seviyesi"><button class="tog${settings.voice ? ' on' : ''}" type="button" data-tog="voice" aria-label="Özel sesler"></button></div>
+      <div class="srow"><span>🌿 Ortam sesleri</span><input type="range" min="0" max="100" value="${Math.round((settings.ambVol ?? 1) * 100)}" data-vol="amb" aria-label="Ortam sesleri seviyesi"><button class="tog${settings.amb !== false ? ' on' : ''}" type="button" data-tog="amb" aria-label="Ortam sesleri"></button></div>
       ${musicInfo().files ? `<div class="srow mm-now"><span>💿</span><b id="mmTrack">${escapeHtml(musicInfo().name || 'Başlıyor…')}</b><small>Bölüm ${musicInfo().stage || 1}</small><button type="button" class="mini" data-act="next">⏭ Sonraki</button></div>` : ''}
       <h3>Uygulama</h3>
       ${installed() ? '<p class="mm-note">📲 Köy Bakkalı uygulama olarak açık.</p>' : ''}
@@ -388,7 +388,7 @@ const RENDER = {
       <div class="srow"><span>↩️ Kapattığın kutular <small id="mmHintN">${closedHintCount()}</small></span><button type="button" class="mini" data-act="hints">Geri getir</button></div>
       <h3>Grafik</h3>
       ${qualityHTML()}
-      <div class="srow"><span>🎥 Kamera uzaklığı</span><input type="range" min="55" max="260" value="${Math.round((hooks.getZoom ? hooks.getZoom() : 1) * 100)}" data-zoom="1"></div>
+      <div class="srow"><span>🎥 Kamera uzaklığı</span><input type="range" min="55" max="260" value="${Math.round((hooks.getZoom ? hooks.getZoom() : 1) * 100)}" data-zoom="1" aria-label="Kamera uzaklığı"></div>
       <h3>Tema</h3><div class="themes">${th}</div>`;
   },
   kayit() {

@@ -1,5 +1,6 @@
 // Elemanlar (kasiyer, rafçı, tezgahçı, garson, kâhya) ve yükseltme menüsü
 import * as THREE from 'three';
+import { backOpen, backClose } from './geri.js';
 import { bankUp } from './bank.js';
 import { G, ITEMS, Stack, MoneyPile, sfx, save, toast, popIn, bounce, lerpAngle, rand, fly, floatText, makeItem, PRICE_K } from './game.js';
 import * as M from './models.js';
@@ -2028,8 +2029,9 @@ export function toggleMenu(force) {
   G.menuOpen = want;
   menuEl.classList.toggle('open', G.menuOpen);
   sfx(G.menuOpen ? 'open' : 'close');
-  if (G.menuOpen) render();
+  if (G.menuOpen) { render(); backOpen(upgBack); } else backClose(upgBack); // telefonun Geri tuşu pencereyi kapatır (geri.js)
 }
+const upgBack = () => toggleMenu(false);
 
 function lockText(u, id) {
   const a = id && areaOfId(id);

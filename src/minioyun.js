@@ -21,7 +21,7 @@ const CSS = `#miniBtn { position: fixed; left: 50%; bottom: 128px; transform: tr
   border: var(--bw) solid var(--line); background: var(--btn); color: var(--btn-ink); font: 20px var(--font-title); box-shadow: 0 5px 0 var(--btn-dark); cursor: pointer; white-space: nowrap; }
 #miniBtn.on { display: flex; animation: miniPulse .9s ease-in-out infinite alternate; }
 #miniBtn small { font: 800 13px var(--font-body); opacity: .85; }
-@keyframes miniPulse { to { scale: 1.05; } }
+@keyframes miniPulse { to { scale: calc(var(--ls, 1) * 1.05); } } /* yan ekranda düğme küçük (index.html --ls): nabız o boydan */
 #miniHud { position: fixed; left: 50%; top: 10px; transform: translateX(-50%); z-index: 3; display: none; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px 12px;
   width: min(440px, calc(100vw - 20px)); box-sizing: border-box; padding: 8px 10px 8px 16px; border-radius: 18px; background: var(--panel-bg); color: var(--panel-ink);
   border: var(--bw) solid var(--line); box-shadow: 0 4px 0 rgba(0,0,0,.2); }
@@ -188,7 +188,9 @@ export function updateMinigames(dt) {
   }
   if (c.kind === 'cekic') { c.p = (1 - Math.cos(c.t * 3.4)) / 2; ui.mark.style.top = `${(1 - c.p) * 100}%`; }
   const left = Math.max(0, g.time - c.t);
-  ui.time.textContent = Math.ceil(left); ui.stat.textContent = g.stat(c);
+  const tm = Math.ceil(left), st = g.stat(c); // değişince yazılır (her karede yazım + İngilizcede çeviri)
+  if (ui.time._t !== tm) { ui.time._t = tm; ui.time.textContent = tm; }
+  if (ui.stat._t !== st) { ui.stat._t = st; ui.stat.textContent = st; }
   if (c.endAt != null) { if ((c.endAt -= dt) <= 0) finish(false); } else if (left <= 0) c.endAt = 0.4;
 }
 

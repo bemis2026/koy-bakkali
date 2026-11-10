@@ -654,6 +654,14 @@ function spawnCustomer(R) {
       case 'toQueue': if (c.walk(dt)) c.state = 'queue'; break;
       case 'queue': { // yerinde bekler, sıra ilerleyince ağır adımla geçer (game.js)
         const reg = c.reg || R.register, px = G.player.position.x;
+        // kasasında kimse yoksa ve çalışan başka kasa varsa 8 sn sonra oraya geçer (eskiden ilk seçtiği kasada bekliyordu; köyde world.js qDead)
+        if (!(reg.cashier || reg.inside) && !(reg.sale && reg.sale.c === c)) {
+          if ((c.qDead = (c.qDead || 0) + dt) > 8) {
+            c.qDead = 0;
+            const alt = (R.registers || [R.register]).filter((r) => r !== reg && (r.cashier || r.inside));
+            if (alt.length) { reg.leave(c); c.qIdle = 0; toQueue(); break; } // toQueue çalışan kasalardan kuyruğu kısayı seçer
+          }
+        } else c.qDead = 0;
         // kasada kimse yokken ve sen şehirde değilken (otobüsle köye döndün) 25 sn bekleyen müşteri sırayı bırakıp gider: yoksa sonsuza
         // dek bekleyip köy, pazar ve sahilin müşteri payını tüketiyordu (rating.js crowd). Sen şehirdeyken eskisi gibi bekler
         if (!(reg.cashier || reg.inside) && !(reg.sale && reg.sale.c === c) && (px < 300 || px > 700)) {

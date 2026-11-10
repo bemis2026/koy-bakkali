@@ -87,6 +87,7 @@ export function setTip(t) { $('tip').textContent = t; }
 function bump() { const m = $('money'); m.classList.remove('bump'); void m.offsetWidth; m.classList.add('bump'); }
 
 // dünyadaki para yığınından üstteki sayaca uçan madeni para
+let coinR = null, coinRT = 0;
 export function coinFly(pos) {
   const now = performance.now();
   if (now - coinT < 70) return;
@@ -94,8 +95,9 @@ export function coinFly(pos) {
   v.set(pos.x, pos.y + 1, pos.z).project(G.camera);
   if (v.z > 1) return;
   const x = (v.x * 0.5 + 0.5) * innerWidth, y = (-v.y * 0.5 + 0.5) * innerHeight;
-  const r = $('money').querySelector('.coin').getBoundingClientRect();
-  const tx = r.left + r.width / 2, ty = r.top + r.height / 2;
+  // para simgesinin yeri saniyede bir ölçülür (her parada ölçmek zorunlu yerleşim hesabıydı)
+  if (!coinR || now - coinRT > 1000) { coinR = $('money').querySelector('.coin').getBoundingClientRect(); coinRT = now; }
+  const r = coinR, tx = r.left + r.width / 2, ty = r.top + r.height / 2;
   const mx = (x + tx) / 2 + (Math.random() - 0.5) * 140, my = Math.min(y, ty) + 40;
   const el = document.createElement('i');
   el.className = 'cf';
@@ -183,6 +185,6 @@ export function updateUI(dt, region) {
   if (G.boost > 0) {
     b.classList.add('on');
     const s = Math.ceil(G.boost);
-    $('boostT').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    if (b._s !== s) { b._s = s; $('boostT').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; } // saniyede bir
   } else b.classList.remove('on');
 }

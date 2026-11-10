@@ -614,6 +614,11 @@ kbd { display: inline-block; background: rgba(0,0,0,.08); border-radius: 8px; pa
 #loading { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: radial-gradient(circle at 50% 40%, #e6f7ff, #9fd8f5); transition: opacity .6s; z-index: 5; font-family: var(--font-body); }
 #loading.hide { opacity: 0; pointer-events: none; }
 /* "hareketi azalt" seçili cihazda (erişilebilirlik) sürekli nabız, sallanma ve yanıp sönmeler durur */
+/* küçük düğmelerin dokunma alanı (2026-11-11): görünüşleri aynı, parmak için çevreleri genişler (18-30 px'lik kapatma ve çubuk
+   düğmeleri telefonda zor tutturuluyordu). Çubuktaki yan yana düğmeler yalnız yukarı-aşağı genişler: komşusunun üstüne binmez */
+#alerts .ax, .hint .hclose, #hud #mmBar > button, #rtPanel .rgo.sm, #miniHud .mx { position: relative; }
+#alerts .ax::before, .hint .hclose::before, #rtPanel .rgo.sm::before, #miniHud .mx::before { content: ''; position: absolute; inset: -10px; }
+#hud #mmBar > button::before { content: ''; position: absolute; inset: -9px -1px; }
 @media (prefers-reduced-motion: reduce) { #thiefAlarm.on, #goal.ready, #musicBtn svg, .dot::after, #loading img { animation: none !important; } }
 #loading img { width: 150px; height: 150px; animation: logo 1.4s ease-in-out infinite; filter: drop-shadow(0 8px 0 rgba(0,0,0,.12)); }
 @keyframes logo { 50% { transform: translateY(-10px) rotate(-3deg); } }
@@ -705,6 +710,45 @@ button, .tog, .th, .seg, .mini, .big2, #minimap, input[type="range"], #mmNav but
 @media (max-width: 380px) { /* küçük telefon: para kutusu ve Menü düğmesi daralır, çarpışmaz */
   #hud #money { font-size: 21px; } #hud #money .coin { width: 26px; height: 26px; }
   #hud #menuBtn span { display: none; } #hud #menuBtn { padding: 0 11px; }
+}
+/* yan çevrilmiş telefon ve alçak pencere (2026-11-11): masaüstü yerleşimi 360-500 px yüksekliğe sığmıyordu: mini harita ekranın
+   yarısını kaplıyor, hedef kartı mahalle puanının, 🌍 haritanın üstüne biniyordu. Göstergeler `scale` ile küçülür (transform'larına
+   dokunmaz), bağlı oldukları köşeden ölçeklenir; sol sütun ve sağ üst düğmeler küçülen boylarına göre yeniden dizilir.
+   --ls ölçek; çarpılan sayılar göstergelerin masaüstü boyları (bölge 44, mertebe 40, puan 25, saat 36, para 61, hedef 70, Menü 54) */
+@media (min-width: 641px) and (max-height: 500px) {
+  html #hud { --ls: .76; }
+  html #hud :is(#region, #lvl, #rep, #dayChip, #taskChip, #tatilChip) { scale: var(--ls); transform-origin: 0 0; }
+  html #hud #region { top: 8px; left: 8px; }
+  html #hud #lvl { top: calc(8px + 48px * var(--ls)); left: 8px; }
+  html #hud #rep { top: calc(8px + 92px * var(--ls)); left: 8px; max-width: none; }
+  html #hud #dayChip { top: calc(8px + 122px * var(--ls)); left: 8px; }
+  html #hud #taskChip { top: calc(8px + 163px * var(--ls)); left: 8px; }
+  html #hud #repPanel { top: calc(8px + 122px * var(--ls)); left: 8px; max-height: calc(100vh - 110px); max-height: calc(100dvh - 110px); overflow-y: auto; }
+  html #hud #taskPop { top: calc(8px + 200px * var(--ls)); left: 8px; max-height: calc(100vh - 170px); max-height: calc(100dvh - 170px); overflow-y: auto; }
+  html #hud #upgBtn { scale: var(--ls); transform-origin: 0 100%; left: 8px; bottom: 8px; }
+  html #hud :is(#money, #visitBar, #goal, #boost) { scale: var(--ls); transform-origin: 0 0; } /* ortalı (translateX(-50%)): sol kenardan ölçeklenince ortada kalır */
+  html #hud :is(#money, #visitBar) { top: 6px; }
+  html #hud #goal { top: calc(6px + 66px * var(--ls)); }
+  html #hud #boost { top: calc(10px + 142px * var(--ls)); }
+  html #hud :is(#help, #carryDest, #keyifBar) { scale: var(--ls); transform-origin: 0 100%; }
+  html #hud #help { bottom: 8px; }
+  html #hud #carryDest { bottom: calc(8px + 50px * var(--ls)); }
+  html #hud :is(#menuBtn, #musicBtn, #onlineBtn, #kbDrawer) { scale: var(--ls); transform-origin: 100% 0; }
+  html #hud #menuBtn { top: 8px; right: 8px; height: 54px; }
+  html #hud #musicBtn { top: calc(8px + 60px * var(--ls)); right: 8px; width: 50px; height: 50px; }
+  html #hud #onlineBtn { top: calc(8px + 60px * var(--ls)); right: calc(8px + 58px * var(--ls)); width: 50px; height: 50px; }
+  html #hud #kbDTab { scale: var(--ls); transform-origin: 100% 50%; }
+  html #hud #sndPanel, html #sndPanel { top: calc(14px + 110px * var(--ls)); max-height: calc(100vh - 130px); max-height: calc(100dvh - 130px); overflow-y: auto; }
+  html #hud :is(#minimap, #mmBar) { scale: var(--ls); transform-origin: 100% 100%; }
+  html #hud #minimap { right: 8px; bottom: 8px; }
+  html #hud #minimap.big { scale: 1; }
+  html #hud #alerts { scale: var(--ls); transform-origin: 100% 0; top: calc(12px + 136px * var(--ls)); right: calc(16px + 208px * var(--ls)); }
+  html #hud :is(#abil, #shout, #miniBtn) { scale: var(--ls); transform-origin: 100% 100%; right: calc(16px + 208px * var(--ls)); bottom: 8px; }
+  html #hud #chatBtn { scale: var(--ls); transform-origin: 100% 100%; }
+  html #hud #chatPan { right: calc(16px + 208px * var(--ls)); bottom: 8px; max-height: calc(100vh - 16px); max-height: calc(100dvh - 16px); overflow-y: auto; }
+  .mm-card { height: calc(100vh - 16px); height: calc(100dvh - 16px); }
+  #upg .mcard { height: calc(100vh - 16px); height: calc(100dvh - 16px); }
+  .mcard { max-height: calc(100vh - 16px); max-height: calc(100dvh - 16px); }
 }
 /* menü düzeni (2026-11-01, kullanıcı: "menü ekrana sığmıyor taşıyor; yerleşimi ve iç tasarımı geliştir, ayrımları netleştir"):
    yükseklik telefonun görünen alanından (dvh: adres çubuğu ve sistem çubukları düşülür, çentik payı bırakılır); telefonda ana menünün
@@ -821,6 +865,7 @@ try { var l = localStorage.getItem('koyBakkali.lang'); if (l === 'en' || (l !== 
 <script>/* Bekçi (2026-11-10): modül haritasını (importmap) tanımayan eski tarayıcıda oyun kodu hiç çalışmaz, ekran sonsuza dek
 "Yükleniyor…" derdi. Açıklama yazılır; kod 40 sn'de çalışmaya başlamadıysa bağlantı ipucu verilir (src/main.js __kbBoot'u kurar) */
 (function () {
+  try { performance.setResourceTimingBufferSize(1500); } catch (e) { /* eski tarayıcı */ } // açılışta inen ~400 dosya: servis çalışanına liste (main.js)
   var en = document.documentElement.lang === 'en', tip = document.getElementById('tip');
   var ok = window.HTMLScriptElement && HTMLScriptElement.supports && HTMLScriptElement.supports('importmap');
   if (!ok) { tip.textContent = en ? 'Your browser is too old for this game. Please update it (Chrome, Edge, Firefox or Safari 16.4+).' : 'Tarayıcın bu oyun için eski kalmış. Lütfen güncelle (Chrome, Edge, Firefox ya da Safari 16.4+).'; return; }

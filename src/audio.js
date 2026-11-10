@@ -1,5 +1,6 @@
 // Ses: Kenney örnekleri (CC0) + bölgeye göre değişen, kodla üretilen arka plan müziği
 import { ITEM, PAPER } from './sounds.js';
+import { loadSound } from './sesyukle.js'; // eski Safari: .ogg yerine .m4a
 import { EN } from './dil.js';
 
 const SETS = {
@@ -52,7 +53,7 @@ function ensure() {
 function loadAll() {
   const names = new Set(Object.values(SETS).flat());
   for (const n of names) {
-    fetch(`assets/sfx/${n}.ogg`).then((r) => r.arrayBuffer()).then((b) => AC.decodeAudioData(b)).then((buf) => { buffers[n] = buf; }).catch(() => {});
+    loadSound(AC, `assets/sfx/${n}.ogg`).then((buf) => { buffers[n] = buf; }).catch(() => {});
   }
 }
 

@@ -1282,7 +1282,7 @@ function buildPazar() {
     if (R.spawnT <= 0 && n < 12) { R.spawnT = 3.0; spawnPazar(R); }
     if (R.pile && (R.stallT = (R.stallT || 0) - dt) <= 0) { R.stallT = 1; for (const t of R.types) R.addStall(t, G.time < 3); } // sonradan eklenen ürünün tezgahı
     if (R.pile && (R.tidyT = (R.tidyT || 0) - dt) <= 0) { R.tidyT = 0.5; R.tidy(0.5); }
-    if (R.stallHint) { const n = R.row.reduce((a, s) => a + s.count(), 0), cap = R.row.reduce((a, s) => a + s.cap, 0), t = `Senin tezgahların · ${n}/${cap}`; if (R.stallHint.title.textContent !== t) R.stallHint.title.textContent = t; }
+    if (R.stallHint) { const n = R.row.reduce((a, s) => a + s.count(), 0), cap = R.row.reduce((a, s) => a + s.cap, 0), t = `Senin tezgahların · ${n}/${cap}`; if (R.stallHint._t !== t) { R.stallHint._t = t; R.stallHint.title.textContent = t; } }
     for (const t of R.trucks || []) t.update(dt); // malı biten kamyon yükü almaya gider
     R.rivals.update(dt); // kampanyalar, rakip bağırışları, satın alma padi
   };

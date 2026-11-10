@@ -6,6 +6,7 @@
 // "Duet Musette" kaydı (CC BY 3.0, Wikimedia Commons; iki sessizlik arası 46,6 sn, dikişsiz döngü, KoyBakkali-araclar/ses/kes2.py)
 // 2026-11-02 kullanıcı seçimi: "Dünyadan gelen müzik" (şarkılar bölüme göre kalsın, bölgenin kendi müziği yerinden duyulsun)
 import * as THREE from 'three';
+import { loadSound } from './sesyukle.js'; // eski Safari: .ogg yerine .m4a
 import { G } from './game.js';
 import * as M from './models.js';
 import { musicOut, duckSongs } from './audio.js';
@@ -214,7 +215,7 @@ function pump(S, now) {
 // kayıttan çalan çalgı: dosya bir kez yüklenir; dünyada hep çalıyormuş gibi mutlak zamana göre ortasından başlar, döngüde döner
 function recPump(S) {
   if (S.src) return;
-  if (!S.buf) { if (!S.loading && !(S.failAt && performance.now() - S.failAt < 60000)) { S.loading = true; fetch(S.rec).then((r) => r.arrayBuffer()).then((b) => A.decodeAudioData(b)).then((b) => { S.buf = b; }).catch(() => { S.loading = false; S.failAt = performance.now(); }); } return; } // inmeyen dosya bir dakika sonra yeniden denenir (eskiden her çağrıda, saniyede onlarca istek)
+  if (!S.buf) { if (!S.loading && !(S.failAt && performance.now() - S.failAt < 60000)) { S.loading = true; loadSound(A, S.rec).then((b) => { S.buf = b; }).catch(() => { S.loading = false; S.failAt = performance.now(); }); } return; } // inmeyen dosya bir dakika sonra yeniden denenir (eskiden her çağrıda, saniyede onlarca istek)
   const t = A.currentTime + 0.02, pos = t % S.buf.duration, s = A.createBufferSource();
   s.buffer = S.buf; s.loop = true; s.connect(S.inp); s.start(t, pos); S.src = s; S.loop0 = t - pos;
 }

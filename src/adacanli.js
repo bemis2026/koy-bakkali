@@ -916,12 +916,12 @@ function playerTick(dt) {
   if (me.swim) { me.swim = false; me.wetT = 0; P.rotation.x = 0; }
   // şezlong: boş şezlonga gelip durunca uzanır, yürüyünce kalkar
   if (me.lie) {
-    if (me.sp > 0.6) standUp();
+    if (me.sp > 0.6 || G.inMag > 0.35) standUp();
     else { const l = me.lie; p.set(l.x + Math.sin(l.ry) * 0.85, l.y + 0.5, l.z + Math.cos(l.ry) * 0.85); P.rotation.set(l.k === 'hamak' ? -1.5 : -1.25, l.ry, 0); me.lieT += dt; if (me.lieT > 4) memory(l.k || 'sezlong'); return; } // hamakta düz yatar
   }
   // ateş başındaki boş kütük
   if (me.seat) {
-    if (me.sp > 0.6) standUp();
+    if (me.sp > 0.6 || G.inMag > 0.35) standUp();
     else {
       const s = me.seat, b = beatOf('adaGitar'), cl = Math.max(0, Math.sin(b * PI * 2)) * 0.35;
       p.set(s.x, s.y + 0.4 - 0.62, s.z); P.rotation.y = s.ry; seatPose(P);
@@ -932,7 +932,7 @@ function playerTick(dt) {
   }
   // balık restoranında boş sandalye, kafede minder ya da kanepe: durunca oturur, yürüyünce kalkar
   if (me.dine) {
-    if (me.sp > 0.6) standUp();
+    if (me.sp > 0.6 || G.inMag > 0.35) standUp();
     else { const s = me.dine; p.set(s.x, s.y + (s.h ?? 0.45) - 0.62, s.z); P.rotation.y = s.ry; seatPose(P, s.leg); u.arms[0].rotation.x = u.arms[1].rotation.x = -0.9; return; }
   }
   if (me.still > 0.8) {

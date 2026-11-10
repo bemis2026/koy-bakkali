@@ -2694,4 +2694,5 @@ export default {
 "Girerek ya da üye olarak {0} kabul edersin.": "By signing in or signing up you accept the {0}.",
 "gizlilik ve kullanım şartlarını": "privacy policy and terms",
 "Arka plan müziği: Suno ile üretildi (ücretli plan, ticari kullanım hakkıyla).": "Background music: made with Suno (paid plan, with commercial use rights).",
+"Kamera uzaklığı": "Camera distance",
 };

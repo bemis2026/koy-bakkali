@@ -6,6 +6,7 @@
 // susar, traktör durunca rölantide kalır. Aynı anda en yakın 3 motor. Bisikletli müşteri ara sıra, oyuncu önündeyse hemen zil çalar.
 // Ortam olayları (ambience.js carPass, horn) ve sfx('honk') de gerçek kayıttan; kayıt yüklenene dek eski kodla çalar.
 import { G } from './game.js';
+import { loadSound } from './sesyukle.js'; // eski Safari: .ogg yerine .m4a
 import { ambienceBus, sfxHook } from './audio.js';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -32,7 +33,7 @@ let A = null, OUT = null;
 function ready() { const b = ambienceBus(); if (!b) return false; A = b.A; OUT = b.out; return true; }
 function load(S) {
   if (S.buf) return true;
-  if (!S.loading && !(S.failAt && performance.now() - S.failAt < 60000)) { S.loading = true; fetch('assets/sfx/arac/' + S.f).then((r) => r.arrayBuffer()).then((b) => A.decodeAudioData(b)).then((b) => { S.buf = b; }).catch(() => { S.loading = false; S.failAt = performance.now(); }); } // inmeyen dosya bir dakika sonra yeniden denenir (eskiden her çağrıda, saniyede onlarca istek)
+  if (!S.loading && !(S.failAt && performance.now() - S.failAt < 60000)) { S.loading = true; loadSound(A, 'assets/sfx/arac/' + S.f).then((b) => { S.buf = b; }).catch(() => { S.loading = false; S.failAt = performance.now(); }); } // inmeyen dosya bir dakika sonra yeniden denenir (eskiden her çağrıda, saniyede onlarca istek)
   return false;
 }
 // kısa ses: rastgele parça (bir önceki tekrarlanmaz); pan sayı ya da [baş, son] (geçen araba soldan sağa)

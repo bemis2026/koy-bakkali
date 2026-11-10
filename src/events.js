@@ -210,7 +210,7 @@ export class CarOrders {
         break;
       case 'wait':
         this.timer -= dt;
-        if (this.barEl) this.barEl.style.width = `${Math.max(0, this.timer / this.total) * 100}%`;
+        if (this.barEl) { const w = `${Math.round(Math.max(0, this.timer / this.total) * 200) / 2}%`; if (this._bw !== w) { this._bw = w; this.barEl.style.width = w; } }
         if (this.timer <= 0) this.finish(false);
         break;
       case 'leave':
@@ -409,7 +409,7 @@ class ParkedCar {
       case 'service':
         idleCar(this.car, dt);
         this.timer -= dt;
-        if (this.barEl) this.barEl.style.width = `${Math.max(0, this.timer / this.total) * 100}%`;
+        if (this.barEl) { const w = `${Math.round(Math.max(0, this.timer / this.total) * 200) / 2}%`; if (this._bw !== w) { this._bw = w; this.barEl.style.width = w; } }
         if (this.timer <= 0) this.finish(false);
         break;
       case 'leave': {
