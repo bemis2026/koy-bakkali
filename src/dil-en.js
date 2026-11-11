@@ -1592,6 +1592,7 @@ export default {
 "Önce giriş yap": "Sign in first",
 "İnternet bağlantısı yok": "No internet connection",
 "İzin yok (Firestore kuralları)": "Permission denied (Firestore rules)",
+"Bugün çok gönderim yaptın (24 saatte 100), yarın yeniden dene": "You've sent a lot today (100 per 24 hours), try again tomorrow",
 "Şifre en az 6 karakter olmalı": "Password must be at least 6 characters",
 "Şifre yanlış": "Wrong password",
 "Şifre yanlış. Unuttuysan hesabına bağlı Google hesabıyla \"Google ile gir\"e bas, sonra Menü → Profil'den yeni şifre belirle.": "Wrong password. If you forgot it, press \"Sign in with Google\" using the Google account linked to your account, then set a new password under Menu → Profile.",

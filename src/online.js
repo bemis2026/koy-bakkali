@@ -42,6 +42,7 @@ const ERR = {
   'auth/credential-already-in-use': 'Bu kullanıcı adı başka bir hesapta', 'auth/account-exists-with-different-credential': 'Bu e-posta başka bir yolla kayıtlı: e-posta ve şifreyle gir',
   'auth/internal-error': 'Google girişi tamamlanamadı, tekrar dene', 'auth/user-disabled': 'Bu hesap kapatılmış',
   'permission-denied': 'İzin yok (Firestore kuralları)', unavailable: 'Sunucuya ulaşılamadı',
+  limit: 'Bugün çok gönderim yaptın (24 saatte 100), yarın yeniden dene',
 };
 export const errText = (e) => ERR[e && e.code] || (e && e.message) || String(e);
 const fail = (code, message) => Object.assign(new Error(message || ERR[code] || code), { code });
@@ -126,9 +127,9 @@ export async function chooseName(username, name, password) {
   await claimName(ON.user, un, name, !!own);
   await afterLogin(ON.user);
 }
+// ad ve profil tek toplu yazımda (firestore.rules: profili olan hesap ikinci ad alamaz; owned: yarım kalan üyelikte ad zaten bizim)
 async function claimName(u, un, name, owned = false) {
-  if (!owned) await B.set('usernames', un, { uid: u.uid });
-  await B.set('users', u.uid, { username: un, name: (name || un).slice(0, 20), avatar: '🧑‍🌾', color: '#3b8beb', bio: '', village: (G.custom && G.custom.name) || 'Köy Bakkalı', badges: [], created: Date.now(), score: { koy: 0, earned: 0, level: 1, xp: 0, help: 0, stars: 1, regions: 0 } });
+  await B.claim(un, u.uid, owned, { username: un, name: (name || un).slice(0, 20), avatar: '🧑‍🌾', color: '#3b8beb', bio: '', village: (G.custom && G.custom.name) || 'Köy Bakkalı', badges: [], created: Date.now(), score: { koy: 0, earned: 0, level: 1, xp: 0, help: 0, stars: 1, regions: 0 } });
 }
 export async function signIn(id, password) {
   const s = String(id || '').trim(), byMail = s.includes('@');
@@ -172,8 +173,8 @@ export async function deleteAccount() {
   for (const it of await B.list(`inbox/${uid}/items`).catch(() => { bad++; return []; })) await B.remove(`inbox/${uid}/items`, it.id).catch(miss);
   await B.remove('villages', uid).catch(miss);
   try { const L = await liveDb(); if (L) { const c = await L.D.get(L.D.ref(L.db, `rooms/${uid}/chat`)); if (c.exists()) for (const k of Object.keys(c.val())) await L.D.remove(L.D.ref(L.db, `rooms/${uid}/chat/${k}`)).catch(off); } } catch (e) { /* oda yok */ } // kurallar yazıları tek tek siler (database.rules.json)
-  if (un) await B.remove('usernames', un).catch(off);
-  await B.remove('users', uid).catch(miss);
+  await B.dropProfile(un, uid).catch(miss); // ad ve profil tek yazımda (kurallar ayrı ayrı silmeye izin vermez)
+  await B.remove('rate', uid).catch(off); // gelen kutusu gönderim sayacı (profil silinince silinebilir)
   // kişisel veri (bulut kaydı, gelen kutusu, profil) silinemediyse giriş hesabı silinmez: yoksa sahipsiz veri kalırdı
   if (bad) throw fail('del', 'Bazı veriler silinemedi. Bağlantını kontrol edip yeniden dene');
   await B.deleteUser();
@@ -289,7 +290,7 @@ export async function finishHelp(to, money, items, sentLive = 0, stocked = 0) {
   const reward = first ? Math.round(money * 0.1) : 0;
   const me = ON.profile;
   const rest = Math.max(0, Math.round(money - sentLive));
-  if (rest > 0 || items > 0) await B.add(`inbox/${to}/items`, { from: ON.user.uid, fromName: me.name, avatar: me.avatar, kind: 'help', money: Math.min(100000, rest), items, ts: Date.now() }); // kural üst sınırı: aşarsa bütün vardiya reddedilirdi
+  if (rest > 0 || items > 0) await B.send(to, { from: ON.user.uid, fromName: me.name, avatar: me.avatar, kind: 'help', money: Math.min(100000, rest), items, ts: Date.now() }); // kural üst sınırı: aşarsa bütün vardiya reddedilirdi
   if (first) markHelped(to);
   ls(mine('koyBakkali.pendingHelp'), JSON.stringify({ pts, reward, ts: Date.now() }));
   return { pts, reward };
@@ -307,7 +308,7 @@ export function giftsLeft() {
 export async function sendGift(to, gift) {
   if (giftsLeft() <= 0) throw fail('gift', 'Bugünlük hediye hakkın bitti (günde 3)');
   const me = ON.profile;
-  await B.add(`inbox/${to}/items`, { from: ON.user.uid, fromName: me.name, avatar: me.avatar, kind: 'gift', money: Math.round(gift.money || 0), goods: gift.goods || null, note: String(gift.note || '').slice(0, 80), ts: Date.now() });
+  await B.send(to, { from: ON.user.uid, fromName: me.name, avatar: me.avatar, kind: 'gift', money: Math.round(gift.money || 0), goods: gift.goods || null, note: String(gift.note || '').slice(0, 80), ts: Date.now() });
   let d; try { d = JSON.parse(ls(mine(GIFT_DAY)) || '{}'); } catch (e) { d = {}; }
   if (d.day !== today()) d = { day: today(), n: 0 };
   d.n++; ls(mine(GIFT_DAY), JSON.stringify(d));
@@ -385,6 +386,26 @@ async function firebaseBackend(cfg) {
     update: (col, id, data) => F.updateDoc(ref(col, id), data),
     add: (col, data) => F.addDoc(F.collection(db, col), data),
     remove: (col, id) => F.deleteDoc(ref(col, id)),
+    // kullanıcı adı ve profil tek yazımda alınır, tek yazımda silinir (firestore.rules usernames/users)
+    claim: (un, uid, owned, prof) => { const b = F.writeBatch(db); if (!owned) b.set(ref('usernames', un), { uid }); b.set(ref('users', uid), prof); return b.commit(); },
+    dropProfile: (un, uid) => { const b = F.writeBatch(db); if (un) b.delete(ref('usernames', un)); b.delete(ref('users', uid)); return b.commit(); },
+    // gelen kutusuna bırakma: gönderenin sayacı (rate/{uid}) aynı yazımda ilerler. Kurallar iki gönderim arasına 5 sn, 24 saatte 100
+    // sınırı koyar (2026-11-10 denetimi C9: herkes herkesin kutusuna sınırsız yazabiliyordu). Zaman sunucunun; sayaç penceresini cihaz
+    // saatiyle tahmin ederiz, saat kaymışsa öbür pencereyle bir kez daha denenir
+    send: async (to, data) => {
+      const rr = ref('rate', auth.currentUser.uid), sn = await F.getDoc(rr), r = sn.exists() ? sn.data() : null;
+      const wait = r && r.last ? r.last.toMillis() + 5600 - Date.now() : 0;
+      if (wait > 0) await new Promise((ok) => setTimeout(ok, Math.min(wait, 6000)));
+      const fresh = !r || !r.start || Date.now() - r.start.toMillis() >= 86400000;
+      if (!fresh && r.n >= 100) throw fail('limit');
+      const put = (nw) => {
+        const b = F.writeBatch(db), now = F.serverTimestamp();
+        b.set(rr, nw ? { last: now, start: now, n: 1 } : { last: now, start: r.start, n: r.n + 1 });
+        b.set(F.doc(F.collection(db, `inbox/${to}/items`)), data);
+        return b.commit();
+      };
+      try { await put(fresh); } catch (e) { if (!r || e.code !== 'permission-denied') throw e; if (fresh && r.n >= 100) throw fail('limit'); await put(!fresh); }
+    },
     list: async (col) => (await F.getDocs(F.collection(db, col))).docs.map((d) => ({ id: d.id, ...d.data() })),
     top: async (col, field, n) => (await F.getDocs(F.query(F.collection(db, col), F.orderBy(field, 'desc'), F.limit(n)))).docs.map((d) => ({ id: d.id, ...d.data() })),
     // canlı ziyaret (canli.js): anlık veritabanı aynı uygulama ve oturumla; yalnız gerekince yüklenir
@@ -449,6 +470,9 @@ function mockBackend() {
     update: async (c, id, data) => { const db = load(), d = col(db, c)[id]; if (!d) throw fail('not-found', 'Belge yok'); Object.assign(d, data); store(db); return later(); },
     add: async (c, data) => { const db = load(), id = Math.random().toString(36).slice(2, 10); col(db, c)[id] = data; store(db); return later({ id }); },
     remove: async (c, id) => { const db = load(); delete col(db, c)[id]; store(db); return later(); },
+    claim: async (un, uid, owned, prof) => { const db = load(); if (!owned) col(db, 'usernames')[un] = { uid }; col(db, 'users')[uid] = prof; store(db); return later(); },
+    dropProfile: async (un, uid) => { const db = load(); if (un) delete col(db, 'usernames')[un]; delete col(db, 'users')[uid]; store(db); return later(); },
+    send: async (to, data) => { const db = load(); col(db, `inbox/${to}/items`)[Math.random().toString(36).slice(2, 10)] = data; store(db); return later(); },
     list: async (c) => later(Object.entries(col(load(), c)).map(([id, d]) => ({ id, ...d }))),
     top: async (c, field, n) => later(Object.entries(col(load(), c)).map(([id, d]) => ({ id, ...d })).sort((a, b) => (get(b, field) || 0) - (get(a, field) || 0)).slice(0, n)),
   };
