@@ -204,7 +204,7 @@ function energyRoad(g) {
   // parkın batı, kuzey ve doğu çiti (güneyi yola açık)
   const fn = M.makeFence(21, 'x'); fn.position.set(-73.8, 0, -66.9); g.add(fn); G.colliders.push([-84.3, -63.3, -67.05, -66.75]);
   for (const x of [-84.3, -63.3]) { const f = M.makeFence(6.8, 'z'); f.position.set(x, 0, -63.5); g.add(f); G.colliders.push([x - 0.15, x + 0.15, -66.9, -60.1]); }
-  const s = M.makeSign('⚡ BEMIS ENERJİ PARKI ↑', '#c8102e', 3.4, 0.75); s.position.set(-65.4, 0, -23.8); g.add(s);
+  const s = M.makeSign('⚡ ENERJİ PARKI ↑', '#2e8b57', 3.4, 0.75); s.position.set(-65.4, 0, -23.8); g.add(s);
   for (const x of [-66.95, -63.85]) G.colliders.push([x - 0.1, x + 0.1, -23.9, -23.7]);
 }
 

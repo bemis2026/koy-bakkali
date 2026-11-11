@@ -138,13 +138,13 @@ const INFO = {
     ['yogurt', 'Küp yoğurdu mayalar, sağdaki masadan al.'],
     ['🧺', `Köydeki süt dolabına diz. Tanesi ${P('yogurt')} ₺.`],
   ] },
-  e0: { text: 'Köy yolunun sonunda Bemis benzinlik açıldı.', steps: [
+  e0: { text: 'Köy yolunun sonunda benzinlik açıldı.', steps: [
     ['⛽', 'Pompalar, market ve geniş bir avlu kuruldu. Arabalar pompalarda yakıt alır; para marketin yanındaki kasa kutusunda birikir, gidip toplarsın (muhasebeci de toplar).'],
     ['🚶', 'Köy yolundan ya da sahil yolundan yürüyerek gelebilirsin.'],
-    ['⚡', 'Avludaki yeşil yerlere Bemis şarj istasyonu kurabilirsin. Elektrikli arabalar gelir, şarj olur, parasını bırakır.'],
+    ['⚡', 'Avludaki yeşil yerlere şarj istasyonu kurabilirsin. Elektrikli arabalar gelir, şarj olur, parasını bırakır.'],
   ] },
-  e1: { text: 'Benzinlikte Bemis DC hızlı şarj istasyonu kuruldu: arabalar artık daha çabuk şarj olur, daha çok öder.', steps: [
-    ['🚗', 'Arabalar köy yolundan gelir, yeşil park yerinde Bemis hızlı şarj cihazına bağlanır.'],
+  e1: { text: 'Benzinlikte DC hızlı şarj istasyonu kuruldu: arabalar artık daha çabuk şarj olur, daha çok öder.', steps: [
+    ['🚗', 'Arabalar köy yolundan gelir, yeşil park yerinde hızlı şarj cihazına bağlanır.'],
     ['⚡', 'Şarj bitince araba başına 28 ₺ öder; para benzinliğin kasa kutusunda birikir, gidip topla.'],
   ] },
   gt: { text: 'At ahırı açıldı! Atlı müşteriler köy yolundan gelip atlarını bakıma bırakır.', steps: [
@@ -196,7 +196,7 @@ const INFO = {
   kr3: { text: 'Manav rafları kuruldu: karpuz, biber ve patlıcanın köy bakkalında da kendi rafı var.', steps: [
     ['karpuz', 'Pazardaki toptancıdan alıp her ürünü kendi rafına diz. Rafçı da parası yettikçe toptancıdan alıp getirir.'],
   ] },
-  gw: { text: 'Bemis Enerji Parkı açıldı! Trafo ve ilk güneş paneli dizisi elektrik üretmeye başladı.', steps: [
+  gw: { text: 'Enerji Parkı açıldı! Trafo ve ilk güneş paneli dizisi elektrik üretmeye başladı.', steps: [
     ['☀️', 'Paneller güneşten, türbinler rüzgârdan elektrik üretir. Trafo şebekeye satar; kazanç trafonun önündeki kasa kutusunda birikir, gidip topla ya da muhasebeci toplasın.'],
     ['🌬️', 'Yeni panel dizileri ve rüzgâr türbinleri pahalıdır ama kendi kendine para kazandırır. Rüzgâr güçlendikçe türbinler hızlanır.'],
     ['💰', 'Trafonun üstündeki pano dakikalık kazancı gösterir.'],

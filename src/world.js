@@ -36,7 +36,7 @@ import { initLevel, updateLevel, addXp, titleOf, levelReward } from './level.js'
 import { dressWorld } from './dress.js';
 import { makeTag } from './tags.js';
 import { t as dilT, EN as DIL_EN } from './dil.js';
-import { makeAisle, kindOf } from './reyon.js';
+import { makeAisle, kindOf, faceDir } from './reyon.js';
 import { buildCityGround, cityRegion, cityUnlocks, CITY } from './city.js';
 import { speak, setAmbience, settings, saveSettings } from './audio.js';
 import { updateAmbience } from './ambience.js';
@@ -487,51 +487,58 @@ function unlockRegion(id, instant) {
 // KÖY BAKKALI
 // =====================================================================
 // raf reklamları: ürün resmi, adı, fiyatı ve esprili bir slogan
-// köy dükkânının tek ürünlü rafları (reyon.js): [x, z, yön, genişlik, aşama]. Hepsi güneye, öndeki kasaya bakar (dukkan-plan.md):
-// arka sıra z −10,6 duvara dayalı ve kat alır (dolaplar burada), 2. sıra z −7,2 (bakkal), 3. sıra z −3,9 (köy marketi).
-// Batı koridoru (kapıdan girenlerin yolu) boş kalır. Raf, yerinin aşaması açılınca kurulur (reyon.js pending)
-const KOY_PLACES = {
-  // süt ürünleri arka sıranın batısında yan yana: yoğurt, peynir, süt, koyun sütü (2026-11-11 kullanıcı: "koyun sütü reyonu diğer süt ürünleriyle aynı yerde olmalı")
-  sut: [-2.25, -10.6, 1, 2.0, 1], domates: [2.25, -10.6, 1, 2.0, 1], salatalik: [4.5, -10.6, 1, 2.0, 1], yumurta: [6.75, -10.6, 1, 2.0, 1],
-  peynir: [-4.5, -10.6, 1, 2.0, 2], yogurt: [-6.75, -10.6, 1, 2.0, 2], ksut: [0, -10.6, 1, 2.0, 2], lahana: [9.0, -10.6, 1, 2.0, 2],
-  biber: [-6.75, -7.2, 1, 2.0, 1], patlican: [-4.5, -7.2, 1, 2.0, 1], karpuz: [-2.25, -7.2, 1, 2.0, 1], tursu: [0, -7.2, 1, 2.0, 2], // manav: 1. aşamada dükkânın önünde (KOY_PLACES1)
-  bal: [2.25, -7.2, 1, 2.0, 2], ekmek: [4.5, -7.2, 1, 2.0, 2], simit: [6.75, -7.2, 1, 2.0, 2], pogaca: [9.0, -7.2, 1, 2.0, 2],
-  kilim: [-9.0, -3.9, 1, 2.0, 3], yun: [-6.75, -3.9, 1, 2.0, 3],
-  // köy makinelerinin ürünleri (koymakine.js; büyük köy marketinin doğu şeridindeki makineler). Eskiden burada imalathanenin salça ve
-  // kek rafları vardı; 2026-11-02'de ikisi de dükkândan çıktı (salça pazarda, kek kasabada)
-  cekirdek: [-4.5, -3.9, 1, 2.0, 4], salata: [-2.25, -3.9, 1, 2.0, 4], koz: [0, -3.9, 1, 2.0, 4], kabaktatlisi: [2.25, -3.9, 1, 2.0, 4],
+// köy dükkânının tek ürünlü rafları (reyon.js): her ürünün her aşamada bir yeri var, [x, z, yön, genişlik, aşama, arka]. Yön 1: önü
+// güneye (kasaya), 2: doğuya, -2: batıya, -1: kuzeye (reyon.js faceDir); arka: çarpışma kutusunun arkaya uzanışı.
+// Raflar kenarlara dayalı, yan yana (2026-11-11 kullanıcı: "rafları yan yana diz ve karşılıklı koyma, sıkışıp rahat koşamıyoruz, duvara
+// doğru yasla, L yapabilirsin"; önizlemelerden seçimi L): arka duvar boyunca bir sıra (kat alan raflar ve dolaplar burada), batı kenarında
+// önü doğuya bakan bir kol; ortası boş kalır. Raf, yerinin aşaması açılınca kurulur (reyon.js pending); dükkân büyüyünce kurulu raflar
+// yeni yerlerine kayar ve döner (relayout). Eskiden üç sıra güneye bakıyordu, sıralar arası 2-3 m'ydi
+const KOY_STAGE = {
+  sut: 1, domates: 1, salatalik: 1, yumurta: 1, biber: 1, patlican: 1, karpuz: 1,
+  peynir: 2, yogurt: 2, ksut: 2, lahana: 2, tursu: 2, bal: 2, ekmek: 2, simit: 2, pogaca: 2, kilim: 3, yun: 3,
+  // köy makinelerinin ürünleri (koymakine.js; büyük köy marketinin doğu şeridindeki makineler)
+  cekirdek: 4, salata: 4, koz: 4, kabaktatlisi: 4,
 };
-// köy marketinde (3. aşama, doğuya büyüdü) raflar sıralarında yayılır: aralarında ferah geçit kalır, doğu uç da dolar.
-// Sıra ve yön aynı (arka sıra kat alır), yalnız x değişir; batı koridoru (x0 + 1,8) boş kalır
-const SPREAD_X = [-10.0, -6.66, -3.31, 0.03, 3.37, 6.71, 10.06, 13.4]; // market köyün doğu ucuna (x 15,4) kadar büyüdü
-// köy marketinde sıralar arası 3 m (2026-11-01 kullanıcı: "raflar çok yakın, rahat koşulmuyor"): arka sıra duvarda kalır, orta ve ön
-// sıra öne (güneye) kayar; dükkânın önü de o kadar büyüdü (dukkan.js STAGES)
-const ROW_Z3 = { [-7.2]: -6.4, [-3.9]: -2.5 };
-// ön sıra: eskiden iki raf 6,7 m arayla duruyordu (boşluk); şimdi arka sıralarla aynı aralıkta, batıdan doğuya kilim, yün, çekirdek, salata, köz, kabak tatlısı
-const FRONT_X3 = [-6.66, -3.31, 0.03, 3.37, 6.71, 10.06];
-const KOY_PLACES3 = (() => {
-  const P = {}, rows = {};
-  for (const [t, v] of Object.entries(KOY_PLACES)) (rows[v[1]] = rows[v[1]] || []).push([t, v]);
-  for (const list of Object.values(rows)) {
-    list.sort((a, b) => a[1][0] - b[1][0]);
-    const front = list[0][1][1] > -5; // ön sıra (yalnız 3. aşama): ortadan sıkça dizilir; kasa kuyruklarının hizasında, doğusu açık kalır
-    list.forEach(([t, v], i) => { P[t] = [front ? FRONT_X3[Math.min(i, FRONT_X3.length - 1)] : SPREAD_X[Math.min(i, SPREAD_X.length - 1)], ROW_Z3[v[1]] ?? v[1], ...v.slice(2)]; });
-  }
+// kat alan raflar (upgrades.js rf_*): hep arka duvarda, katları duvara doğru basamaklanır
+const TIERED = new Set(['sut', 'peynir', 'ksut', 'yogurt', 'domates', 'salatalik', 'yumurta', 'lahana']);
+// yan kolun ilk rafı arka sıranın köşedeki müşterisinin önünü kapamaz; kol güneye 1,95 m aralıkla iner
+const BACK_Z = -10.6, SIDE_Z = -7.75, SIDE_DZ = 1.95;
+const KOY_LAYOUT = [null,
+  // ilk köy dükkânı: yedi raf arka duvarda aralıksız (2026-11-08 kullanıcı: "manav reyonu diğer raflara gitmemi engelliyor ... yan yana diz")
+  { back: [-5.7, 1.9, 1.9, ['biber', 'patlican', 'karpuz', 'sut', 'domates', 'salatalik', 'yumurta']] },
+  // bakkal: yer dar; arka sırada 11 raf, batı kolunda manav, doğu kolunda bal ve turşu. Kolların güney ucu kapının ve ikinci kasanın
+  // kuyruğunun kuzeyinde kalır
+  { back: [-9.5, 1.9, 1.85, ['yogurt', 'peynir', 'sut', 'ksut', 'domates', 'salatalik', 'lahana', 'yumurta', 'ekmek', 'simit', 'pogaca']],
+    west: [-9.95, ['biber', 'patlican', 'karpuz']], east: [9.95, ['bal', 'tursu']] },
+  // köy marketi: arka sırada 14 raf, batı kolunda manav ve turşu (L)
+  { back: [-11.95, 1.95, 1.9, ['yogurt', 'peynir', 'sut', 'ksut', 'domates', 'salatalik', 'lahana', 'yumurta', 'ekmek', 'simit', 'pogaca', 'bal', 'kilim', 'yun']],
+    west: [-12.45, ['biber', 'patlican', 'karpuz', 'tursu']] },
+];
+// büyük köy marketi: doğu kenarı makinelerin (arka sıra son makinenin tepsilerine değmez); makine ürünleri ön kenarın doğusunda,
+// makinelerin yanında kuzeye bakar (ikinci kasanın kuyruğunun doğusunda)
+KOY_LAYOUT[4] = { ...KOY_LAYOUT[3], front: [8.9, 2.1, ['kabaktatlisi', 'cekirdek', 'koz', 'salata']] };
+const LAYOUTS = KOY_LAYOUT.map((L) => {
+  if (!L) return null;
+  const P = {}, at = (t, x, z, f, w, back) => { P[t] = [x, z, f, w, KOY_STAGE[t], back]; };
+  const [bx, bdx, bw, back] = L.back;
+  back.forEach((t, i) => at(t, bx + i * bdx, BACK_Z, 1, bw, 2.4)); // arka sıra duvara kadar
+  if (L.west) L.west[1].forEach((t, i) => at(t, L.west[0], SIDE_Z + i * SIDE_DZ, 2, 1.9, 0.55)); // yan kollar dükkânın kenarına kadar
+  if (L.east) L.east[1].forEach((t, i) => at(t, L.east[0], SIDE_Z + i * SIDE_DZ, -2, 1.9, 0.55));
+  if (L.front) L.front[2].forEach((t, i) => at(t, L.front[0] + i * 1.95, L.front[1], -1, 1.9, 0.6));
   return P;
-})();
-// ilk köy dükkânında (1. aşama, x −6,75…6,75) ikinci sırayı kasanın kuyruğu kaplıyor (dukkan.js queueAt): manav reyonu da arka sıraya girer.
-// Yedi raf arka duvar boyunca yan yana, aralıksız (1,9 m): batıda biber, patlıcan, karpuz (bakkalda da manav batıda), doğuda süt, domates,
-// salatalık, yumurta. Raflar dükkânın önünde durunca içeri girilemiyordu (2026-11-08 kullanıcı: "manav reyonu diğer raflara gitmemi
-// engelliyor bakkaldaki, o yüzden rafları yan yana diz aralıksız başlangıçtaki gibi bakkalda"). Dükkân bakkala büyüyünce raflar
-// KOY_PLACES'teki yerlerine kayar (relayout)
-const ROW1 = ['biber', 'patlican', 'karpuz', 'sut', 'domates', 'salatalik', 'yumurta'], ROW1_W = 1.9;
-const KOY_PLACES1 = { ...KOY_PLACES };
-ROW1.forEach((t, i) => { KOY_PLACES1[t] = [-5.7 + i * ROW1_W, -10.6, 1, ROW1_W, 1]; });
-const koyPlaces = (n) => (n >= 3 ? KOY_PLACES3 : n >= 2 ? KOY_PLACES : KOY_PLACES1);
-// raf kilidinin ödeme yeri: rafın önü (yalnız köy marketinde açılan raf, yayılmış yerinin önünde)
-const padAt = (t) => { const p = ((KOY_PLACES[t][4] || 1) >= 3 ? KOY_PLACES3 : KOY_PLACES)[t]; return [p[0], p[1] + 1.4]; };
-// ilk dükkânda açılan rafın kilidi o aşamadaki yerinin önünde (KOY_PLACES1), sonra bakkaldaki yerinin önünde
-const padNow = (t) => { const K = G.regions.koy; if (K && K.stage >= 2) return padAt(t); const p = KOY_PLACES1[t]; return [p[0], p[1] + 1.4]; };
+});
+// aşamanın yerleri: henüz açılmamış aşamanın rafı kendi aşamasındaki yerinde bekler (reyon.js pending)
+const placeOf = (t, n) => LAYOUTS[Math.max(n, KOY_STAGE[t] || 1)][t];
+const koyPlaces = (n) => Object.fromEntries(Object.keys(KOY_STAGE).map((t) => [t, placeOf(t, n)]));
+// raf kilidinin ödeme yeri: rafın (raf grubunda birkaç rafın ortası) dükkânın o anki aşamasındaki yerinin önü. Dükkân büyüyünce açık
+// kilit yeni yerine taşınır (R.setStage)
+const padNow = (...types) => {
+  const K = G.regions.koy, n = (K && K.stage) || 1;
+  let x = 0, z = 0;
+  for (const t of types) { const p = placeOf(t, n), [fx, fz] = faceDir(p[2]); x += p[0] + fx * 1.4; z += p[1] + fz * 1.4; }
+  return [x / types.length, z / types.length];
+};
+const SHELF_PADS = ['k2', 'ky', 'kd', 'kr1', 'kr2', 'kr3', 'kc'];
 
 // kümes, mandıra ve ahır pazarın kuzeyindeki Çiftlik'te: geniş avlu, çitli tavuk avlusu ve inek otlağı.
 // istasyonlar ve hayvanlar köyün işçilerine bağlı kalır (R.gens, R.critters köyde)
@@ -582,10 +589,18 @@ function buildKoy() {
     if (R.aisle) for (const t of [...R.aisle.pending]) R.aisle.ensure(t, instant);
     for (const sh of R.shelves || []) if (sh.applyLook) sh.applyLook(); // raflar dükkânla birlikte güzelleşir
     if (n >= 4) growEast();
-    // yeri aşamaya göre değişen yan kilit (Manav Reyonu, def.at alıcısı) eski yerinde kalmasın: alanı süt ve peynir rafının üstünde
-    // kalıyor, raf doldururken para sessizce kilide akıyordu (2026-11-10 denetimi). Yeniden kurulur, ödenen kısmı korunur
-    const old = sideOpen.kr3;
-    if (old) { if (old.paid >= 1) padSave.kr3 = Math.floor(old.paid); old.dispose(); delete sideOpen.kr3; sidePads(); }
+    // yeri aşamaya göre değişen raf kilitleri (def.at alıcısı) eski yerinde kalmasın: alanı başka rafın önünde kalıyor, raf doldururken
+    // para sessizce kilide akıyordu (2026-11-10 denetimi). Yeniden kurulur, ödenen kısmı korunur
+    const moved = (pad) => { const at = padDef(pad.def).at; return Math.abs(at[0] - pad.zone.x) > 0.05 || Math.abs(at[1] - pad.zone.z) > 0.05; };
+    let side = false;
+    for (const id of SHELF_PADS) {
+      const old = sideOpen[id];
+      if (!old || !moved(old)) continue;
+      if (old.paid >= 1) padSave[id] = Math.floor(old.paid);
+      old.dispose(); delete sideOpen[id]; side = true;
+    }
+    const np = G.nextPad;
+    if (np && SHELF_PADS.includes(np.def.id) && moved(np)) { if (np.paid >= 1) padSave[np.def.id] = Math.floor(np.paid); np.dispose(); nextPad(); } else if (side) sidePads();
   };
   // büyük köy marketi doğuya, köy caddesinin batı bordürüne kadar büyür (dukkan.js 4. aşama): oradaki ağaç kalkar, fenerler yan
   // basamaktan caddenin batı kenarına geçer; bölge sınırı da dükkânla birlikte uzar. Eskiden fenerler basamağın üstünde kalıyordu
@@ -646,12 +661,11 @@ function buildKoy() {
   R.manavTypes = ['karpuz', 'biber', 'patlican'];
   R.imalatTypes = []; // imalathanenin ürünleri (salça, kek): kademe açılınca eklenir (expand-west.js)
   const GROUPS = { sut: () => R.dolapTypes, manav: () => R.manavTypes, kilim: () => ['kilim', 'yun'], firin: () => ['ekmek', 'simit', 'pogaca'], imalat: () => R.imalatTypes };
-  const BACK_Z = -10.6, fridge = (t) => kindOf(t) === 'fridge';
+  const fridge = (t) => kindOf(t) === 'fridge';
   R.aisle = makeAisle(R, {
-    content: C, put, rcol, places: koyPlaces(Math.max(1, R.stage)), w: 2.0, tagColor: '#4f9a3f', place: 'koy',
-    stageOf: (t) => KOY_PLACES[t][4] || 1, stage: () => R.stage, look: () => R.stage, // yeri açılmamış aşamadaki raf bekler (reyon.js pending)
-    back: (t) => (KOY_PLACES[t][1] <= BACK_Z ? 2.4 : 0.5), // arka sıra duvara kadar; orta reyon sırt sırta
-    tiers: (t) => (KOY_PLACES[t][1] <= BACK_Z ? Math.max(2, (R.wantTiers || {})[fridge(t) ? 'sut' : t] || 0) : 1),
+    content: C, put, rcol, places: koyPlaces(Math.max(1, R.stage)), w: 2.0, tagColor: '#4f9a3f', place: 'koy', // arka: yerin 6. öğesi (KOY_LAYOUT)
+    stageOf: (t) => KOY_STAGE[t] || 1, stage: () => R.stage, look: () => R.stage, // yeri açılmamış aşamadaki raf bekler (reyon.js pending)
+    tiers: (t) => (TIERED.has(t) ? Math.max(2, (R.wantTiers || {})[fridge(t) ? 'sut' : t] || 0) : 1),
   });
   R.openGroups = new Set();
   R.addShelf = (key, instant) => {
@@ -925,9 +939,9 @@ function shopKoy(R, c, o = {}) {
     st = steps[i];
     if (!st) { toQueue(); return; }
     if (!st.spot) { st.spot = st.shelf.spots.find((q) => !q.c); if (st.spot) st.spot.c = c; }
-    const enter = inside ? [] : [...(o.entry || []), ...D.enterPts()]; // dükkânın batısından kapıya, kapıdan içeri
+    const enter = inside ? [] : [...(o.entry || []), ...D.enterPts(undefined, o.door)]; // geldiği yoldan kapıya, kapıdan içeri (dukkan.js doorPts)
     inside = true;
-    if (!st.spot) { c.state = 'waitSpot'; c.wait = 0; c.path = [...enter, V(st.shelf.zone.x + rand(-1, 1), 0, st.shelf.zone.z + (st.shelf.faceY === 0 ? -0.9 : 2.2))]; return; }
+    if (!st.spot) { c.state = 'waitSpot'; c.wait = 0; c.path = [...enter, st.shelf.waitAt ? st.shelf.waitAt() : V(st.shelf.zone.x + rand(-1, 1), 0, st.shelf.zone.z + (st.shelf.faceY === 0 ? -0.9 : 2.2))]; return; }
     c.path = [...enter, st.spot.p.clone()];
     c.state = 'toShelf'; bubble();
   };
@@ -1023,17 +1037,41 @@ function trailFollow(f, L, dt) {
   q.x = at.x; q.z = at.z; q.y = heightAt(q.x, q.z);
   if (Math.hypot(dx, dz) > 0.004) { f.moving = true; f.obj.rotation.y = lerpAngle(f.obj.rotation.y, Math.atan2(dx, dz), 1 - Math.exp(-10 * dt)); }
 }
-// yaya müşteri: batıdaki köy yolundan yürüyerek gelir; bazıları sepetli, bazıları ailecek
+// yaya müşterinin yolu (2026-11-11 kullanıcı: "müşteriler bakkala tek yönden geliyor, çeşitlendir, tek yolda kuyruklar oluşmasın"):
+// batıdaki köy yolundan batı kapısına (eskiden hepsi), sahil yolundan bahçelerin arasından güney kapısına (plaj açıkken), pazar
+// caddesinden köy caddesine dönüp doğu yanına (pazar açıkken). Geldiği yoldan döner; gidişte yolun öbür yarısından yürür
+const EAST_FAR = 128; // pazar caddesinin köprüden sonraki ucu, ormanın içinde (roads.js WALKWAYS)
+function koyRoute() {
+  const doors = D.doors(), opts = [['bati', 0.45]];
+  if (doors.includes('guney') && G.regions.sahil && G.regions.sahil.unlocked) opts.push(['guney', 0.25]);
+  if (doors.includes('dogu') && G.regions.pazar && G.regions.pazar.unlocked) opts.push(['dogu', 0.3]);
+  let r = Math.random() * opts.reduce((a, o) => a + o[1], 0);
+  const door = (opts.find((o) => (r -= o[1]) <= 0) || opts[0])[0];
+  if (door === 'guney') { // mera açıkken iskelenin batı ucu meranın içinden geçer: doğudan gelir (spawnSahil gibi)
+    const x0 = G.regions.mera && G.regions.mera.unlocked ? SAHIL_FAR[1] : pick(SAHIL_FAR), zIn = 13.6 + rand(-0.2, 0.2), zOut = 14.4 + rand(-0.2, 0.2);
+    const gx = D.GARDEN_GAP_X + rand(-0.35, 0.35);
+    return { door, start: V(x0, 0, zIn), entry: [...viaBridge(x0, gx, zIn), V(gx, 0, zIn), V(gx, 0, 12.3)],
+      exit: () => [...D.leavePts(undefined, door), V(gx, 0, 12.3), V(gx, 0, zOut), ...viaBridge(gx, x0, zOut), V(x0, 0, zOut)] };
+  }
+  if (door === 'dogu') { // pazar caddesinin kuzey kaldırımı (z 3,7-5,0), köy caddesinin batı kenarı
+    const zIn = 4.1 + rand(-0.15, 0.15), zOut = 4.6 + rand(-0.15, 0.15), cx = 19.7 + rand(-0.25, 0.25), ez = () => D.doorPts(door)[0].z;
+    return { door, start: V(EAST_FAR, 0, zIn), entry: [V(cx, 0, zIn), V(cx, 0, ez())],
+      exit: () => [...D.leavePts(undefined, door), V(cx, 0, ez()), V(cx, 0, zOut), V(EAST_FAR, 0, zOut)] };
+  }
+  const zIn = 11.2 + rand(-0.2, 0.2);
+  return { door, start: V(KOY_FAR, 0, zIn), entry: [V(D.WEST_X, 0, zIn)], exit: null };
+}
+// yaya müşteri: üç yoldan birinden yürüyerek gelir (koyRoute); bazıları sepetli, bazıları ailecek
 function spawnKoy(R) {
   const free = R.shelves.filter((s) => s.spots.some((p) => !p.c));
   if (!free.length) return;
   const shelf = pick(free), spot = shelf.spots.find((p) => !p.c);
-  const zIn = 11.2 + rand(-0.2, 0.2);
-  const c = new Customer(V(KOY_FAR, 0, zIn), 'koy', M.villagerLook()); // köylü: kasketli bıyıklı ya da yemenili
+  const rt = koyRoute();
+  const c = new Customer(rt.start, 'koy', M.villagerLook()); // köylü: kasketli bıyıklı ya da yemenili
   maybeRush(c); // arada bir acele müşteri: hızlı yürür, çabuk sıkılır, ailesiz ve sepetsiz gelir
   spot.c = c;
   const multi = R.shelves.length > 1, family = multi && !c.rush && Math.random() < 0.22;
-  shopKoy(R, c, { basket: family || (multi && !c.rush && Math.random() < 0.35), first: { shelf, spot }, entry: [V(D.WEST_X, 0, zIn)] });
+  shopKoy(R, c, { basket: family || (multi && !c.rush && Math.random() < 0.35), first: { shelf, spot }, entry: rt.entry, door: rt.door, ...(rt.exit ? { exit: rt.exit } : {}) });
   c.state = 'begin';
   if (family) addFamily(c);
 }
@@ -1796,9 +1834,9 @@ function buildSehir() {
   const R = region('sehir', 'Şehir Marketi', CITY.rect, CITY.walk, 'cobble', 2.4, '#8a8478');
   return cityRegion(R, { rcol: (...a) => rcol(R, ...a), hint, icon });
 }
-// BEMIS ENERJİ PARKI: köy yolunun kuzeyinde, benzinliğin karşısında; güneş panelleri ve rüzgâr türbinleri (energy.js)
+// ENERJİ PARKI: köy yolunun kuzeyinde, benzinliğin karşısında; güneş panelleri ve rüzgâr türbinleri (energy.js)
 function buildEnerji() {
-  const R = region('enerji', 'Bemis Enerji Parkı', [-84, -63.6, -66.4, -59.8], [-83.7, -63.9, -66.1, -59.4], 'grass', 4, '#6d8a4a'); // kuzeybatı köşesi, servis yolunun ucunda
+  const R = region('enerji', 'Enerji Parkı', [-84, -63.6, -66.4, -59.8], [-83.7, -63.9, -66.1, -59.4], 'grass', 4, '#6d8a4a'); // kuzeybatı köşesi, servis yolunun ucunda
   return energyRegion(R, { rcol: (...a) => rcol(R, ...a), hint, icon });
 }
 // AT AHIRI: köy yolunun güneyinde, tarlaların batısında; içerisi riders.js'te
@@ -1992,20 +2030,16 @@ function buildHan() {
   R.menu = ['ekmek'];
   R.bonus = 1.5;
   R.gens = {};
-  // handaki tarlalar: buğday fırına ve ambara, domates çorba kazanına gider
-  R.fields = [];
-  R.addField = (x, z, type, instant) => {
-    const f = new PlantBed(C, x, z, type, type === 'bugday' ? 4 : 5, { instant });
-    R.fields.push(f);
-    if (M.isFieldCrop(type)) M.fieldMarks(C, x, z, type);
-    hint(x, 2.0, z, icon(type), type === 'bugday' ? 'Buğday tarlası' : 'Domates bahçesi', type === 'bugday' ? 'Buğdayı topla: fırında ekmek, ambarda deve yemi olur.' : 'Domatesi topla, çorba kazanının soldaki masasına bırak.', 3.4);
-    return f;
-  };
+  // hanın ön bahçesi (kapının doğusunda buğday ve domates tarhı) kalktı (2026-11-11 kullanıcı: "kervansarayın önündeki bostanlık saçma
+  // olmuş"): han duvarıyla köy fırınının duvarı arasına sıkışmıştı. Fırının buğdayı Köy Tarlaları'ndaki fırın tarlasından (ambarınki gibi,
+  // tarım kuşağı), çorbanın domatesi köyün bostanından gelir; hancı yardımcısı oralardan taşır (upgrades.js HanHelper feed)
+  Object.defineProperty(R, 'fields', { get: () => [...((G.regions.tarla && G.regions.tarla.wheat) || []).filter(Boolean),
+    ...((G.regions.koy && G.regions.koy.beds) || []).filter((b) => b.type === 'domates')] });
   R.activate = (instant) => {
     new Trash(C, 9.2, -51.6, { instant }); // avlunun kuzeydoğu köşesi
     const oven = put(C, M.makeOven(), -6.2, 0, -49.2); if (!instant) popIn(oven);
     rcol(R, -9.4, -4.8, -50.4, -48.0); rcol(R, -4.8, -3.0, -49.4, -48.4);
-    R.addField(7.6, -32.9, 'bugday', instant); // hanın ön bahçesi: kapının doğusu, avlunun dışında
+    if (G.regions.tarla && G.regions.tarla.addWheat) G.regions.tarla.addWheat(0, instant); // fırının buğdayı Köy Tarlaları'nda
     R.ovenConv = new Converter(C, { inType: 'bugday', inCap: 6, ix: -8.5, iz: -47.3, iw: 1.8, id: 1.4, inTray: [-8.5, 0.82, -48.9], instant,
       out: { type: 'ekmek', interval: 2.4, max: 10, origin: V(-6.2, 1.0, -48.3), tray: [-3.9, 0.82, -48.9], zx: -3.9, zz: -47.3, zw: 2.6, zd: 1.4 } });
     R.gens.ekmek = R.ovenConv.out;
@@ -2018,7 +2052,6 @@ function buildHan() {
     R.fire = ca.getObjectByName('fire');
     rcol(R, 2.0, 4.0, -51.2, -49.2); rcol(R, 4.1, 5.9, -50.4, -49.4); rcol(R, 0.1, 1.9, -50.4, -49.4);
     R.menu.push('corba');
-    R.addField(7.6, -29.5, 'domates', instant); // ön bahçe, buğdayın güneyi
     R.soupConv = new Converter(C, { inType: 'domates', inCap: 6, ix: 1.0, iz: -48.3, iw: 1.8, id: 1.4, inTray: [1.0, 0.82, -49.9], instant,
       out: { type: 'corba', interval: 3.0, max: 8, origin: V(3.0, 1.6, -50.2), tray: [5.0, 0.82, -49.9], zx: 5.0, zz: -48.3, zw: 2.6, zd: 1.4 } });
     R.gens.corba = R.soupConv.out;
@@ -2188,7 +2221,7 @@ function addPlot(type, pos, instant) {
 }
 const UNLOCKS = [
   { id: 'k1', icon: '🥒', title: 'Salatalık Bostanı', price: 40, at: GARDEN.C1, build: (i) => addPlot('salatalik', GARDEN.C1, i) },
-  { id: 'k2', icon: '🧺', title: 'Salatalık Rafı', price: 80, get at() { return padNow('salatalik'); }, y: 0.26, build: (i) => G.regions.koy.addShelf('salatalik', i) },
+  { id: 'k2', icon: '🧺', title: 'Salatalık Rafı', price: 80, get at() { return padNow('salatalik'); }, y: 0.26, size: 2.0, build: (i) => G.regions.koy.addShelf('salatalik', i) },
   { id: 'k3', icon: '🍅', title: 'İkinci Domates Bostanı', price: 150, at: GARDEN.T2, build: (i) => addPlot('domates', GARDEN.T2, i) },
   // bahçe büyür: her türün yanına yeni sıra
   { id: 'k4', icon: '🥒', title: 'İkinci Salatalık Sırası', price: 250, at: GARDEN.C2, side: true, req: 'k1', build: (i) => addPlot('salatalik', GARDEN.C2, i) },
@@ -2204,28 +2237,30 @@ const UNLOCKS = [
   { id: 'pt3', icon: '🫑', title: 'Biber Tezgâhı', price: 220, at: pzPad(3), size: 1.9, build: (i) => G.regions.pazar.openStall('biber', i) },
   { id: 'pt4', icon: '🍆', title: 'Patlıcan Tezgâhı', price: 260, at: pzPad(4), size: 1.9, build: (i) => G.regions.pazar.openStall('patlican', i) },
   { id: 'kk', lvl: 3, icon: '🐔', title: 'Çiftlik ve Kümes', price: 300, at: [37.7, -12.4], build: (i) => G.regions.koy.addCoop(i) },
-  { id: 'ky', icon: '🥚', title: 'Yumurta Rafı', price: 200, get at() { return padNow('yumurta'); }, y: 0.26, build: (i) => G.regions.koy.addShelf('yumurta', i) },
+  { id: 'ky', icon: '🥚', title: 'Yumurta Rafı', price: 200, get at() { return padNow('yumurta'); }, y: 0.26, size: 2.0, build: (i) => G.regions.koy.addShelf('yumurta', i) },
   // meydan tek kilitle açılır: bisiklet parkı ve otopark birlikte (eskiden otopark ayrı kilitti, 'ko'; eski kayıtta kb ikisini de kurar)
   { id: 'kb', lvl: 3, icon: '🅿️', title: 'Bisiklet Parkı ve Otopark', price: 600, at: [-13.8, -4.6], build: (i) => { unlockRegion('meydan', i); G.regions.koy.addBikeRack(i); G.regions.koy.addLot(i); } },
   { id: 'ka', icon: '🐄', title: 'Ahır', price: 450, at: [46.4, -26.0], build: (i) => G.regions.koy.addBarn(i) },
-  { id: 'kd', icon: '🥛', title: 'Süt Dolapları', price: 300, get at() { return padNow('sut'); }, y: 0.26, build: (i) => G.regions.koy.addShelf('sut', i) }, // süt, sonra peynir, koyun sütü, yoğurt: her biri ayrı dolap
+  { id: 'kd', icon: '🥛', title: 'Süt Dolapları', price: 300, get at() { return padNow('sut'); }, y: 0.26, size: 2.0, build: (i) => G.regions.koy.addShelf('sut', i) }, // süt, sonra peynir, koyun sütü, yoğurt: her biri ayrı dolap
   // dükkân büyür (dukkan.js aşamaları): ödeme yeri o anki ön duvarın dışında; büyüyünce yeni raf yerleri açılır
   { id: 'kS2', lvl: 3, icon: '🏪', title: 'Dükkânı Büyüt: Bakkal', price: 800, at: [3.2, -3.2], side: true, req: 'kd', build: (i) => G.regions.koy.setStage(2, i) },
   { id: 'kS3', lvl: 6, icon: '🏬', title: 'Köy Marketi', price: 2400, at: [3.2, 0.4], side: true, req: 'kS2', build: (i) => G.regions.koy.setStage(3, i) },
   // büyük köy marketi (2026-11-02): doğuya, köy caddesine büyür; ödeme yeri marketin doğu kenarının ötesinde, caddenin batı yarısında
   { id: 'kS4', lvl: 12, icon: '🏬', title: 'Büyük Köy Marketi', price: 6000, at: [17.4, -1.2], side: true, req: 'kS3', build: (i) => G.regions.koy.setStage(4, i) },
   // dükkânın ortasındaki çift yüzlü reyon ve arka sıranın doğu ucu: başka bölgelerin ürünleri köyde de satılır (rafçı uzaktan getirir)
-  // manav reyonu biber tezgâhıyla açılır, dükkân hangi aşamada olursa olsun (1. aşamada arka sıranın batısında: KOY_PLACES1)
-  { id: 'kr3', icon: '🍉', title: 'Manav Reyonu', price: 350, get at() { return (G.regions.koy && G.regions.koy.stage >= 2) ? padAt('karpuz') : padNow('patlican'); }, y: 0.26, side: true, req: 'pt3', build: (i) => G.regions.koy.addShelf('manav', i) },
-  { id: 'kr2', icon: '🧶', title: 'Kilim ve Yün Rafları', price: 450, at: padAt('kilim'), y: 0.26, side: true, req: 'm2', stage: 3, build: (i) => G.regions.koy.addShelf('kilim', i) },
-  { id: 'kr1', icon: '🥖', title: 'Fırın Rafları', price: 500, at: padAt('ekmek'), y: 0.26, side: true, req: 'gf', stage: 2, build: (i) => G.regions.koy.addShelf('firin', i) },
+  // manav reyonu biber tezgâhıyla açılır, dükkân hangi aşamada olursa olsun (1. aşamada arka sıranın batısında, sonra batı kolunda: KOY_LAYOUT)
+  // raf kilitleri rafın yerinin önünde, 2 m: komşu rafın bırakma alanına taşmaz
+  { id: 'kr3', icon: '🍉', title: 'Manav Reyonu', price: 350, get at() { return padNow('patlican'); }, y: 0.26, size: 2.0, side: true, req: 'pt3', build: (i) => G.regions.koy.addShelf('manav', i) },
+  { id: 'kr2', icon: '🧶', title: 'Kilim ve Yün Rafları', price: 450, get at() { return padNow('kilim', 'yun'); }, y: 0.26, size: 2.0, side: true, req: 'm2', stage: 3, build: (i) => G.regions.koy.addShelf('kilim', i) },
+  { id: 'kr1', icon: '🥖', title: 'Fırın Rafları', price: 500, get at() { return padNow('ekmek', 'simit'); }, y: 0.26, size: 2.0, side: true, req: 'gf', stage: 2, build: (i) => G.regions.koy.addShelf('firin', i) },
   { id: 'gs', lvl: 4, icon: '🏖️', title: 'Sahil Büfesi', price: 500, at: [47.5, 10.6], build: (i) => unlockRegion('sahil', i) }, // kamyon park cebinin doğusunda: kamyon padi örtmesin
   // balıkçı iskelesi: sahil yolunun güneyinde denize uzanan iskele; sonra iskelede balık restoranı (fishing.js)
   { id: 'gb', lvl: 6, icon: '🎣', title: 'Balıkçı İskelesi', price: 1400, at: [-38.6, 29.7], side: true, req: 'gs', build: (i) => unlockRegion('iskele', i) },
   { id: 'b2', lvl: 7, icon: '🐟', title: 'Balık Restoranı', price: 1800, at: [-36.6, 36.2], side: true, req: 'gb', build: (i) => G.regions.iskele.addRestaurant(i) },
   { id: 's1', icon: '🍦', title: 'Dondurma Makinesi', price: 400, at: [37.4, 22.8], build: (i) => G.regions.sahil.addFreezer(i) },
   { id: 's2', icon: '⛱️', title: 'Yeni Şezlonglar', price: 450, at: [44, 26.8], build: (i) => G.regions.sahil.addLoungers([44, 48, 15.25], i) },
-  { id: 'kc', lvl: 5, icon: '🚗', title: 'Paket Servis', price: 450, at: [-12.6, -7.2], build: (i) => { unlockRegion('meydan', i); G.regions.koy.startCars(i); } },
+  // köy marketinde (3. aşama) eski yeri dükkânın batı kolunun üstünde kalır: meydana, bisiklet yolunun batısına geçer
+  { id: 'kc', lvl: 5, icon: '🚗', title: 'Paket Servis', price: 450, get at() { return (G.regions.koy && G.regions.koy.stage >= 3) ? [-16.9, -7.2] : [-12.6, -7.2]; }, build: (i) => { unlockRegion('meydan', i); G.regions.koy.startCars(i); } },
   // ikinci kasa (2026-11-01 kullanıcı: "yeni kasa ekleme alma opsiyonumuz da olsun"): ödeme yeri köy marketindeki yerinin önünde
   { id: 'kk2', lvl: 6, icon: '🧾', title: 'İkinci Kasa', price: 1500, at: [D.counter2At(3).x, D.queue2At(3)[0].z], y: 0.26, side: true, stage: 2, build: (i) => G.regions.koy.addRegister(i) },
   { id: 'gm', lvl: 5, icon: '🐑', title: 'Koyun Merası', price: 650, at: [-20.0, 16.0], side: true, req: 'gs', build: (i) => unlockRegion('mera', i) },
@@ -2235,15 +2270,15 @@ const UNLOCKS = [
   { id: 'm2', lvl: 6, icon: '🧶', title: 'Dokuma Atölyesi', price: 600, at: [-43.2, 20.1], side: true, req: 'gm', build: (i) => { unlockRegion('yol', i); unlockRegion('atolye', i); } },
   { id: 'm1', icon: '🍼', title: 'Sağım Yeri', price: 500, at: [-39.6, 21.4], side: true, req: 'gm', build: (i) => G.regions.mera.addMilking(i) },
   { id: 'm3', icon: '🍶', title: 'Yoğurt Küpü', price: 800, at: [-38.2, 21.4], side: true, req: 'm1', build: (i) => G.regions.mera.addYogurt(i) },
-  // köy yolunun sonunda Bemis benzinlik (e0), sonra şarj üniteleri: elektrikli arabalar şarj olur, parası yığına düşer
-  { id: 'e0', lvl: 6, icon: '⛽', title: 'Bemis Benzinlik', price: 700, at: [-74, -13.6], side: true, req: 'kc', build: (i) => openStation(i) },
+  // köy yolunun sonunda benzinlik (e0), sonra şarj üniteleri: elektrikli arabalar şarj olur, parası yığına düşer
+  { id: 'e0', lvl: 6, icon: '⛽', title: 'Benzinlik', price: 700, at: [-74, -13.6], side: true, req: 'kc', build: (i) => openStation(i) },
   // şarj küçükten büyüğe: önce iki AC noktası, sonra DC hızlı şarj; genişletmeler (Süper Şarj, Ekspres Şarj) DC'den sonra (expand.js REQ).
   // Kimlikler eski kayıtlar bozulmasın diye aynı: e2 AC, e1 DC
   { id: 'e2', icon: '🔌', title: 'AC Şarj Noktaları', price: 700, at: [-73.9, -4.4], side: true, req: 'e0', build: (i) => addCharging('ac', i) },
-  { id: 'e1', icon: '⚡', title: 'Bemis DC Hızlı Şarj', price: 1200, at: [-68.5, -9.0], side: true, req: 'e2', build: (i) => addCharging('dc', i) },
-  // Bemis Enerji Parkı: benzinliğin karşısında. Trafo ve ilk panel dizisiyle açılır; öbür paneller ve türbinler pahalı,
+  { id: 'e1', icon: '⚡', title: 'DC Hızlı Şarj', price: 1200, at: [-68.5, -9.0], side: true, req: 'e2', build: (i) => addCharging('dc', i) },
+  // Enerji Parkı: benzinliğin karşısında. Trafo ve ilk panel dizisiyle açılır; öbür paneller ve türbinler pahalı,
   // kendi kendine para kazandıran yatırımlar (energy.js)
-  { id: 'gw', lvl: 10, icon: '🌬️', title: 'Bemis Enerji Parkı', price: 1000, at: [-73.6, -58.2], side: true, req: 'e0', build: (i) => unlockRegion('enerji', i) },
+  { id: 'gw', lvl: 10, icon: '🌬️', title: 'Enerji Parkı', price: 1000, at: [-73.6, -58.2], side: true, req: 'e0', build: (i) => unlockRegion('enerji', i) },
   { id: 'w1', icon: '☀️', title: 'Güneş Paneli Dizisi 2', price: 1500, at: [-76.4, -61.6], side: true, req: 'gw', build: (i) => G.regions.enerji.addUnit('sun', 1, i) },
   { id: 'w2', icon: '☀️', title: 'Güneş Paneli Dizisi 3', price: 1500, at: [-81.6, -61.6], side: true, req: 'w1', build: (i) => G.regions.enerji.addUnit('sun', 2, i) },
   { id: 'w3', icon: '🌬️', title: 'Rüzgâr Türbini 1', price: 2600, at: [-71.2, -64.8], side: true, req: 'gw', build: (i) => G.regions.enerji.addUnit('wind', 0, i) },
@@ -2472,7 +2507,7 @@ export function buildWorld(saved) {
   hintToggle(); // bilgi kutuları düğmesi
   buildSea();
   buildSurroundings();
-  buildStation(); // ana yolun batı girişinde benzinlik; Bemis şarj üniteleri kilitle açılır (e1, e2)
+  buildStation(); // ana yolun batı girişinde benzinlik; şarj üniteleri kilitle açılır (e1, e2)
   buildRoads(); // yollar ve sahil yolu yürünür
   // harita genişletmesi: köyün iki yanında açılan 7 birimlik koridorlar çimenlik ama yürünür (elemanlar ve müşteriler bölgeler
   // arasında dolaşabilsin); köy ile pazar arasında toprak patika

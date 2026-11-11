@@ -1,5 +1,5 @@
 // Yol kenarı benzinlik: ana yolun batı girişinde, yolun güneyinde (denizden uzak). Yakıt pompaları, market ve parayla
-// açılan Bemis E-V Charge şarj istasyonu. Arabalar ana yolun doğuya giden şeridinden girer, batıya giden şeridinden çıkar.
+// açılan elektrikli araç şarj istasyonu. Arabalar ana yolun doğuya giden şeridinden girer, batıya giden şeridinden çıkar.
 // Benzinlik baştan durur ve içinde yürünür. Şarj üniteleri kilitle açılır (e1: iki DC hızlı şarj, e2: iki AC şarj).
 // Benzinli arabalar pompalarda yakıt alır, elektrikliler şarj olur; ikisi de parasını yığına bırakıp yoluna devam eder.
 import { CUST_RATE } from './rating.js';
@@ -11,21 +11,25 @@ import { toKasa } from './account.js';
 
 const PI = Math.PI;
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
-const RED = '#c8102e', GREEN = '#46d36b';
+const BRAND = '#1f8f5f', GREEN = '#46d36b'; // benzinliğin rengi (kanopi, pompa, pano, işaret)
 const ROAD_Z = -17.4, ROAD_OUT = -19.8, FAR_X = -140; // ana yolun şeritleri ve batıdaki uç (events.js ROAD_FAR; carsi.js ve events.js arabalarıyla aynı)
 
-// Bemis logosu: kırmızı sekiz köşeli rozet içinde beyaz B, yanında kırmızı "bemis"
-function bemisLogo(bg = '#ffffff', w = 512, h = 160) {
+// benzinliğin kendi işareti (2026-11-11 kullanıcı: "tamamen ayrıştır": eski marka işareti kalktı): yeşil yuvarlak
+// köşeli rozette şimşek, yanında "e-şarj". Beyaz zeminde yeşil rozet, yeşil zeminde beyaz rozet
+function stationLogo(bg = '#ffffff', w = 512, h = 160) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
-  const g = c.getContext('2d');
+  const g = c.getContext('2d'), onWhite = bg === '#ffffff';
   g.fillStyle = bg; g.fillRect(0, 0, w, h);
-  const r = h * 0.34, cx = h * 0.5, cy = h / 2;
-  g.fillStyle = RED;
-  for (const a of [0, PI / 4]) { g.save(); g.translate(cx, cy); g.rotate(a); g.fillRect(-r * 0.8, -r * 0.8, r * 1.6, r * 1.6); g.restore(); }
-  g.fillStyle = '#ffffff'; g.font = `bold ${h * 0.46}px Georgia, serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText('B', cx, cy + h * 0.02);
-  g.fillStyle = bg === '#ffffff' ? RED : '#ffffff'; g.font = `${h * 0.56}px Georgia, serif`; g.textAlign = 'left';
-  g.fillText('bemis', cx + r + h * 0.18, cy + h * 0.02);
+  const s = h * 0.72, x0 = h * 0.14, y0 = (h - s) / 2, r = s * 0.22;
+  g.fillStyle = onWhite ? BRAND : '#ffffff';
+  g.beginPath(); g.moveTo(x0 + r, y0); g.arcTo(x0 + s, y0, x0 + s, y0 + s, r); g.arcTo(x0 + s, y0 + s, x0, y0 + s, r);
+  g.arcTo(x0, y0 + s, x0, y0, r); g.arcTo(x0, y0, x0 + s, y0, r); g.closePath(); g.fill();
+  g.fillStyle = onWhite ? '#ffffff' : BRAND;
+  g.beginPath();
+  [[0.6, 0.1], [0.24, 0.56], [0.47, 0.56], [0.38, 0.9], [0.76, 0.42], [0.53, 0.42], [0.64, 0.1]].forEach(([px, py], k) => (k ? g.lineTo(x0 + px * s, y0 + py * s) : g.moveTo(x0 + px * s, y0 + py * s)));
+  g.closePath(); g.fill();
+  g.fillStyle = onWhite ? BRAND : '#ffffff'; g.font = `bold ${h * 0.5}px sans-serif`; g.textAlign = 'left'; g.textBaseline = 'middle';
+  g.fillText('e-şarj', x0 + s + h * 0.16, h / 2 + h * 0.03);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
   return t;
@@ -36,8 +40,8 @@ const plane = (w, h, map, x, y, z, parent, ry = 0) => {
   return m;
 };
 
-// Bemis BEVDC 120: beyaz dolap, kırmızı logo, gri orta panel ve ekran, yeşil ışıklı iki tabanca yuvası, iki yanda kablo
-function makeBemisDC(logo) {
+// DC hızlı şarj ünitesi: beyaz dolap, yeşil işaret, gri orta panel ve ekran, yeşil ışıklı iki tabanca yuvası, iki yanda kablo
+function makeChargerDC(logo) {
   const g = new THREE.Group();
   const white = M.mat('#f4f5f6', { rough: 0.35 }), grey = M.mat('#80868c', { rough: 0.5 }), dark = M.mat('#2b2f33'), black = M.mat('#1b1d20', { rough: 0.75 });
   const led = new THREE.MeshBasicMaterial({ color: GREEN });
@@ -65,8 +69,8 @@ function makeBemisDC(logo) {
   g.userData = { led, screen };
   return g;
 }
-// Bemis Charger Pro 2: direğe takılı duvar tipi AC cihaz; koyu çerçeve, krem ön yüz, ekran, yuvarlak soket
-function makeBemisAC(logo) {
+// duvar tipi AC şarj: direğe takılı; koyu çerçeve, krem ön yüz, ekran, yuvarlak soket
+function makeChargerAC(logo) {
   const g = new THREE.Group();
   M.cyl(0.06, 0.07, 1.25, 8, M.mat('#c9ccd0'), 0, 0.62, 0, g);
   M.rbox(0.44, 0.62, 0.15, 0.13, M.mat('#3a3f45'), 0, 1.38, 0.07, g);
@@ -80,19 +84,19 @@ function makeBemisAC(logo) {
 function makePump() {
   const g = new THREE.Group();
   M.rbox(0.7, 1.55, 0.45, 0.06, M.mat('#ffffff'), 0, 0.78, 0, g);
-  M.rbox(0.72, 0.28, 0.47, 0.05, M.mat(RED), 0, 1.45, 0, g);
+  M.rbox(0.72, 0.28, 0.47, 0.05, M.mat(BRAND), 0, 1.45, 0, g);
   for (const z of [0.235, -0.235]) M.rbox(0.42, 0.26, 0.02, 0.01, M.mat('#1f2a33'), 0, 1.08, z, g);
   for (const s of [-1, 1]) { M.rbox(0.08, 0.22, 0.12, 0.02, M.mat('#2b2f33'), s * 0.39, 0.85, 0, g); M.cyl(0.02, 0.02, 0.6, 5, M.mat('#2b2f33'), s * 0.42, 0.45, 0.1, g); }
   return g;
 }
-// fiyat direği: uzaktan görünen kırmızı pano
+// fiyat direği: uzaktan görünen yeşil başlıklı pano
 function priceBoard() {
   const c = document.createElement('canvas'); c.width = 256; c.height = 512;
   const g = c.getContext('2d');
   g.fillStyle = '#ffffff'; g.fillRect(0, 0, 256, 512);
-  g.fillStyle = RED; g.fillRect(0, 0, 256, 150);
-  g.fillStyle = '#ffffff'; g.font = 'bold 54px Georgia, serif'; g.textAlign = 'center'; g.fillText('bemis', 128, 80);
-  g.font = 'bold 28px sans-serif'; g.fillText('ENERJİ', 128, 125);
+  g.fillStyle = BRAND; g.fillRect(0, 0, 256, 150);
+  g.fillStyle = '#ffffff'; g.font = 'bold 54px Georgia, serif'; g.textAlign = 'center'; g.fillText('YAKIT', 128, 80);
+  g.font = 'bold 28px sans-serif'; g.fillText('ve ŞARJ', 128, 125);
   const rows = [['⚡ DC 120 kW', GREEN], ['⚡ AC 22 kW', GREEN], ['BENZİN', '#2b2f33'], ['MOTORİN', '#2b2f33']];
   rows.forEach(([t, col], i) => { g.fillStyle = col; g.font = 'bold 34px sans-serif'; g.fillText(t, 128, 210 + i * 80); });
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
@@ -111,21 +115,21 @@ export function buildStation() {
   S = new THREE.Group();
   S.visible = false; // kilitli: yalnızca "kilitli" yazısı görünür
   G.scene.add(S);
-  logoW = bemisLogo('#ffffff');
-  const logoR = bemisLogo(RED);
-  // zemin: asfalt alan, yoldan iki giriş. 2026-11-06 kullanıcı: "bemis benzinlikte zemini siyah kalmış": koyu asfalt doku kilitliyken siyah
+  logoW = stationLogo('#ffffff');
+  const logoR = stationLogo(BRAND);
+  // zemin: asfalt alan, yoldan iki giriş. 2026-11-06 kullanıcı: "benzinlikte zemini siyah kalmış": koyu asfalt doku kilitliyken siyah
   // görünüyordu; diğer bölgelerde olduğu gibi zemin açılınca gelir, kilitliyken çimen kalır
   lot = new THREE.Mesh(new THREE.PlaneGeometry(21, 13), new THREE.MeshStandardMaterial({ map: texRep('asphalt', 7, 4.4), roughness: 0.9, color: '#8e939a' }));
   lot.rotation.x = -PI / 2; lot.position.set(-74, -0.035, -8.3); lot.receiveShadow = true; lot.visible = false; G.scene.add(lot);
   const el = document.createElement('div');
   el.className = 'lock';
-  el.textContent = 'Bemis Benzinlik · kilitli';
+  el.textContent = 'Benzinlik · kilitli';
   lockEl = el; lockL = G.labels.add(el, lockFn);
-  // akaryakıt kanopisi: kırmızı-beyaz saçaklı çatı, iki pompa adası
+  // akaryakıt kanopisi: yeşil-beyaz saçaklı çatı, iki pompa adası
   for (const x of [-81.4, -74.6]) for (const z of [-11.8, -8.0]) M.cyl(0.14, 0.14, 3.6, 10, M.mat('#e9ecef'), x, 1.8, z, S);
   M.rbox(8.4, 0.35, 5.4, 0.08, M.mat('#ffffff'), -78, 3.75, -9.9, S);
-  M.rbox(8.6, 0.55, 5.6, 0.06, M.mat(RED), -78, 3.4, -9.9, S);
-  plane(4.2, 0.5, textTex('BEMIS ENERJİ', { bg: RED, fg: '#ffffff', w: 1024, h: 120 }), -78, 3.4, -7.09, S);
+  M.rbox(8.6, 0.55, 5.6, 0.06, M.mat(BRAND), -78, 3.4, -9.9, S);
+  plane(4.2, 0.5, textTex('AKARYAKIT · ŞARJ', { bg: BRAND, fg: '#ffffff', w: 1024, h: 120 }), -78, 3.4, -7.09, S);
   plane(2.1, 0.5, logoR, -78, 3.4, -12.71, S, PI);
   for (const x of [-80.2, -75.8]) {
     M.rbox(1.2, 0.18, 3.4, 0.05, M.mat('#cfd3d7'), x, 0.09, -9.9, S);
@@ -133,9 +137,9 @@ export function buildStation() {
   }
   // market
   M.rbox(5.4, 3.0, 3.6, 0.08, M.mat('#ffffff'), -80.8, 1.5, -3.8, S);
-  M.rbox(5.6, 0.4, 3.8, 0.05, M.mat(RED), -80.8, 3.1, -3.8, S); // çatı kenarında kırmızı şerit
+  M.rbox(5.6, 0.4, 3.8, 0.05, M.mat(BRAND), -80.8, 3.1, -3.8, S); // çatı kenarında kırmızı şerit
   M.rbox(3.4, 1.6, 0.06, 0.03, M.mat('#9fd8f5', { rough: 0.15 }), -80.8, 1.2, -5.61, S);
-  plane(3.6, 0.6, textTex('MARKET', { bg: RED, fg: '#ffffff', w: 512, h: 90 }), -80.8, 2.55, -5.62, S);
+  plane(3.6, 0.6, textTex('MARKET', { bg: BRAND, fg: '#ffffff', w: 512, h: 90 }), -80.8, 2.55, -5.62, S);
   // fiyat direği ana yolun kenarında
   M.cyl(0.12, 0.12, 5.2, 8, M.mat('#c9ccd0'), -63.2, 2.6, -15.0, S); // DC şarja giren arabaların yolunun dışında
   M.rbox(1.6, 3.0, 0.25, 0.06, M.mat('#ffffff'), -63.2, 5.0, -15.0, S);
@@ -159,7 +163,7 @@ export function setStationRevealed(v, instant) {
 let named = null;
 export function setStationNamed(on) {
   if (named === on || !lockEl) return;
-  named = on; lockEl.textContent = on ? 'Bemis Benzinlik · kilitli' : '🔒 Kilitli';
+  named = on; lockEl.textContent = on ? 'Benzinlik · kilitli' : '🔒 Kilitli';
 }
 // kilit açılınca (e0): benzinlik kurulur, avlusunda yürünür
 export function openStation(instant) {
@@ -198,19 +202,19 @@ export function addCharging(kind, instant) {
   // eski kayıt: şarj açık ama benzinlik kilidi kayıtta yoksa benzinlik de açılmış sayılır
   if (!open) { openStation(instant); G.unlocked.add('e0'); }
   if (kind === 'dc') {
-    // Bemis E-V Charge (2026-10-28 düzeni: eskiden üniteler yol ile park yeri arasındaydı, arabalar içlerinden geçiyordu):
+    // DC şarj adası (2026-10-28 düzeni: eskiden üniteler yol ile park yeri arasındaydı, arabalar içlerinden geçiyordu):
     // iki park yerinin arasındaki adada sırt sırta iki ünite, ekranı yandan arabaya bakar. Araba yoldan dümdüz girer, geri geri
     // çıkar. Pano adanın kuzey ucundaki direkte, iki arabanın üstünde (araba yolunda direk yok)
     const sign = new THREE.Group(), ISL = -67.2;
     M.cyl(0.09, 0.09, 3.1, 8, M.mat('#c9ccd0'), ISL, 1.55, -10.45, sign);
     M.rbox(6.4, 0.7, 0.12, 0.04, M.mat('#1f2a33'), ISL, 2.85, -10.45, sign);
-    plane(5.4, 0.6, textTex('bemis  E-V CHARGE', { bg: '#1f2a33', fg: GREEN, w: 1024, h: 110 }), ISL, 2.85, -10.38, sign);
+    plane(5.4, 0.6, textTex('⚡ E-ŞARJ', { bg: '#1f2a33', fg: GREEN, w: 1024, h: 110 }), ISL, 2.85, -10.38, sign);
     M.rbox(1.0, 0.15, 3.2, 0.05, M.mat('#cfd3d7'), ISL, 0.075, -9.0, sign); // ada
     appear(sign, instant);
     col(ISL - 0.5, ISL + 0.5, -10.6, -7.4);
     for (const [k, x] of [-68.9, -65.5].entries()) {
       const side = k ? 1 : -1, uz = k ? -8.35 : -9.65; // batıdaki araba adanın batısında, ünitesi batıya bakar
-      const dc = appear(makeBemisDC(logoW), instant, 0.1 + k * 0.1); dc.position.set(ISL, 0.15, uz); dc.rotation.y = side * PI / 2;
+      const dc = appear(makeChargerDC(logoW), instant, 0.1 + k * 0.1); dc.position.set(ISL, 0.15, uz); dc.rotation.y = side * PI / 2;
       col(ISL - 0.35, ISL + 0.35, uz - 0.55, uz + 0.55);
       paintBay(x, -9.0, 4.4);
       // şarj kablosu: araba bağlıyken görünür (ünitenin yan yuvasından arabanın yanına)
@@ -221,11 +225,11 @@ export function addCharging(kind, instant) {
         enter: () => [V(x, 0, ROAD_Z), V(x, 0, -9.0)], leave: () => [V(x, 0, -13.4), V(x - 2.4, 0, ROAD_OUT), V(FAR_X, 0, ROAD_OUT)] });
     }
   } else {
-    // Bemis Charger Pro 2: avlunun güney kenarında direğe takılı. Şerit (x -73,2) iki park yerinin arasından iner: araba yanından
+    // duvar tipi AC şarj: avlunun güney kenarında direğe takılı. Şerit (x -73,2) iki park yerinin arasından iner: araba yanından
     // geçerken öbür park yerindeki arabaya değmez. Burnu üniteye dönük park eder, geri geri çıkar
     const LANE = -73.2;
     for (const [k, x] of [-75.4, -71.0].entries()) {
-      const ac = appear(makeBemisAC(logoW), instant, k * 0.1); ac.position.set(x, 0, -1.95); ac.rotation.y = PI;
+      const ac = appear(makeChargerAC(logoW), instant, k * 0.1); ac.position.set(x, 0, -1.95); ac.rotation.y = PI;
       col(x - 0.16, x + 0.16, -2.1, -1.8);
       paintBay(x, -4.4, 4.2);
       const cable = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(x, 1.22, -2.15), V(x + 0.15, 0.5, -2.3), V(x + 0.3, 0.75, -2.45)]), 16, 0.03, 6), M.mat('#1b1d20'));
@@ -263,7 +267,7 @@ export function addExtraBay(kind, x, instant, model) {
   const LANE = -86.6, ZA = 0.5, wash = kind === 'wash', BZ = wash ? 5.4 : 5.0;
   let cable, led = null, screen = null;
   if (!wash) {
-    const dc = appear(makeBemisDC(logoW), instant); dc.position.set(x, 0, 7.7); dc.rotation.y = PI; // ekranı arabaya (kuzeye) dönük
+    const dc = appear(makeChargerDC(logoW), instant); dc.position.set(x, 0, 7.7); dc.rotation.y = PI; // ekranı arabaya (kuzeye) dönük
     col(x - 0.55, x + 0.55, 7.35, 8.05);
     paintBay(x, 5.0, 4.4);
     cable = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(x - 0.13, 0.66, 7.35), V(x - 0.3, 0.25, 6.7), V(x - 0.35, 0.6, 6.25)]), 20, 0.035, 6), M.mat('#1b1d20'));

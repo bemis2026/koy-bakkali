@@ -390,7 +390,7 @@ defineExpansion({ id: 'xatlar3', region: 'atlar', tier: 3, icon: '🏇', title: 
   } });
 
 // =====================================================================
-// BEMIS BENZİNLİK: arsanın güneyi (eski süs tarlası)
+// BENZİNLİK: arsanın güneyi (eski süs tarlası)
 // =====================================================================
 defineExpansion({ id: 'xbenzin1', region: 'benzin', tier: 1, icon: '⚡', title: 'Süper Şarj Ünitesi', price: 2200, rect: [-78.8, -74.2, -1.6, 8.2], at: [-76.5, 1.0], tex: 'asphalt',
   info: { text: 'Avlunun güneyine süper hızlı DC şarj ünitesi kuruldu.', steps: [['⚡', 'Elektrikli arabalar buraya da girer, şarj olur, 40 ₺ öder. Para benzinliğin kasasında birikir.']] },
@@ -404,7 +404,7 @@ defineExpansion({ id: 'xbenzin3', region: 'benzin', tier: 3, icon: '🔋', title
   build: (c) => { addExtraBay('dc', -81.1, c.instant); G.mods = G.mods || {}; G.mods.stationMul = 1.3; } });
 
 // =====================================================================
-// BEMIS ENERJİ PARKI: parkın güneyi (ormanda açıklık)
+// ENERJİ PARKI: parkın güneyi (ormanda açıklık)
 // =====================================================================
 defineExpansion({ id: 'xenerji1', region: 'enerji', tier: 1, icon: '☀️', title: 'Güneş Tarlası', price: 3500, rect: [-84, -62.6, -57.2, -51.6], at: [-65.2, -54.4], tex: 'grass',
   info: { text: 'Üç güneş paneli dizisi daha kuruldu.', steps: [['☀️', 'Paneller güneşten elektrik üretir; kazanç enerji santralinin kasasında birikir.']] },

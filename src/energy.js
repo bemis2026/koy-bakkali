@@ -1,4 +1,4 @@
-// Bemis Enerji Parkı: haritanın kuzeybatı köşesinde, köyden uzakta; ana yoldan elektrik direkleri boyunca giden servis yoluyla
+// Enerji Parkı: haritanın kuzeybatı köşesinde, köyden uzakta; ana yoldan elektrik direkleri boyunca giden servis yoluyla
 // ulaşılır (roads.js energyRoad). Güneş panelleri ve rüzgâr türbinleri elektrik
 // üretir, trafo şebekeye satar; kazanç trafonun önündeki para yığınına düşer. Pahalı ama kendi kendine çalışan yatırım:
 // bölge açılınca trafo ve ilk panel dizisi kurulur, öbür panel dizileri ve türbinler ayrı kilitlerle alınır (world.js w1-w5).
@@ -9,7 +9,7 @@ import { toKasa } from './account.js';
 import { textTex } from './tex.js';
 
 const PI = Math.PI;
-const RED = '#c8102e';
+const TONE = '#2e8b57'; // parkın rengi (trafo bandı, tabela)
 // birim yerleri: panel dizileri yola yakın sırada, türbinler arkada (kuzeyde); 0. sıradaki trafoya en yakın olan
 const SUN_X = [-71.2, -76.4, -81.6], WIND_X = [-71.2, -76.4, -81.6];
 const SUN_Z = -61.6, WIND_Z = -64.8, TRAFO = [-66.6, -65.0];
@@ -50,7 +50,7 @@ function makeSolarArray() {
 }
 // rüzgâr türbini: beyaz konik kule, gövde, burun; üç kanat uçları kırmızı şeritli. Rotor kameraya bakar (userData.rotor)
 function makeTurbine() {
-  const g = new THREE.Group(), white = M.mat('#f4f5f6', { rough: 0.4 }), red = M.mat(RED);
+  const g = new THREE.Group(), white = M.mat('#f4f5f6', { rough: 0.4 }), red = M.mat(TONE);
   M.cyl(0.62, 0.7, 0.14, 14, M.mat('#b9bec4'), 0, 0.07, 0, g); // beton kaide
   M.cyl(0.16, 0.32, 6.4, 12, white, 0, 3.3, 0, g);
   M.rbox(0.52, 0.48, 1.15, 0.12, white, 0, 6.6, -0.12, g); // gövde (nacelle)
@@ -66,13 +66,13 @@ function makeTurbine() {
   g.userData.rotor = rotor;
   return g;
 }
-// trafo binası: beyaz kutu, kırmızı bant, BEMIS ENERJİ tabelası, yüksek gerilim levhası ve çatıda izolatörler
+// trafo binası: beyaz kutu, kırmızı bant, TRAFO tabelası, yüksek gerilim levhası ve çatıda izolatörler
 function makeTrafo() {
   const g = new THREE.Group();
   M.rbox(2.6, 2.0, 1.9, 0.08, M.mat('#eef0f2'), 0, 1.0, 0, g);
-  M.rbox(2.64, 0.28, 1.94, 0.04, M.mat(RED), 0, 1.75, 0, g);
+  M.rbox(2.64, 0.28, 1.94, 0.04, M.mat(TONE), 0, 1.75, 0, g);
   M.rbox(0.8, 1.3, 0.05, 0.03, M.mat('#8a9097'), -0.6, 0.68, 0.96, g); // kapı
-  const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.42), new THREE.MeshBasicMaterial({ map: textTex('BEMIS ENERJİ', { bg: RED, fg: '#ffffff', w: 512, h: 90 }) }));
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.42), new THREE.MeshBasicMaterial({ map: textTex('TRAFO', { bg: TONE, fg: '#ffffff', w: 512, h: 90 }) }));
   sign.position.set(0, 2.35, 0.2); g.add(sign);
   M.rbox(2.5, 0.5, 0.06, 0.02, M.mat('#ffffff'), 0, 2.35, 0.16, g);
   for (const x of [-1.0, 1.0]) M.cyl(0.04, 0.04, 0.5, 6, M.mat('#8a9097'), x, 2.1, 0.12, g);
@@ -114,7 +114,7 @@ export function energyRegion(R, h) {
     // üretim panosu: trafonun üstünde anlık kazanç
     R.board = document.createElement('div');
     R.board.className = 'hint near';
-    R.board.innerHTML = '<span class="hi">⚡</span><span class="hx"><b>Bemis Enerji Parkı</b><small></small></span>';
+    R.board.innerHTML = '<span class="hi">⚡</span><span class="hx"><b>Enerji Parkı</b><small></small></span>';
     G.labels.add(R.board, (v) => v.set(TRAFO[0], 4.0, TRAFO[1]));
     h.hint(TRAFO[0], 2.6, TRAFO[1] + 1.2, '🏦', 'Enerji satışı', 'Paneller ve türbinler elektrik üretir, trafo şebekeye satar. Kazanç önündeki kasa kutusunda birikir: gidip topla ya da muhasebeci toplasın.', 3.0);
   };

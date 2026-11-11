@@ -166,7 +166,7 @@ function dressNew(Rg) {
   for (const [x, y, z] of [[-57.9, 0, -2.75], [-57.9, 0, -1.85], [-57.9, 0.95, -2.3]]) put(A, M.makeHay(), x, y, z, PI / 2);
   col(A, -58.6, -57.2, -3.25, -1.35);
   const E = Rg.enerji;
-  put(E, M.makeSign('⚡ BEMIS ENERJİ PARKI', '#c8102e', 3.4, 0.7), -71.2, 0, -59.95);
+  put(E, M.makeSign('⚡ ENERJİ PARKI', '#2e8b57', 3.4, 0.7), -71.2, 0, -59.95);
   for (const x of [-72.75, -69.65]) col(E, x - 0.1, x + 0.1, -60.05, -59.85);
 }
 

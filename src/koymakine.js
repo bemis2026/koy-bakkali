@@ -2,7 +2,7 @@
 // makinesi gibi mantıkta olabilir"; seçtikleri: çekirdek kavurma, salata barı, köz kavanozu, kabak tatlısı). Büyük köy marketinin
 // (dukkan.js 4. aşama) açtığı doğu şeridinde dört makine alt alta durur, her biri kendi kilidiyle açılır. Makine şeridin doğu kenarında
 // dükkânın içine (batıya) bakar; önünde arkada (kuzeyde) girdi masası, önde (güneyde) çıktı masası, ön alanları raflarla makineler
-// arasındaki koridorda. Ürün dükkânın ön sırasındaki kendi rafında satılır (world.js KOY_PLACES), parası dükkânın kasasına
+// arasındaki koridorda. Ürün dükkânın ön kenarının doğusunda, makinelerin yanındaki kendi rafında satılır (world.js KOY_LAYOUT), parası dükkânın kasasına
 import * as THREE from 'three';
 import * as M from './models.js';
 import { G, ITEMS, Converter } from './game.js';
@@ -125,7 +125,7 @@ function unit(c, u) {
   c.src(u.out, conv.out);
   (G.xgens[u.id] || (G.xgens[u.id] = [])).push(conv.out); // menüde hız ve tepsi yükseltmesi (upgrades.js XMACH)
   c.hint(AX, 2.4, z - DZ, ins.map(c.icon).join(''), u.title, u.hint, 3.0);
-  // satış: dükkânın ön sırasında kendi rafı (world.js KOY_PLACES, 'imalat' grubu)
+  // satış: dükkânın ön kenarında, makinelerin yanında kendi rafı (world.js KOY_LAYOUT, 'imalat' grubu)
   if (!K.imalatTypes.includes(u.out)) K.imalatTypes.push(u.out);
   K.addShelf('imalat', c.instant);
   G.xsell.push({ type: u.out, list: () => K.imalatTypes, shelf: () => K.shelfByType[u.out] });

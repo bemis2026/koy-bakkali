@@ -32,17 +32,31 @@ export const doorIn = (n) => V(doorX(n), 0, S(n).zf - 1.2);
 // kapının önü: köy marketinde bahçe yataklarına yakın, ön basamakla yatak arasındaki şeritte
 const outZ = (n) => S(n).zf + ((n || shopStage()) >= 3 ? 0.8 : 1.4);
 export const doorOut = (n) => V(doorX(n), 0, outZ(n));
-// dükkân içi yürüyüş: girişte kapıdan, çıkışta kapıya (kasanın batısından)
-export const enterPts = (n) => [V(WEST_X, 0, outZ(n)), doorOut(n), doorIn(n)];
-export const leavePts = (n) => [doorIn(n), doorOut(n), V(WEST_X, 0, outZ(n))];
+// müşteri kapıları (2026-11-11 kullanıcı: "müşteriler bakkala tek yönden geliyor, onu da çeşitlendir, tek yolda kuyruklar oluşmasın"):
+// batı kapısı (köy yolundan; eskiden tek giriş), güney kapısı (sahil yolundan bahçelerin ortasındaki geçitten gelir, ön koridordan ikinci
+// kasanın kuyruğunun doğusundan girer) ve doğu yanı (pazar caddesinden köy caddesine döner). Dükkânın önü ve yanları açık: kapı yürüme
+// yolunun içeride bittiği yer. İlk küçük dükkânın önü kuyrukla dolu: orada yalnız batı kapısı
+export const GARDEN_GAP_X = -1.6; // bahçe yataklarının ortadaki geçidi (world.js GARDEN: -2,7…-0,5)
+const southX = (n) => (n >= 3 ? 7.3 : 9.7), eastZ = (n) => (n >= 3 ? 0.4 : -3.0);
+export const doors = (n) => ((n || shopStage()) >= 2 ? ['bati', 'guney', 'dogu'] : ['bati']);
+export function doorPts(door, n) {
+  const k = n || shopStage(), s = S(k), oz = outZ(k);
+  if (door === 'guney') return [V(GARDEN_GAP_X, 0, oz), V(southX(k), 0, oz), V(southX(k), 0, s.zf - 1.2)];
+  if (door === 'dogu') return [V(s.x1 + 0.9, 0, eastZ(k)), V(s.x1 - 1.4, 0, eastZ(k))];
+  return [V(WEST_X, 0, oz), doorOut(k), doorIn(k)];
+}
+// dükkân içi yürüyüş: girişte kapıdan, çıkışta kapıya (batı kapısı kasanın batısında)
+export const enterPts = (n, door = 'bati') => doorPts(door, n);
+export const leavePts = (n, door = 'bati') => doorPts(door, n).reverse();
 // ikinci kasa (world.js addRegister, 2026-11-01 kullanıcı: "yeni kasa ekleme alma opsiyonumuz da olsun"): birinci kasanın kuyruğunun
 // doğu ucunun ötesinde, aynı hizada; kuyruğu da doğuya uzanır (5 kişi). Bakkal aşamasından itibaren dükkânın içinde kalır
 export const counter2At = (n) => ({ x: counterAt(n).x + 9.6, z: counterAt(n).z });
 export const cashier2At = (n) => ({ x: counter2At(n).x - 0.4, z: S(n).zf - 0.55 });
 export const queue2At = (n) => snake(counter2At(n).x, payZ(n), 5, 3);
 export function counter2Col(n) { const c = counter2At(n); return [c.x - 1.35, c.x + 1.35, c.z - 0.55, c.z + 0.55]; }
-// eleman bekleme yeri: ön koridorun doğu ucu (kuyruğun güneyi, kapıdan uzak)
-export const staffIdle = (n) => { const s = S(n); return [s.x1 - 5.2, s.x1 - 1.6, s.zf - 1.1, s.zf - 0.6]; };
+// eleman bekleme yeri: ön koridorun doğu ucu (kuyruğun güneyi, kapıdan uzak). Büyük köy marketinde orada makine ürünlerinin rafları
+// var (world.js KOY_LAYOUT), doğu kapısının yolu da makine şeridinin güney ucundan geçer: elemanlar içeride, ilk makinenin batısında bekler
+export const staffIdle = (n) => { const k = n || shopStage(), s = S(k); return k >= 4 ? [s.x1 - 6.0, s.x1 - 3.6, -2.2, -1.0] : [s.x1 - 5.2, s.x1 - 1.6, s.zf - 1.1, s.zf - 0.6]; };
 // dükkânın duvar engelleri (dünya koordinatı): yalnız arka duvar. Ön ve yanlar açık (kullanıcı 2026-10-28: "öndeki duvarlar
 // da komple kalksın"): her yönden girilir; müşteriler yine kapının yerinden (doorX) girip çıkar
 export function shellCols(n) {

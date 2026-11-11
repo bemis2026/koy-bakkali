@@ -20,7 +20,7 @@ const REGIONS = [[-23, 23, -14, 12], [23, 53, -14, 12], [-23, 53, 12, 32], [-16,
 const CLEAR = [-53, 57, -70, 32];
 const FEATURES = [
   [70, 116, -59, 3.4],  // nehrin ötesindeki lunapark (lunapark.js): çitin içi ağaçsız
-  [-100.5, -61, -17, 9.5], // ana yolun batı girişindeki benzinlik (2026-11-01: batı uçtaki ağaçların tepesi yıkama ve batı şeritlerine taşıyordu), Bemis şarj istasyonu, güneyindeki şarj ve yıkama arsaları ve giriş şeridi (station.js)
+  [-100.5, -61, -17, 9.5], // ana yolun batı girişindeki benzinlik (2026-11-01: batı uçtaki ağaçların tepesi yıkama ve batı şeritlerine taşıyordu), şarj istasyonu, güneyindeki şarj ve yıkama arsaları ve giriş şeridi (station.js)
   [-88, -74.4, 13.0, 27], // batı ovasının batı ucu: binicilik pisti (doğusu genişleme arsaları)
   [-64.5, -58, -61, -22], [-86, -58, -61, -55.5], // enerji yolu ve parkın önündeki kol (roads.js)
   [-23, 33, -94, -74], [69, 109, -92, -66], [-89, -49, -96, -70], // uzak mahallelerin önündeki çayır (eski siluet yerleri; ağaç dizilimi kaymasın diye sabit, mahalleler: MAHALLE)

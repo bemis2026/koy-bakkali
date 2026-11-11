@@ -18,7 +18,7 @@ import { makeTag } from './tags.js';
 import { fine } from './account.js';
 import { repMul } from './rating.js';
 import { SUPER_GROUPS, TOPTAN, storeSign, cartCorral, pylon, toptanBoard } from './supermarket.js';
-import { marketDecor, buildBarcelona, hydraulicTex } from './barselona.js';
+import { marketDecor, buildBarcelona, hydraulicTex, ZEBRA } from './barselona.js';
 import { cityLook, cityGapK } from './sehirhayat.js';
 
 const PI = Math.PI;
@@ -594,7 +594,10 @@ function spawnCustomer(R) {
     return { shelf: sh, want, need: ITEMS[want].price >= 20 ? 1 : 1 + Math.floor(Math.random() * 2), got: 0, spot: null };
   });
   if (!steps.length) return;
-  const east = Math.random() < 0.5, c = new Customer(V(CX + (east ? 76 : -76), 0, WALK_S + rand(-0.3, 0.3)), 'sehir', cityLook()); // şehirli giyimi (sehirhayat.js)
+  // iki kaldırımdan gelir (2026-11-11 kullanıcı: "müşteriler markete tek yönden geliyor, çeşitlendir, tek yolda kuyruklar oluşmasın"):
+  // kuzey kaldırımındaki caddeyi geçmez, güneydeki yaya geçidinin bir yerinden geçer; kapının batı yarısından girer, doğu yarısından çıkar
+  const east = Math.random() < 0.5, north = Math.random() < 0.5;
+  const c = new Customer(V(CX + (east ? 76 : -76), 0, (north ? WALK_N : WALK_S) + rand(-0.3, 0.3)), 'sehir', cityLook()); // şehirli giyimi (sehirhayat.js)
   // çok ürün alan elinde değil sepette ya da arabada taşır (köydeki gibi; 2026-11-02 kullanıcının isteği şehirde de): 4+ ürün arabayla,
   // 2-3 ürün sepetle
   const total = steps.reduce((n, s) => n + s.need, 0);
@@ -609,11 +612,16 @@ function spawnCustomer(R) {
   const mood0 = c.mood.bind(c); c.mood = (happy) => { if (!happy && unattended(R)) c.fined = true; mood0(happy); };
   let i = 0, st = null, last = null;
   c.got = 0; c.bill = 0; c.state = 'in';
-  const exitX = CX + (Math.random() < 0.5 ? 76 : -76);
+  const exitX = CX + (Math.random() < 0.5 ? 76 : -76), exitN = Math.random() < 0.5;
+  const zebra = () => rand(ZEBRA[0] + 0.6, ZEBRA[1] - 0.6), inX = CX + rand(-2.4, -0.5), outX = CX + rand(0.5, 2.4), zx = zebra();
   const lane = (sh) => (sh.zone.z > AISLE + 2 ? sh.zone.z + 0.8 : AISLE); // rafın önündeki yürüme hattı: arka sıra ve reyonun kuzey yüzü koridorda
-  c.path = [V(CX - 1.2, 0, WALK_S), V(CX - 1.2, 0, WALK_N), V(CX - 1.2, 0, FRONT_Z - 1.6)]; // caddeyi yaya geçidinden geçer (barselona.js ZEBRA)
+  c.path = north ? [V(inX, 0, WALK_N), V(inX, 0, FRONT_Z - 1.6)] : [V(zx, 0, WALK_S), V(zx, 0, WALK_N), V(inX, 0, FRONT_Z - 1.6)]; // caddeyi yaya geçidinden geçer (barselona.js ZEBRA)
   const bubble = () => { c.want = st.want; c.setBubble(st.want, Math.max(1, st.need - st.got)); if (c.basketMode) c.bEl.classList.add('basket'); };
-  const leave = () => { c.state = 'leave'; c.leaving = true; c.path = [V(CX + 1.6, 0, FRONT_Z - 1.4), V(CX + 1.6, 0, WALK_N + 0.4), V(CX + 1.6, 0, WALK_S), V(exitX, 0, WALK_S)]; };
+  const leave = () => {
+    c.state = 'leave'; c.leaving = true;
+    const zo = zebra(), out = [V(outX, 0, FRONT_Z - 1.4), V(outX, 0, WALK_N + 0.4)];
+    c.path = exitN ? [...out, V(exitX, 0, WALK_N + 0.4)] : [...out, V(zo, 0, WALK_N + 0.4), V(zo, 0, WALK_S), V(exitX, 0, WALK_S)];
+  };
   const toQueue = () => {
     c.clearBubble();
     if (!c.got) { if (c.tried) c.mood(false); leave(); return; } // hiçbir rafın önünde yer bulamadıysa (tried yok) kızmaz: kusur dükkânda değil
