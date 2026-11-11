@@ -613,7 +613,9 @@ function buildKoy() {
   // köyün güneyi yalnızca bostanlara kaldı: hayvanlar ve mandıra Çiftlik'e taşındı, aralar geniş
   // (-11,-12.3) dükkanın batı duvarına giriyordu, (15.2,-3.8) SEMT PAZARI tabelasının direğine biniyordu: kaldırıldılar
   // (15.3,11) plaja inen koridorun ağzındaydı, içeri alındı; (-11.9,10.9) bisiklet parkının yolundaydı, yerine çalı
-  const trees = [[17.2, 5.2, 1], [16.4, -12.6, 0]]; // kuzeydoğu ağacı büyüyen marketin köşesinin dışında; güneydoğudaki (15,2/2,8) market öne büyüyünce köşesine düştü // (-11.4,4.6) batıdaki bostanın üstüne düşüyordu; doğu uç genişleme arsası boş kalır
+  // güneydoğu ağacı (17,2/5,2) büyük köy marketinin köşesine biniyordu (2026-11-11 kullanıcı: "en büyük haline getirince sağdaki ağaç ile
+  // üst üste biniyor"): güneydoğuya, seranın (x 14,4'e kadar) ve köy caddesinin (x 19,1'den) arasına
+  const trees = [[17.7, 7.3, 1], [16.4, -12.6, 0]]; // kuzeydoğu ağacı büyüyen marketin köşesinin dışında; güneydoğudaki (15,2/2,8) market öne büyüyünce köşesine düştü // (-11.4,4.6) batıdaki bostanın üstüne düşüyordu; doğu uç genişleme arsası boş kalır
   R.eastDeco = []; // büyük köy marketinin yerinde kalanlar (growEast kaldırır)
   for (const [x, z, k] of trees) {
     const t = put(C, M.makeTree(k, rand(0.9, 1.15)), x, 0, z, rand(0, 6)), col = rcol(R, x - 0.4, x + 0.4, z - 0.4, z + 0.4);

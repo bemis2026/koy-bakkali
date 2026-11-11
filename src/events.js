@@ -133,16 +133,17 @@ class CarDrop extends Station {
 export class CarOrders {
   constructor(R, instant) {
     this.R = R; this.state = 'away'; this.t = instant ? 5 : 2; this.car = null; this.path = []; this.v = 0; this.order = null;
-    // köyün batı patikasında kuzeyden güneye: tabela, teslim alanı (cepteki arabanın yanı), para yığını.
-    // Tabela han kumuna ve ana yola taşmaz, yığın önünü kapatmaz; patikanın üstünde kemer gibi durur: direkler patikanın iki kenarının
-    // dışında (2026-11-01 kullanıcı: "yolda yerleşmiş tabelalar"; direkler patikanın içindeydi)
+    // teslim alanı köy marketinin batı duvarının önünde (elemanlar buraya getirir, ürün arabaya uçar); tabela arabanın beklediği cepte:
+    // cebin doğusundaki çimende, ana yolun kaldırımının güneyinde, kameraya dönük. Eskiden batı patikasının üstünde kemerdi; patika
+    // marketin altında kalınca sağ direği market duvarının içine, tabelanın yarısı dolapların üstüne düşmüştü (2026-11-11 kullanıcı:
+    // "paket servis tabelası saçma yerde duruyor"). Direkler arabanın dönüş yolunun dışında (araba x -22,85'e kadar)
     // paket servis parası tezgaha düşmez: servis elemanı ya da sen teslim edince doğrudan hesaba geçer
     this.drop = new CarDrop(this, { instant });
     bayRoads(R.content);
     const sign = M.makeSign('PAKET SERVİS', '#e8604c', 3.9, 0.6);
-    sign.position.set(-14.0, 0, -12.6);
+    sign.position.set(-20.6, 0, -13.6); sign.scale.setScalar(0.8);
     R.content.add(sign);
-    for (const px of [-15.8, -12.2]) G.colliders.push([px - 0.1, px + 0.1, -12.7, -12.5]);
+    for (const px of [-22.04, -19.16]) G.colliders.push([px - 0.1, px + 0.1, -13.7, -13.5]);
     if (!instant) popIn(sign);
     this.el = document.createElement('div');
     this.el.className = 'order';
