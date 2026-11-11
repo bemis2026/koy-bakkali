@@ -1,903 +1,167 @@
-// Giriş: render, kamera, ışık, kontrol, oyun döngüsü
-import * as THREE from 'three';
-import { initLang } from './dil.js';
-import { G, ITEMS, Labels, Stack, makeItem, initAudio, updateCore, save, loadSave, clearSave, writeSave, lerpAngle, toast, updateFading, VIEW } from './game.js';
-import { pickSave, applyFlag, markNewGame, diskSave } from './persist.js';
-import { onlineGate, onlineStart, cloudNewer } from './online-ui.js';
-import { initOnline } from './online.js';
-import { tekSekme, kaliciDepo, ekranKarti, hataRaporu, hata, sekmeNobet } from './koruma.js'; // tek sekme, yedek, ekran kartı, hata raporu
-hataRaporu();
-import { initInstall } from './install.js';
-import * as M from './models.js';
-import { buildWorld, updateWorld, walkable, heightAt, regionAt, doShout, applyCustom } from './world.js';
-import { updateYemlik } from './yemlik.js';
-import { updateMutfak } from './mutfak.js';
-import { updateKano } from './kano.js';
-import { updatePark } from './park.js'; // e-ticaret ofisinin yerinde çocuk parkı (2026-11-09)
-import { updateCityLife } from './sehirhayat.js';
-import { updateTahsilat } from './tahsilat.js';
-import { startRun, stopRun, steer as runSteer, running } from './autorun.js';
-import { playCinema, playShots, cineActive, cineCamera } from './cinema.js';
-import { alignGroundUV } from './tex.js';
-import { renderDof, disposeDof } from './dof.js';
-import { initUpgrades, updateUpgrades, toggleMenu } from './upgrades.js';
-import { initUI, updateUI, setTip, initCustomize, openCustomize } from './ui.js';
-import { updateRehber } from './rehber.js';
-import { needsReady, needTick } from './sart.js';
-import { updateCalgi } from './calgi.js';
-import { initMenu, updateMenu, openMenu, closeMenu, isMenuOpen } from './menu.js';
-import { initTasarim } from './tasarim.js';
-import { initCursor, updateCursor } from './cursor.js';
-import { openGround } from './nature.js';
-import { initMinimap, updateMinimap } from './minimap.js';
-import { updateGround } from './zfix.js';
-import { updateFx, smoke, ring } from './fx.js';
-import { J, hasJump, tryJump, stepJump, runSpeed, updateYetenek } from './yetenek.js';
-import { setMusicRegion, setMusicStage, settings, saveSettings } from './audio.js';
-import { initEvents, updateEvents } from './events.js';
-import { say } from './texts.js';
-import { sweepSizes, layerMask, bakeTick, bakeStats, setArmShadows } from './perf.js';
-import { initDaylight, updateDaylight } from './daylight.js';
-import { initGorev, updateGorev } from './gorev.js';
-import { initMevsim, updateMevsim } from './mevsim.js';
-import { initCanli, updateCanli } from './canli.js';
-import { updateSincap } from './sincap.js'; // ağaçlarda ve ağaç diplerinde sincaplar
-import { updateHoca } from './hoca.js'; // sürpriz: eşeğine ters binen Nasreddin Hoca
-import { updateColFit, shapeOf, pushPoly, inPoly, OUT as COL_OUT } from './colfit.js'; // engel kutuları nesnenin gerçek izine uyar
-import { TIERS, QNAME, tierOf, initQuality } from './kalite.js';
-import { fastMatrices } from './matris.js'; // sahne matrisleri yalnız değişen düğümde yeniden kurulur
-
-const canvas = document.getElementById('c');
-const TOUCH = matchMedia('(pointer: coarse)').matches;
-// görüntü kalitesi oyun kurulmadan seçilir (kalite.js): kodla çizilen şekillerin ayrıntısı ve kenar yumuşatma buna göre. Kenar yumuşatma
-// yalnız masaüstünde Yüksek/Orta'da (telefonda yüksek piksel yoğunluğunda farkı az, yükü çok); sonradan değişirse yeniden açılışta uygulanır
-const Q0 = initQuality();
-M.setDetail(tierOf(Q0).detail);
-window.__kbBoot = true; // index.html'deki bekçi: oyun kodu çalışmaya başladı
-// açılamayan oyunda sonsuz "Yükleniyor…" yerine açıklama ve "Yeniden dene" düğmesi (2026-11-10 denetimi). Dil dosyası henüz gelmemiş
-// olabilir: iki dilde verilir (index.html açılışta <html lang>'ı kurar)
-function fatal(tr, en) {
-  const el = document.getElementById('loading');
-  if (!el) return;
-  const E = document.documentElement.lang === 'en';
-  el.classList.remove('hide'); el.style.display = '';
-  el.querySelector('span').textContent = E ? en : tr;
-  if (el.querySelector('button')) return;
-  const b = document.createElement('button');
-  b.type = 'button'; b.textContent = E ? 'Try again' : 'Yeniden dene'; b.setAttribute('translate', 'no');
-  b.style.cssText = 'font: 800 16px Nunito, sans-serif; padding: 10px 24px; border-radius: 999px; border: 3px solid #3b2a6b; background: #ffd23f; color: #3b2a6b; cursor: pointer;';
-  b.onclick = () => location.reload();
-  el.appendChild(b);
+import{$ as sa,$a as Tr,$b as ha,A as Di,Aa as rr,Ab as Ur,B as Ai,Ba as Un,Bb as qr,C as Ii,Ca as qn,Cb as Yr,D as Oi,Da as sr,Db as Xr,E as ea,Ea as lr,Eb as sn,F as Fi,Fa as cr,Fb as Jr,G as na,Ga as fr,Gb as Gt,H as Ie,Ha as dr,Hb as Zr,I as oa,Ia as pr,Ib as bt,J as Ni,Ja as ur,Jb as Qn,K as Gi,Ka as hr,Kb as Qr,L as Vi,La as la,Lb as ts,M as ft,Ma as mr,Mb as da,N as aa,Na as yr,Nb as es,O as Wi,Oa as xr,Ob as ns,P as _i,Pa as gr,Pb as os,Q as Oe,Qa as br,Qb as as,R as nn,Ra as ye,Rb as pa,S as ia,Sa as Ve,Sb as is,T as Ki,Ta as kr,Tb as to,U as Ui,Ua as wr,Ub as ua,V as Fe,Va as Yn,Vb as ln,W as Ne,Wa as Mr,Wb as rs,X as qi,Xa as vr,Xb as ss,Y as ra,Ya as Er,Yb as ls,Z as Yi,Za as zr,Zb as eo,_ as Xi,_a as ca,_b as no,a as Ei,aa as Ji,ab as Sr,ac as cs,b as Qo,ba as Xt,bb as Rr,bc as fs,c as zi,ca as r,cb as Lr,cc as ds,d as gt,da as pe,db as Pr,dc as ps,e as de,ea as G,eb as ht,ec as us,f as Ti,fa as ue,fb as Xn,fc as ma,g as $,ga as Wn,gb as Br,gc as hs,h as Ae,ha as Jt,hb as Cr,hc as ms,i as On,ia as Zt,ib as $r,j as Fn,ja as Zi,jb as Hr,k as Nn,ka as _n,kb as jr,l as Gn,la as Qi,lb as Dr,m as Nt,ma as tr,mb as Ar,n as Si,na as he,nb as Ir,o as Ri,oa as er,ob as Or,p as ta,pa as on,pb as Fr,q as Li,qa as ut,qb as Nr,r as en,ra as an,rb as Gr,s as Pi,sa as Kn,sb as Jn,t as Bi,ta as nr,tb as fa,u as Ci,ua as or,ub as Zn,v as Vn,va as ar,vb as Vr,w as jt,wa as ir,wb as Wr,x as $i,xa as rn,xb as vt,y as Hi,ya as me,yb as _r,z as ji,za as Ge,zb as Kr}from"./parca-I6L2BKC3.js";import{a as l}from"./parca-EJH24S7L.js";var ao="koyBakkali.newgame",ys=l(t=>t&&t.stats&&t.stats.time||0,"time"),oo=l(t=>{try{return localStorage.getItem(t)}catch{return null}},"ls"),gs=/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);async function bs(){if(ds()){let i=await us();return i?{saved:i,flag:0}:(location.replace(location.pathname),new Promise(()=>{}))}let t=Qi();if(oo("koyBakkali.nodisk")==="1"||!gs){let i=+oo(ao)||0;return{saved:await ma(t,i),flag:i}}let n=null;try{let i=await fetch("kayit/kayit.json",{cache:"no-store"});i.ok&&(n=await i.json())}catch{}let e=+oo(ao)||0,a=t&&t.stats&&t.stats.resetAt||0,o=t;return!e&&!(a&&n&&a>(n.ts||0))&&n&&n.unlocked&&ys(n)>ys(t)&&(o=n),o=await ma(o,e),o&&o!==t&&_n(o),{saved:o,flag:e}}l(bs,"pickSave");function ks(t){if(t){r.stats.resetAt=t;try{localStorage.removeItem(ao)}catch{}}}l(ks,"applyFlag");function ya(){try{localStorage.setItem(ao,String(Date.now()))}catch{}}l(ya,"markNewGame");var xs=0;function xe(t=!1){if(!r.player||r.visit||r.tabStop||(ms(t),oo("koyBakkali.nodisk")==="1"||!gs))return;let n=Date.now();if(!t&&n-xs<1e4)return;xs=n;let e=Zi();e.ts=n;let a=JSON.stringify(e);try{t&&navigator.sendBeacon?navigator.sendBeacon("kayit",new Blob([a],{type:"application/json"})):fetch("kayit",{method:"POST",body:a,headers:{"Content-Type":"application/json"},keepalive:a.length<6e4}).catch(()=>{})}catch{}}l(xe,"diskSave");var vs=l(()=>{try{Zt(),xe(!0)}catch{}},"flush");function io(t,n,e,a){let o=document.getElementById("koruPerde");o||(o=document.createElement("div"),o.id="koruPerde",o.className="modal open",o.style.zIndex="9999",o.innerHTML='<div class="mcard" style="text-align:center"><b class="mtitle ttl"></b><p class="wtxt"></p><button type="button" class="go"></button></div>',document.body.appendChild(o)),o.classList.add("open"),o.querySelector("b").textContent=t,o.querySelector("p").textContent=n;let i=o.querySelector("button");i.textContent=e,i.onclick=()=>{o.classList.remove("open"),a()}}l(io,"perde");var Es="koyBakkali.sekme",xa=Math.random().toString(36).slice(2),ro=!1;function jc(){try{localStorage.setItem(Es,xa),ro=!0}catch{}}l(jc,"claim");function zs(){if(!ro||r.tabStop)return;let t=null;try{t=localStorage.getItem(Es)}catch{return}t===null||t===xa||(ro=!1,r.tabStop=!0,io("Oyun ba\u015Fka sekmede a\xE7\u0131ld\u0131","\u0130lerlemen orada s\xFCr\xFCyor. Bu sekmeyi kapatabilirsin.","Burada oyna",()=>location.reload()))}l(zs,"sekmeNobet");function Ts(){if(typeof BroadcastChannel>"u"||/[?&](ziyaret|deneme)=/.test(location.search))return Promise.resolve();let t=new BroadcastChannel("koyBakkali.tek"),n=xa,e=!1,a=null;t.onmessage=i=>{let s=i.data||{};if(!(s.to&&s.to!==n)){if(a){a(s);return}e&&(s.k==="kim"?t.postMessage({k:"ben",to:s.from}):s.k==="al"&&(vs(),r.tabStop=!0,e=!1,ro=!1,t.postMessage({k:"tamam",to:s.from}),io("Oyun ba\u015Fka sekmede a\xE7\u0131ld\u0131","\u0130lerlemen orada s\xFCr\xFCyor. Bu sekmeyi kapatabilirsin.","Burada oyna",()=>location.reload())))}};let o=l((i,s,f)=>new Promise(c=>{let d=setTimeout(()=>{a=null,c(!1)},s);a=l(p=>{p.k===f&&(clearTimeout(d),a=null,c(!0))},"wait"),t.postMessage({k:i,from:n})}),"ask");return(async()=>{await o("kim",600,"ben")&&(await new Promise(i=>io("Oyun ba\u015Fka sekmede a\xE7\u0131k","\u0130ki sekmede birden oynarsan ilerlemen kaybolabilir. Burada oynamak istersen \xF6b\xFCr sekme durur.","Burada oyna",i)),await o("al",2500,"tamam")),e=!0,jc()})()}l(Ts,"tekSekme");function Ss(){let t=navigator.storage;!t||!t.persist||/Firefox\//.test(navigator.userAgent)||setTimeout(()=>t.persisted().then(n=>n||t.persist()).catch(()=>{}),12e4)}l(Ss,"kaliciDepo");function Rs(t){let n=!1,e=0,a=l(()=>{clearTimeout(e),e=setTimeout(()=>{if(n){if(document.hidden){a();return}io("Ekran kart\u0131 bir an durdu","Oyunun kaydedildi. Kald\u0131\u011F\u0131n yerden devam etmek i\xE7in yeniden a\xE7.","Yeniden a\xE7",()=>location.reload())}},1e4)},"giveUp");t.addEventListener("webglcontextlost",o=>{o.preventDefault(),n=!0,r.glLost=(r.glLost||0)+1,vs(),a()}),t.addEventListener("webglcontextrestored",()=>{n=!1,clearTimeout(e);let o=document.getElementById("koruPerde");o&&o.querySelector("b").textContent.startsWith("Ekran kart\u0131")&&o.classList.remove("open")}),document.addEventListener("visibilitychange",()=>{n&&!document.hidden&&a()})}l(Rs,"ekranKarti");var Dc=!/^(localhost\.?|127\.0\.0\.1|\[::1\])$/.test(location.hostname)&&(()=>{try{return localStorage.getItem("koyBakkali.nodisk")!=="1"}catch{return!0}})(),Ac=/ResizeObserver|^Script error|extension:\/\/|Load failed|Failed to fetch|NetworkError|network-request-failed|QuotaExceeded|AbortError/i,ws=new Set,Ms=0;function cn(t,n="",e=""){let a=String(t).slice(0,160);if(!Dc||Ms>=3||ws.has(a)||Ac.test(`${a} ${n}`))return;ws.add(a),Ms++;let o=[a,n,String(e||"").split(`
+`).slice(0,6).join(`
+`),navigator.userAgent,`s\xFCre ${Math.round(r.stats&&r.stats.time||0)} sn \xB7 seviye ${r.level||1} \xB7 ${r.world||"koy"}`].join(`
+`);setTimeout(()=>Yn("hata",o).catch(()=>{}),1500)}l(cn,"hata");function Ls(){addEventListener("error",t=>{t.filename&&!t.filename.startsWith(location.origin)||cn(t.message,`${(t.filename||"").replace(location.origin,"")}:${t.lineno}:${t.colno}`,t.error&&t.error.stack)}),addEventListener("unhandledrejection",t=>{let n=t.reason;cn(n&&n.message||String(n),"promise",n&&n.stack)})}l(Ls,"hataRaporu");var Ic={yumurta:{feeds:["domates","salatalik","kocan"],icon:"\u{1F414}"},sut:{feeds:["saman","bugday","kocan","karpuz"],icon:"\u{1F404}"},yun:{feeds:["lahana","balkabagi","kocan","saman"],icon:"\u{1F411}"},ksut:{feeds:["lahana","balkabagi","kocan","saman"],icon:"\u{1F411}"},bal:{feeds:["cicek","aycicek"],icon:"\u{1F41D}",when:l(()=>r.unlocked.has("xtarlalar2")||r.unlocked.has("xkasaba2"),"when")}},Oc=10,Fc={"ksut@-40,19":2.8,"ksut@-20,27":2.8},Bs=l(t=>`${t.type}@${Math.round(t.zone.x)},${Math.round(t.zone.z)}`,"keyOf"),Nc="font:13px var(--font-title);background:rgba(255,255,255,.92);color:#5a3a1a;padding:2px 8px;border-radius:999px;border:2px solid #8a5a33;white-space:nowrap;display:flex;align-items:center;gap:3px",Gc=l(t=>`<img src="${r.icons[t]}" alt="" style="height:16px">`,"img"),Vc=l(()=>Oe("#9a6a3f"),"wood"),Wc=l(()=>Oe("#6b4426"),"dark");function _c(t){let n=new jt,e=t?Oe("#e8b93a"):Vc(),a=Wc();for(let o of[-.92,.92])for(let i of[-.24,.24])nn(.08,.36,.08,.02,a,o,.18,i,n);nn(2,.06,.6,.02,e,0,.36,0,n);for(let o of[-.28,.28])nn(2,.2,.05,.02,e,0,.46,o,n);for(let o of[-.98,.98])nn(.05,.2,.6,.02,e,o,.46,0,n);return n}l(_c,"makeTrough");var wa=class wa extends ir{constructor(n,e,a,o,i){super(e,a,2.4,1.3,{dashed:!0,instant:i}),this.gen=n,this.key=Bs(n),this.feeds=o.feeds,this.cap=n.feedCap||Oc,this.input=[],this.role="take",this.obj=_c(n.type==="bal"),this.obj.position.set(e,0,a-1.3),r.scene.add(this.obj),i||Kn(this.obj),this.tray=new jt,this.tray.position.set(0,.4,0),this.obj.add(this.tray),this.col=[e-1.05,e+1.05,a-1.62,a-.98],r.colliders.push(this.col),this.el=document.createElement("div"),this.el.style.cssText=Nc,this.icon=o.icon,this.shown=-1,r.labels.add(this.el,f=>f.set(e,1.15,a-1.3)),n.canMake=()=>this.input.length>0;let s=n.onMake;n.onMake=()=>{s&&s(),this.eat()},n._yem=this,r.xsink=r.xsink||[];for(let f of this.feeds)r.xsink.push({type:f,conv:this,pri:f==="karpuz"?1:3});for(let f of r.stats.yem&&r.stats.yem[this.key]||[])this.push(f,pe(f),!0)}slot(n){return new $(-.76+n%5*.38,Math.floor(n/10)*.2,Math.floor(n/5)%2?.12:-.12)}roomFor(n){return this.feeds.includes(n)?this.cap-this.input.length:0}hasSpaceFor(n){return this.roomFor(n)>0}push(n,e,a){this.input.push({type:n,obj:e});let o=this.slot(this.input.length-1);a?(e.position.copy(o),this.tray.add(e)):an(e,this.tray,o,.18,.6,i=>nr(i,.2)),this.save()}putFrom(n){if(this.input.length>=this.cap)return!1;let e=n.takeOf(this.feeds);return e?(this.push(e.type,e.obj,!1),Jt("pop",{npc:n!==r.stack}),!0):!1}eat(){let n=this.input.pop();n&&an(n.obj,this.gen.origin.clone(),null,.3,.6,a=>a.parent&&a.parent.remove(a)),this.save();let e=r.player.position;!this.input.length&&Math.hypot(e.x-this.zone.x,e.z-this.zone.z)<16&&on(new $(this.zone.x,2,this.zone.z-1.3),`${this.icon} Yem bitti!`,"")}save(){(r.stats.yem||(r.stats.yem={}))[this.key]=this.input.map(n=>n.type)}label(){let n=this.input.length;if(n===this.shown)return;this.shown=n;let e=!n;this.el.style.background=e?"rgba(255,226,220,.95)":"rgba(255,255,255,.92)",this.el.style.borderColor=e?"#c8432f":"#8a5a33",this.el.innerHTML=`${this.icon} <span>${e?"Yem yok":"Yemlik"}</span> ${this.feeds.map(Gc).join("")} <b>${n}/${this.cap}</b>`}update(n){this.label(),this.inside&&(this.t+=n,this.t>=.07&&this.putFrom(r.stack)&&(this.t=0))}};l(wa,"Yemlik");var ba=wa,Ps=1,ga=!1;function Kc(t){let n=t.zone,e=Fc[Bs(t)]??-2.8;for(let a of[e,-e]){let o=n.x+a,i=[o-1.2,o+1.2,n.z-1.6,n.z+.65];if([[i[0],i[2]],[i[1],i[2]],[i[0],i[3]],[i[1],i[3]]].every(([s,f])=>Gt(s,f))&&!r.colliders.some(s=>s[0]<i[1]&&s[1]>i[0]&&s[2]<i[3]&&s[3]>i[2]))return o}return n.x+e}l(Kc,"place");function Cs(t){if(!((Ps+=t)<1)){Ps=0;for(let n of r.stations.slice()){let e=n.type&&Ic[n.type];if(!e||n._yem||n.canMake||!(n instanceof me)||e.when&&!e.when())continue;let a=Kc(n);new ba(n,a,n.zone.z,e,!ga),ga&&on(new $(a,2,n.zone.z-1.3),`${e.icon} Yem ister!`,"pos")}ga=!0}}l(Cs,"updateYemlik");var st=.5,rt=.38,Qt=-94,te=-78,V=460,ee=256,za=1,va=2,dn=0,lo=null,$s="",so=null,Hs="",Uc=l(()=>{let t="";for(let n in r.regions)r.regions[n].unlocked&&(t+=n);return`${t}|${(r.walkways||[]).length}`},"regionKey");function qc(){let t=r.trees;r.trees=[];try{lo=new Uint8Array(V*ee);for(let n=0;n<ee;n++)for(let e=0;e<V;e++){let a=Qt+(e+.5)*st,o=te+(n+.5)*st;lo[n*V+e]=Gt(a,o)||Zn(a,o)?za:dn}}finally{r.trees=t}}l(qc,"buildBase");function js(t,n,e,a,o,i){let s=Math.max(0,Math.ceil((n-Qt)/st-.5)),f=Math.min(V-1,Math.floor((e-Qt)/st-.5)),c=Math.max(0,Math.ceil((a-te)/st-.5)),d=Math.min(ee-1,Math.floor((o-te)/st-.5));for(let p=c;p<=d;p++)for(let h=s;h<=f;h++){let m=p*V+h;(i===dn||t[m]===za)&&(t[m]=i)}}l(js,"stampRect");function Ds(t,n,e,a,o){let i=Math.max(0,Math.ceil((n-a-Qt)/st-.5)),s=Math.min(V-1,Math.floor((n+a-Qt)/st-.5)),f=Math.max(0,Math.ceil((e-a-te)/st-.5)),c=Math.min(ee-1,Math.floor((e+a-te)/st-.5));for(let d=f;d<=c;d++)for(let p=i;p<=s;p++){let h=Qt+(p+.5)*st-n,m=te+(d+.5)*st-e,u=d*V+p;h*h+m*m<=a*a&&(o===dn||t[u]===za)&&(t[u]=o)}}l(Ds,"stampDisc");var Ea=l(t=>.3+.22*t[2],"treeR");function Yc(){let t=Uc();t!==$s&&(qc(),$s=t,so=null);let n=0;for(let o of r.colliders)n+=o[0]*3+o[1]*5+o[2]*7+o[3]*11;let e=`${t}|${r.colliders.length}|${n.toFixed(2)}|${(r.trees||[]).length}`;if(so&&e===Hs)return so;Hs=e;let a=Uint8Array.from(lo);for(let o of r.colliders)js(a,o[0]-rt-.55,o[1]+rt+.55,o[2]-rt-.55,o[3]+rt+.55,va);for(let o of r.trees||[])Ds(a,o[0],o[1],Ea(o)+rt+.4,va);for(let o of r.colliders)js(a,o[0]-rt-.08,o[1]+rt+.08,o[2]-rt-.08,o[3]+rt+.08,dn);for(let o of r.trees||[])Ds(a,o[0],o[1],Ea(o)+.12,dn);return so=a}l(Yc,"navGrid");var fn=l((t,n)=>{let e=Math.floor((t-Qt)/st),a=Math.floor((n-te)/st);return e<0||a<0||e>=V||a>=ee?-1:a*V+e},"cellOf"),Xc=l(t=>Qt+(t%V+.5)*st,"cx"),Jc=l(t=>te+(Math.floor(t/V)+.5)*st,"cz");function As(t,n,e,a=8){let o=fn(n,e);if(o<0)return-1;if(t[o])return o;let i=o%V,s=Math.floor(o/V),f=Math.ceil(a/st),c=-1,d=1e9;for(let p=1;p<=f&&c<0;p++)for(let h=-p;h<=p;h++)for(let m=-p;m<=p;m++){if(Math.max(Math.abs(m),Math.abs(h))!==p)continue;let u=i+m,g=s+h;if(u<0||g<0||u>=V||g>=ee||!t[g*V+u])continue;let w=m*m+h*h;w<d&&(d=w,c=g*V+u)}return c}l(As,"nearestOpen");var Ma=null;function Zc(t,n,e){let a=V*ee;Ma||(Ma={gs:new Float32Array(a),came:new Int32Array(a),seen:new Uint32Array(a),shut:new Uint32Array(a),st:0,hf:new Float32Array(65536),hk:new Int32Array(65536)});let o=Ma,i=++o.st,{gs:s,came:f,seen:c,shut:d}=o,p=e%V,h=Math.floor(e/V),m=l(b=>{let v=Math.abs(b%V-p),E=Math.abs(Math.floor(b/V)-h);return v+E+(Math.SQRT2-2)*Math.min(v,E)},"hf"),u=0,g=l((b,v)=>{if(u>=o.hf.length){let k=new Float32Array(o.hf.length*2),M=new Int32Array(o.hk.length*2);k.set(o.hf),M.set(o.hk),o.hf=k,o.hk=M}let E=o.hf,z=o.hk,x=u++;for(;x>0;){let k=x-1>>1;if(E[k]<=b)break;E[x]=E[k],z[x]=z[k],x=k}E[x]=b,z[x]=v},"push"),w=l(()=>{let b=o.hf,v=o.hk,E=v[0],z=b[--u],x=v[u],k=0;for(;;){let M=2*k+1;if(M>=u||(M+1<u&&b[M+1]<b[M]&&M++,b[M]>=z))break;b[k]=b[M],v[k]=v[M],k=M}return b[k]=z,v[k]=x,E},"pop");for(s[n]=0,c[n]=i,f[n]=-1,g(m(n),n);u>0;){let b=w();if(b===e)break;if(d[b]===i)continue;d[b]=i;let v=b%V,E=Math.floor(b/V);for(let z=-1;z<=1;z++)for(let x=-1;x<=1;x++){if(!x&&!z)continue;let k=v+x,M=E+z;if(k<0||M<0||k>=V||M>=ee)continue;let T=M*V+k;if(!t[T]||d[T]===i||x&&z&&(!t[E*V+k]||!t[M*V+v]))continue;let B=(x&&z?Math.SQRT2:1)*(t[T]===va?3:1),C=s[b]+B;(c[T]!==i||C<s[T])&&(s[T]=C,c[T]=i,f[T]=b,g(C+m(T),T))}}if(c[e]!==i)return null;let S=[];for(let b=e;b!==-1;b=f[b])S.push(b);return S.reverse()}l(Zc,"astar");function Qc(t,n,e,a,o){let i=Math.min(n,a)-rt-.1,s=Math.max(n,a)+rt+.1,f=Math.min(e,o)-rt-.1,c=Math.max(e,o)+rt+.1,d=a-n,p=o-e,h=Math.hypot(d,p);for(let m of r.colliders)if(!(m[1]<i||m[0]>s||m[3]<f||m[2]>c)&&tf(n,e,d,p,m[0]-rt-.05,m[1]+rt+.05,m[2]-rt-.05,m[3]+rt+.05))return!1;for(let m of r.trees||[]){if(m[0]<i-1.5||m[0]>s+1.5||m[1]<f-1.5||m[1]>c+1.5)continue;let u=Ea(m)+.1,g=h?Math.max(0,Math.min(1,((m[0]-n)*d+(m[1]-e)*p)/(h*h))):0;if(Math.hypot(n+d*g-m[0],e+p*g-m[1])<u)return!1}for(let m=0;m<=h;m+=.3){let u=fn(n+d*m/(h||1),e+p*m/(h||1));if(u<0||!lo[u])return!1}return!0}l(Qc,"clearLine");function tf(t,n,e,a,o,i,s,f){let c=0,d=1;for(let[p,h]of[[-e,t-o],[e,i-t],[-a,n-s],[a,f-n]]){if(p===0){if(h<0)return!1;continue}let m=h/p;if(p<0){if(m>d)return!1;m>c&&(c=m)}else{if(m<c)return!1;m<d&&(d=m)}}return!0}l(tf,"segRect");function Is(t,n){if(!r.regions.koy||fn(t.x,t.z)<0||fn(n.x,n.z)<0)return null;let e=Yc(),a=As(e,t.x,t.z,3),o=As(e,n.x,n.z,8);if(a<0||o<0)return null;let i=Zc(e,a,o);if(!i)return null;let s=i.map(m=>new $(Xc(m),0,Jc(m))),f=e[fn(n.x,n.z)]?new $(n.x,0,n.z):s[s.length-1];s[s.length-1]=f;let c=[],d=t.x,p=t.z,h=0;for(;h<s.length;){let m=h;for(let u=Math.min(s.length-1,h+80);u>h;u--)if(Qc(e,d,p,s[u].x,s[u].z)){m=u;break}c.push(s[m]),d=s[m].x,p=s[m].z,h=m+1}return c}l(Is,"planRun");var W={path:null,i:0,goal:null,chk:0,last:new $,tries:0},Ta=l(()=>!!W.path,"running");function Os(t,n){let e=r.player.position,a=Is(e,{x:t,z:n});return!a||!a.length?!1:(Object.assign(W,{path:a,i:0,goal:a[a.length-1].clone(),chk:0,tries:0}),W.last.copy(e),r.runGoal=W.goal,!0)}l(Os,"startRun");function co(){W.path=null,r.runGoal=null}l(co,"stopRun");function Sa(t){if(!W.path)return null;let n=r.player.position;for(;W.i<W.path.length-1&&Math.hypot(W.path[W.i].x-n.x,W.path[W.i].z-n.z)<.55;)W.i++;let e=W.path[W.i],a=e.x-n.x,o=e.z-n.z,i=Math.hypot(a,o),s=W.i===W.path.length-1;if(s&&i<.3)return co(),{x:0,z:0,done:!0};if((W.chk+=t)>.7){let c=Math.hypot(n.x-W.last.x,n.z-W.last.z);if(W.chk=0,W.last.copy(n),c<.35){let d=++W.tries<=4&&Is(n,W.goal);return d?(W.path=d,W.i=0,Sa(0)):(co(),{x:0,z:0,done:!0})}}let f=s?Math.min(1,.45+i/1.4):1;return{x:a/(i||1)*f,z:o/(i||1)*f}}l(Sa,"steer");var mt=null,Ra=null,ne=null,Fs=null,La=null,Lt=new de,ef=`
+uniform sampler2D tColor; uniform sampler2D tDepth;
+uniform float cNear, cFar, focus, band, range, maxBlur; uniform vec2 texel;
+varying vec2 vUv;
+float lin(float d) { float z = d * 2.0 - 1.0; return (2.0 * cNear * cFar) / (cFar + cNear - z * (cFar - cNear)); }
+float coc(float d) {
+  float far = clamp((d - focus - band) / range, 0.0, 1.0); // oyuncu ve hemen arkas\u0131 (band) net
+  float nearB = clamp((focus * 0.55 - d) / (focus * 0.35), 0.0, 1.0) * 0.7;
+  return max(far * far * (3.0 - 2.0 * far), nearB) * maxBlur;
 }
-let renderer;
-try { renderer = new THREE.WebGLRenderer({ canvas, antialias: !TOUCH && tierOf(Q0).pr >= 1.5 }); }
-catch (e) {
-  fatal('Tarayıcın 3B çizimi başlatamadı. Tarayıcını güncelle ya da ayarlarından donanım hızlandırmayı aç.', 'Your browser could not start 3D graphics. Update your browser or turn on hardware acceleration in its settings.');
-  throw e;
-}
-ekranKarti(canvas); // bağlam düşerse kayıt yazılır, yeniden aç perdesi (koruma.js)
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.shadowMap.autoUpdate = false; // gölge haritası renderFrame'de yenilenir: uzaktan bakarken her karede değil
-renderer.toneMapping = THREE.NeutralToneMapping;
-renderer.toneMappingExposure = 1.0;
-G.renderer = renderer; // albümün bölge kartpostalı kendi kamerasıyla çizer (album.js)
-
-const scene = new THREE.Scene();
-scene.background = new THREE.Color('#bfe6ff');
-scene.fog = new THREE.Fog('#bfe6ff', 80, 240);
-const camera = new THREE.PerspectiveCamera(38, 1, 0.5, 400);
-G.scene = scene; G.camera = camera;
-if (!/[?&]eskimatris=/.test(location.search)) fastMatrices(scene); // ?eskimatris=1: three'nin kendi yolu (karşılaştırma testi)
-
-const hemi = new THREE.HemisphereLight('#ffffff', '#9cc27e', 1.9);
-scene.add(hemi);
-const sun = new THREE.DirectionalLight('#fff4e2', 2.3);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-const sc = sun.shadow.camera;
-sc.left = -30; sc.right = 30; sc.top = 30; sc.bottom = -30; sc.near = 1; sc.far = 90;
-sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
-scene.add(sun, sun.target);
-
-const FOOD = [['tomato', 0.42], ['paprika', 0.42], ['eggplant', 0.5], ['watermelon', 0.62], ['corn', 0.55], ['ice-cream', 0.5], ['loaf-round', 0.5], ['bowl-soup', 0.5], ['bag', 0.55], ['barrel', 0.95], ['cheese', 0.42], ['pot-stew', 0.6], ['carton', 0.42], ['egg', 0.3], ['cabbage', 0.42], ['pumpkin', 0.5], ['apple', 0.2], ['orange', 0.2], ['lemon', 0.18]];
-const CARS = [['truck', 5.6], ['delivery', 5.0], ['van', 4.6], ['sedan', 4.4], ['taxi', 4.4], ['tractor', 3.4], ['cone', 0.6], ['suv', 4.6]];
-const MODEL_LIST = FOOD.map(([k, s]) => [k, `assets/food/${k}.glb`, s]).concat(CARS.map(([k, s]) => [k, `assets/cars/${k}.glb`, s]));
-
-// ---------- ürün simgeleri (balonlar için) ----------
-// Simgeler bu cihazda saklanır (koyBakkali.icons): açılışta ikinci bir çizim bağlamı kurup her ürünü yeniden çizmek telefonda
-// yarım saniyeden uzun sürüyordu. Ürünün görünüşü değişirse (parça sayısı, köşe sayısı, renkler) parmak izi tutmaz, yeniden çizilir
-const ICON_KEY = 'koyBakkali.icons';
-function iconPrint(o) {
-  let n = 0, str = '';
-  o.traverse((c) => { if (!c.isMesh) return; n++; const a = c.geometry && c.geometry.attributes.position; str += `${a ? a.count : 0}:${[].concat(c.material).map((m) => (m && m.color ? m.color.getHexString() : '')).join('')};`; });
-  let h = 0; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
-  return `${n}.${h}`;
-}
-function makeIcons() {
-  let cache = {}; try { cache = JSON.parse(localStorage.getItem(ICON_KEY)) || {}; } catch (e) { cache = {}; }
-  const next = {}; let r = null, s, cam, drawn = 0;
-  const v = new THREE.Vector3();
-  for (const type of Object.keys(ITEMS)) {
-    const m = makeItem(type), f = iconPrint(m), hit = cache[type];
-    if (hit && hit.f === f && hit.u) { G.icons[type] = hit.u; next[type] = hit; continue; }
-    if (!r) {
-      r = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
-      r.setSize(96, 96);
-      r.toneMapping = THREE.NeutralToneMapping;
-      s = new THREE.Scene();
-      s.add(new THREE.HemisphereLight('#ffffff', '#999999', 2.4));
-      const d = new THREE.DirectionalLight('#ffffff', 2.2); d.position.set(2, 4, 4); s.add(d);
-      cam = new THREE.PerspectiveCamera(30, 1, 0.01, 50);
-    }
-    s.add(m);
-    const box = new THREE.Box3().setFromObject(m);
-    const c = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(v).length();
-    cam.position.set(c.x + size * 0.35, c.y + size * 0.7, c.z + size * 1.55);
-    cam.lookAt(c);
-    r.render(s, cam);
-    const w = r.domElement.toDataURL('image/webp', 0.92); // webp küçük; desteklemeyen tarayıcı png verir
-    G.icons[type] = w.startsWith('data:image/webp') ? w : r.domElement.toDataURL('image/png');
-    next[type] = { f, u: G.icons[type] }; drawn++;
-    s.remove(m);
-  }
-  if (r) { r.dispose(); r.forceContextLoss(); }
-  if (drawn || Object.keys(cache).length !== Object.keys(next).length) try { localStorage.setItem(ICON_KEY, JSON.stringify(next)); } catch (e) { /* yer yoksa her açılışta çizilir */ }
-}
-// uzun açılış adımları arasında tarayıcıya nefes aldırır: yükleme çubuğu ve ipucu donmuş görünmesin
-const breathe = () => new Promise((res) => setTimeout(res, 0));
-
-// ---------- kontrol ----------
-const keys = new Set();
-// fare ve dokunmatik aynı: basılan yerde joystick çıkar, karakter sürüklenen yöne koşar (2026-11-01 kullanıcı: "mouse ile
-// bastığımız yere doğru değil, mouse'u tutup çevirdiğimiz yöne doğru koşmalı"); iki parmakla yakınlaştırma
-const joy = { on: false, ox: 0, oy: 0, x: 0, y: 0, id: null, dx: 0, dy: 0, dirty: false };
-// 2026-11-08 kullanıcı: "telefonda parmak ile sağa sola çekme ile hareketi daha hassaslaştır ... hareket çok önemli akıcı olmalı".
-// Halka 42 px'ten 30 px'e indi: ters yöne dönmek için parmağı ~50 px yerine ~33 px geri çekmek yeter; ölü bölge 4 px, tam koşu
-// 19 px'te (eskiden 34 px). Halka ve düğme parmak her kıpırdadığında değil karede bir kez, transform ile çizilir (sayfa düzeni hesaplanmaz)
-const JOY_R = 30, JOY_DEAD = 0.12, JOY_FULL = 0.62;
-function drawJoy() {
-  joy.dirty = false;
-  joyEl.style.transform = `translate3d(${joy.ox}px, ${joy.oy}px, 0)`;
-  knobEl.style.transform = `translate3d(${joy.dx}px, ${joy.dy}px, 0)`;
-}
-const joyEl = document.getElementById('joy'), knobEl = document.getElementById('knob');
-const touches = new Map();
-let pinch = 0, zoom = 1, zoomT = 1;
-const ZOOM_MAX = 4.2; // tekerlekle ne kadar uzaklaşılabilir
-const TEXT_IN = /^(text|search|email|password|number|url|tel)$/;
-// yalnız yazı yazılan kutular tuşları yutar: kaydırıcı ya da onay kutusu odakta kalınca yürüme tuşları çalışmıyordu (2026-11-10 denetimi)
-const typing = (e) => { const t = e.target; return !!t && (t.tagName === 'TEXTAREA' || t.isContentEditable === true || (t.tagName === 'INPUT' && TEXT_IN.test(t.type))); };
-const isOpen = (id) => document.getElementById(id).classList.contains('open');
-addEventListener('keydown', (e) => {
-  if (typing(e)) { if (e.code === 'Escape') e.target.blur(); return; }
-  keys.add(e.code); initAudio();
-  // Boşluk: zıplama alındıysa zıplar (yetenek.js), yoksa pazarda bağırır. Q hep bağırır
-  if (e.code === 'Space') { e.preventDefault(); if (!G.paused) { if (!hasJump()) tryShout(); else if (!e.repeat) tryJump(); } }
-  if (e.code === 'KeyQ' && !e.repeat && !G.paused) tryShout();
-  // E: yükseltmeler · M: ana menü · Esc: açık pencereyi kapatır, yoksa menüyü açar
-  if (e.code === 'KeyE' && !e.repeat) { if (isMenuOpen()) openMenu('upg'); else if (!isOpen('welcome')) toggleMenu(); }
-  if (e.code === 'KeyM' && !e.repeat) { if (isMenuOpen()) closeMenu(); else if (!isOpen('welcome')) openMenu(); }
-  if (e.code === 'Escape' && !e.repeat) { if (isMenuOpen()) closeMenu(); else if (isOpen('upg')) toggleMenu(false); else if (!isOpen('welcome')) openMenu(); }
-  if (e.code === 'Equal' || e.code === 'NumpadAdd') zoomT = Math.max(0.55, zoomT * 0.9);
-  if (e.code === 'Minus' || e.code === 'NumpadSubtract') zoomT = Math.min(ZOOM_MAX, zoomT * 1.1);
-});
-addEventListener('keyup', (e) => keys.delete(e.code));
-addEventListener('blur', () => keys.clear());
-// tekerlek kaydırılabilir bir kutunun (yazışma listesi, açılır menü) üstündeyse o kutu kayar, kamera yakınlaşmaz
-const scrollsUnder = (el) => {
-  for (let a = el; a && a.nodeType === 1 && a !== document.body; a = a.parentElement) {
-    if (a.scrollHeight > a.clientHeight + 1) { const o = getComputedStyle(a).overflowY; if (o === 'auto' || o === 'scroll') return true; }
-  }
-  return false;
-};
-addEventListener('wheel', (e) => {
-  if (G.menuOpen || scrollsUnder(e.target)) return;
-  e.preventDefault();
-  zoomT = THREE.MathUtils.clamp(zoomT * (e.deltaY > 0 ? 1.1 : 1 / 1.1), 0.55, ZOOM_MAX);
-}, { passive: false });
-// orta tuş (tekerlek) basılıyken sürükle: yukarı-aşağı kamera eğimi (ufka bakış ↔ kuşbakışı),
-// sağa-sola oyuncunun çevresinde dönüş. Orta tuşa tıklamak açıyı değiştirmez (kullanıcı istemedi).
-// Joystick dinleyicilerinden önce kayıtlı ki onlara ulaşmasın.
-const PITCH_DEF = Math.atan2(18.5, 15), PITCH_MIN = 0.3, PITCH_MAX = 1.5, TAU = Math.PI * 2;
-let pitch = THREE.MathUtils.clamp(settings.camPitch ?? PITCH_DEF, PITCH_MIN, PITCH_MAX), pitchT = pitch;
-let yaw = settings.camYaw ?? 0, yawT = yaw; // 0 = kamera güneyde, kuzeye bakar
-let lastLz = 0, lastAz = 0;
-const labelsEl = document.getElementById('labels');
-const tilt = { on: false, id: null, x: 0, y: 0, moved: 0 };
-canvas.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); }); // tarayıcının otomatik kaydırması açılmasın
-canvas.addEventListener('contextmenu', (e) => e.preventDefault()); // sağ tık menüsü ("Resmi farklı kaydet") oyunun üstünde açılmasın
-canvas.addEventListener('pointerdown', (e) => {
-  if (e.button !== 1) return;
-  e.preventDefault(); e.stopImmediatePropagation();
-  Object.assign(tilt, { on: true, id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0 });
-  try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* sentetik olay */ }
-});
-canvas.addEventListener('pointermove', (e) => {
-  if (!tilt.on || e.pointerId !== tilt.id) return;
-  e.stopImmediatePropagation();
-  const dx = e.clientX - tilt.x, dy = e.clientY - tilt.y;
-  tilt.x = e.clientX; tilt.y = e.clientY; tilt.moved += Math.abs(dx) + Math.abs(dy);
-  pitchT = THREE.MathUtils.clamp(pitchT + dy * 0.005, PITCH_MIN, PITCH_MAX);
-  yawT -= dx * 0.006; // dünyayı tutup çevirir gibi: fare sağa → sahne sağa döner
-});
-const endTilt = (e) => {
-  if (!tilt.on || e.pointerId !== tilt.id) return;
-  tilt.on = false;
-  settings.camPitch = +pitchT.toFixed(3);
-  settings.camYaw = +(Math.atan2(Math.sin(yawT), Math.cos(yawT))).toFixed(3);
-  saveSettings();
-};
-canvas.addEventListener('pointerup', endTilt);
-canvas.addEventListener('pointercancel', endTilt);
-canvas.addEventListener('pointerdown', (e) => {
-  initAudio();
-  if (G.mini) { if (e.button === 0) G.mini.tap(e.clientX, e.clientY); return; } // mini oyunda dokunmak atıştır, joystick çıkmaz
-  if (e.pointerType === 'mouse' && e.button !== 0) return; // farede yalnız sol tuş yürütür
-  if (e.pointerType === 'touch') {
-    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); endJoy({ pointerId: joy.id }); return; }
-    if (touches.size > 2) return;
-  }
-  joy.on = true; joy.id = e.pointerId;
-  joy.ox = e.clientX; joy.oy = e.clientY; joy.x = joy.y = joy.dx = joy.dy = 0;
-  drawJoy(); joyEl.style.display = 'block';
-  try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* sentetik olay */ }
-});
-canvas.addEventListener('pointermove', (e) => {
-  if (touches.has(e.pointerId)) {
-    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (touches.size === 2 && pinch) {
-      const [a, b] = [...touches.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
-      zoomT = THREE.MathUtils.clamp(zoomT * (pinch / d), 0.55, ZOOM_MAX);
-      pinch = d;
-      return;
+void main() {
+  vec4 base = texture2D(tColor, vUv);
+  float c = coc(lin(texture2D(tDepth, vUv).x));
+  vec3 acc = base.rgb; float w = 1.0;
+  if (c > 0.6) {
+    // alt\u0131n a\xE7\u0131l\u0131 sarmal (Vogel diski), her pikselde farkl\u0131 d\xF6nd\xFCr\xFCl\xFCr: d\xFCzenli \xF6rnek deseni elek gibi g\xF6r\xFCnmez
+    float rot = 6.2831853 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+    for (int i = 0; i < 16; i++) {
+      float a = float(i) * 2.39996323 + rot, r = sqrt((float(i) + 0.5) / 16.0);
+      vec2 uv2 = vUv + vec2(cos(a), sin(a)) * (r * c) * texel;
+      float c2 = coc(lin(texture2D(tDepth, uv2).x));
+      float ww = clamp(c2 / c, 0.0, 1.0);
+      acc += texture2D(tColor, uv2).rgb * ww; w += ww;
     }
   }
-  if (!joy.on || e.pointerId !== joy.id) return;
-  if (e.pointerType === 'mouse' && !(e.buttons & 1)) { endJoy(e); return; } // tuş pencerenin dışında bırakılmış (pointerup gelmedi): karakter fareyi izlemesin
-  let dx = e.clientX - joy.ox, dy = e.clientY - joy.oy;
-  // parmak halkanın dışına çıkınca halka parmağın peşinden gelir (yüzen joystick): yön değiştirmek için parmağı başa döndürmek
-  // gerekmez, ters yöne birkaç milimetre kaydırmak yeter (index.html #joy 64 px)
-  const d = Math.hypot(dx, dy), R = JOY_R;
-  if (d > R) {
-    const k = (d - R) / d;
-    joy.ox += dx * k; joy.oy += dy * k; dx -= dx * k; dy -= dy * k;
-  }
-  joy.x = dx / R; joy.y = dy / R; joy.dx = dx; joy.dy = dy; joy.dirty = true;
-});
-function endJoy(e) { if (e.pointerId !== joy.id) return; joy.on = false; joy.x = joy.y = 0; joy.sx = joy.sy = undefined; joyEl.style.display = 'none'; }
-const endPointer = (e) => { touches.delete(e.pointerId); if (touches.size < 2) pinch = 0; endJoy(e); };
-canvas.addEventListener('pointerup', endPointer);
-canvas.addEventListener('pointercancel', endPointer);
-// ekrana kısa dokunmak karakteri yürütmez: joystick ölü bölgesini aşan sürükleme gerekir (kullanıcı isteği). Bir yere kendi kendine
-// koşma menüden ("Oraya git"), büyük mini haritadan ya da bildirimden başlar (G.hooks.goTo, autorun.js)
+  gl_FragColor = vec4(acc / w, 1.0);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}`;function nf(t){t.getDrawingBufferSize(Lt),mt||(mt=new Ti(Lt.x,Lt.y,{type:zi,samples:4,depthTexture:new $i(Lt.x,Lt.y)}),ne&&(ne.uniforms.tColor.value=mt.texture,ne.uniforms.tDepth.value=mt.depthTexture)),ne?(mt.width!==Lt.x||mt.height!==Lt.y)&&mt.setSize(Lt.x,Lt.y):(ne=new Ri({uniforms:{tColor:{value:mt.texture},tDepth:{value:mt.depthTexture},cNear:{value:.1},cFar:{value:1e3},focus:{value:20},band:{value:3},range:{value:12},maxBlur:{value:0},texel:{value:new de}},vertexShader:"varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }",fragmentShader:ef,depthTest:!1,depthWrite:!1}),ne.toneMapped=!0,Ra=new Nt(new Ai(2,2),ne),Ra.frustumCulled=!1,La=new en,La.add(Ra),Fs=new Fi(-1,1,1,-1,0,1))}l(nf,"ensure");function Ns(){mt&&(mt.depthTexture.dispose(),mt.dispose(),mt=null)}l(Ns,"disposeDof");function fo(t,n,e,a,o){if(a<.02){t.render(n,e);return}nf(t),t.setRenderTarget(mt),t.render(n,e),t.setRenderTarget(null);let i=ne.uniforms,s=t.getPixelRatio();i.cNear.value=e.near,i.cFar.value=e.far,i.focus.value=o,i.band.value=o*.6,i.range.value=o*1.4,i.maxBlur.value=6.5*a*s,i.texel.value.set(1/Lt.x,1/Lt.y),t.render(La,Fs)}l(fo,"renderDof");var Gs={domates:"\u{1F345}",salatalik:"\u{1F952}",yumurta:"\u{1F95A}",sut:"\u{1F95B}",peynir:"\u{1F9C0}",karpuz:"\u{1F349}",biber:"\u{1FAD1}",patlican:"\u{1F346}",misir:"\u{1F33D}"},ge={topla:l(t=>`${Xt[t].name} topla`,"topla"),diz:l(t=>`${Xt[t].name} rafa diz`,"diz"),kasa:"Kasaya ge\xE7, sat\u0131\u015F\u0131 yap",para:"Paray\u0131 topla",yetis:l(t=>`${Xt[t].name} yeti\u015Fiyor\u2026`,"yetis"),bekle:"M\xFC\u015Fteri geliyor\u2026"},of=45,pn=null,Pa=0,be=l((t,n)=>Math.hypot(t.zone.x-n.x,t.zone.z-n.z),"dist"),We=l((t,n,e,a)=>({zone:t.zone,icon:n,text:e,key:a}),"at");function af(){let t=r.player.position,n=r.nextPad,e=n?Math.max(1,n.def.price-n.paid):1/0;if(r.money>=e)return null;let a=0,o=null,i=null,s=[],f=[],c=[];for(let p of r.stations)!p.zone||be(p,t)>of||(p instanceof Un?p.amount>0&&(a+=p.amount,(!o||p.amount>o.amount)&&(o=p)):p instanceof qn?p.queue.length&&(!i||be(p,t)<be(i,t))&&(i=p):p instanceof Ge?s.push(p):p instanceof rn&&p.ripeCount()>0||p instanceof me&&p.items.length>0?f.push(p):(p instanceof rn||p instanceof me)&&c.push(p));if(i)return We(i,"\u{1F9FE}",ge.kasa,"kasa");if(o&&(r.money+a>=e||a>=20))return We(o,"\u{1F4B0}",ge.para,"para");let d=l(p=>p.sort((h,m)=>be(h,t)-be(m,t))[0],"near");for(let p of r.stack.items){let h=d(s.filter(m=>m.hasSpaceFor(p.type)));if(h)return We(h,Gs[p.type]||"\u{1F9FA}",ge.diz(p.type),"diz:"+p.type)}if(!r.stack.full){f.sort((p,h)=>be(p,t)-be(h,t));for(let p of f)if(s.some(h=>h.hasSpaceFor(p.type)))return We(p,Gs[p.type]||"\u{1F9FA}",ge.topla(p.type),"topla:"+p.type)}if(o)return We(o,"\u{1F4B0}",ge.para,"para");if(!r.stack.items.length){let p=d(c.filter(h=>s.some(m=>m.hasSpaceFor(h.type))));if(p)return We(p,"\u{1F331}",ge.yetis(p.type),"yetis:"+p.type)}return{zone:null,icon:"\u23F3",text:ge.bekle,key:"bekle"}}l(af,"pick");function Vs(t){if(!(pn===!1||!r.player||!r.stats)&&!(pn===null&&(pn=!r.stats.rehber&&r.unlocked.size===0&&(r.stats.time||0)<300,!pn))){if(r.unlocked.size>=2){pn=!1,r.guide=null,r.guideOn=!1,r.stats.rehber=1;return}r.guideOn=!0,Pa-=t,!(Pa>0)&&(Pa=.25,r.guide=af())}}l(Vs,"updateRehber");var un="#3b2a6b",Ca=l(t=>`url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">${t}</svg>`)}")`,"svg");function rf(t){let n=t?4.6:2;return`<rect x="8.6" y="${n}" width="5" height="${17-n}" rx="2.5"/><rect x="13.2" y="11.4" width="4.4" height="8" rx="2.2"/><rect x="17.2" y="12.4" width="4.4" height="7.6" rx="2.2"/><rect x="21.1" y="13.8" width="4.1" height="6.8" rx="2"/><rect x="7" y="15" width="18.2" height="11.4" rx="5"/><rect x="3.3" y="15.6" width="5.6" height="8.6" rx="2.8" transform="rotate(-30 6.1 19.9)"/>`}l(rf,"handShapes");function $a(t=!1){let n=rf(t);return(t?`<ellipse cx="11.1" cy="${t?5:3}" rx="6.6" ry="2.6" fill="none" stroke="${un}" stroke-width="3.6"/><ellipse cx="11.1" cy="5" rx="6.6" ry="2.6" fill="none" stroke="#56c27e" stroke-width="1.9"/>`:"")+`<g transform="translate(1.1 1.3)" opacity=".28">${n}</g><g fill="${un}" stroke="${un}" stroke-width="3.4" stroke-linejoin="round">${n}</g><g fill="#ffffff">${n}</g><path d="M13.4 15.4 V17.8 M17.4 16.2 V18.4 M21.2 17.2 V19" stroke="#cdc6e0" stroke-width="1.3" stroke-linecap="round"/><path d="M10.4 ${t?7.4:5} V12" stroke="#e9f2ff" stroke-width="1.5" stroke-linecap="round"/><rect x="7.6" y="25" width="17" height="4.8" rx="2.2" fill="#ffd23f" stroke="${un}" stroke-width="2"/><path d="M10 27.4 H22.4" stroke="#f6a623" stroke-width="1.2" stroke-linecap="round"/>`}l($a,"hand");var ke=l((t,n)=>`<circle cx="25" cy="7.6" r="7.9" fill="${un}"/><circle cx="25" cy="7.6" r="6.7" fill="${t}" stroke="#ffffff" stroke-width="1.6"/>${n}`,"badge"),Ws=l(t=>`<text x="25" y="11.4" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="10.5" text-anchor="middle" fill="${t}">\u20BA</text>`,"lira"),_s={collect:ke("#56c27e",'<path d="M25 3.1 L29.1 7.6 H26.5 V11.9 H23.5 V7.6 H20.9 Z" fill="#ffffff"/>'),put:ke("#3d7dd8",'<path d="M25 12.1 L20.9 7.6 H23.5 V3.3 H26.5 V7.6 H29.1 Z" fill="#ffffff"/>'),coin:ke("#ffd23f",Ws("#7a4a00")),pay:ke("#2f9a4f",Ws("#ffffff")),unlock:ke("#f6a623",'<rect x="21.5" y="6.7" width="7" height="5.3" rx="1.2" fill="#ffffff"/><path d="M23 6.8 V5.2 a2 2 0 0 1 4 0 V6.8" fill="none" stroke="#ffffff" stroke-width="1.6"/>'),trash:ke("#8b85a3",'<rect x="21.6" y="3.7" width="6.8" height="1.6" rx=".7" fill="#ffffff"/><path d="M22.4 6 H27.6 L27 11.6 H23 Z" fill="#ffffff"/>'),upgrade:ke("#e8604c",'<path d="M25 3 L29.4 7.8 H26.6 V12 H23.4 V7.8 H20.6 Z" fill="#ffd23f"/>')},Ys=" 11 2",uo={hand:`${Ca($a())}${Ys}, pointer`,walk:`${Ca($a(!0))} 11 4, pointer`};for(let t in _s)uo[t]=`${Ca($a()+_s[t])}${Ys}, pointer`;function sf(t){if(t instanceof sr)return["unlock",9];if(t instanceof Un)return t.amount>0?["coin",8]:null;let n=t.constructor.name;return n==="Trash"?["trash",7]:t instanceof qn?["pay",5]:t instanceof rn||t instanceof me||t instanceof lr?["collect",4]:t instanceof Ge||t instanceof rr||t instanceof cr||n==="CarDrop"||n==="CaravanDrop"?["put",4]:null}l(sf,"classify");var hn,Ks="",Ha=!1,ja=!1,mn=!1,Ba=0,Xs=new de,Us=new Ie,lf=new Vn(new $(0,1,0),0),qs=new $;function Js(t){hn=t;let n=document.documentElement.style;n.setProperty("--cur-arrow",uo.hand),n.setProperty("--cur-hand",uo.hand),hn.addEventListener("pointermove",e=>{e.pointerType==="mouse"&&(Xs.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1),ja=!0,mn=!0)}),hn.addEventListener("pointerdown",e=>{e.pointerType==="mouse"&&(Ha=!0,mn=!0)}),addEventListener("pointerup",()=>{Ha=!1,mn=!0}),hn.addEventListener("pointerleave",()=>{ja=!1}),po("hand")}l(Js,"initCursor");function po(t){t!==Ks&&(Ks=t,hn.style.cursor=uo[t])}l(po,"set");function Zs(t){if(Ba-=t,!ja||!mn&&Ba>0)return;if(mn=!1,Ba=.15,Ha)return po("walk");if(Us.setFromCamera(Xs,r.camera),!Us.ray.intersectPlane(lf,qs))return po("hand");let n=null,e=-1;for(let a of r.stations){if(!a.near(qs))continue;let o=sf(a);o&&o[1]>e&&(n=o[0],e=o[1])}po(n||"hand")}l(Zs,"updateCursor");var tl="koyBakkali.hud",we=l(()=>{try{return JSON.parse(localStorage.getItem(tl))||{}}catch{return{}}},"load"),ho=l(t=>{try{localStorage.setItem(tl,JSON.stringify(t))}catch{}},"store"),Da=[["dayChip","\u{1F552} Saat ve g\xFCn"],["taskChip","\u{1F4CB} G\xFCnl\xFCk g\xF6rev"],["rep","\u2B50 Mahalle puan\u0131"],["lvl","\u{1F3C5} Mertebe"],["region","\u{1F4CD} B\xF6lge ad\u0131"],["carryDest","\u{1F392} Elindekiler"],["alerts","\u{1F514} Bildirimler"],["minimap","\u{1F5FA}\uFE0F Mini harita"],["kbMins","\u2796 K\xFC\xE7\xFClt d\xFC\u011Fmeleri"]],Qs=[["region","\u{1F4CD}"],["lvl","\u{1F3C5}"],["rep","\u2B50"],["dayChip","\u{1F552}"],["taskChip","\u{1F4CB}"],["tatilChip","\u{1F48E}"],["money","\u{1F4B0}"],["goal","\u{1F3AF}"],["carryDest","\u{1F392}"],["help","\u2754"],["upgBtn","\u2B06\uFE0F"]],cf=["menuBtn","musicBtn","onlineBtn","kbDTab","alerts","minimap","mmBar","chatBtn","shout","boost"],ff=[["onlineBtn","K\xF6yler"]],Et=matchMedia("(max-width: 640px)"),df=`
+#kbDTab { position: absolute; left: 8px; top: 46px; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; pointer-events: auto;
+  background: var(--hud-bg); color: var(--hud-ink); border: var(--bw) solid var(--line); box-shadow: var(--shadow); font: 900 20px/1 var(--font-body); padding: 0; z-index: 4; }
+#kbDTab.on { background: #3b2a6b; color: #fff; }
+#kbDrawer { position: absolute; left: 8px; top: 88px; width: min(250px, calc(100vw - 16px)); max-height: calc(100% - 100px); overflow-y: auto; box-sizing: border-box;
+  padding: 10px 10px 8px; border-radius: var(--radius); background: var(--hud-bg); color: var(--hud-ink); border: var(--bw) solid var(--line);
+  box-shadow: var(--shadow), 0 10px 26px rgba(0,0,0,.2); pointer-events: auto; z-index: 6; font-family: var(--font-body);
+  transform: translateX(calc(-100% - 20px)); opacity: 0; transition: transform .22s ease, opacity .22s ease; visibility: hidden; }
+#kbDrawer.open { transform: none; opacity: 1; visibility: visible; }
+#kbDrawer.side-r { left: auto; right: 14px; transform: translateX(calc(100% + 20px)); }
+#kbDrawer.side-r.open { transform: none; }
+#kbDrawer h4 { margin: 2px 2px 6px; font: 15px var(--font-title); opacity: .8; }
+#kbDrawer .dbtns { display: none; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+#kbDrawer .dbtns.has { display: flex; }
+#kbDrawer .dbtn { display: flex; flex-direction: column; align-items: center; gap: 3px; font: 800 11px var(--font-body); width: 64px; }
+#hud #kbDrawer .dbtn > button, #hud #kbDrawer .dbtn > div { position: relative !important; inset: auto !important; transform: none !important; margin: 0 !important;
+  width: 42px !important; height: 42px !important; display: grid !important; place-items: center; }
+#kbDrawer label { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 4px; font: 800 14px var(--font-body); cursor: pointer; border-top: 1px solid rgba(59,42,107,.12); }
+#kbDrawer label input { width: 38px; height: 22px; appearance: none; -webkit-appearance: none; border-radius: 999px; background: #c9c3d9; position: relative; margin: 0; flex: none; transition: background .15s; cursor: pointer; }
+#kbDrawer label input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+#kbDrawer label input:checked { background: #3fae6b; }
+#kbDrawer label input:checked::after { transform: translateX(16px); }
+#kbDrawer .dfoot { display: flex; gap: 6px; margin-top: 6px; }
+#kbDrawer .dfoot button { flex: 1; padding: 7px 6px; border-radius: 12px; border: 2px solid var(--line); background: #fff; color: var(--hud-ink); font: 800 12px var(--font-body); cursor: pointer; }
+${Da.map(([t])=>`body.hh-${t} #hud #${t}`).join(", ")} { display: none !important; }
+#minimap .mms { position: absolute; left: 6px; top: 6px; width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,.92); color: #3b2a6b;
+  font: 900 18px/22px var(--font-body); text-align: center; box-shadow: 0 2px 0 rgba(0,0,0,.15); }
+#minimap.big .mms, #minimap.mini .mms, #minimap.mini .mmz, #minimap.mini .mmn { display: none; }
+#minimap.mini { width: 72px; height: 72px; border-radius: 16px; }
+/* harita \xE7ubu\u011Fu (2026-11-03, kullan\u0131c\u0131: "mini map \xFCst\xFCndeki a\xE7 kapat tu\u015Flar\u0131n\u0131 haritan\u0131n \xFCst\xFCne daha g\xFCzel oturt"): mini haritan\u0131n \xFCst
+   kenar\u0131nda, sa\u011F\u0131na yasl\u0131 tek hap. S\u0131ras\u0131: \u{1F4AC} bilgi kutular\u0131, \u{1F441}\uFE0F temiz g\xF6r\xFCn\xFCm, \u{1F3F7}\uFE0F t\xFCm yaz\u0131lar; telefonda \u22EE da burada. Yeri haritan\u0131n
+   boyundan \xF6l\xE7\xFCl\xFCr (k\xFC\xE7\xFCl\xFCnce, gizlenince iner), harita b\xFCy\xFCy\xFCnce gizlenir. Kapal\u0131 olan d\xFC\u011Fme soluk ve \xE7izgili */
+#mmBar { position: absolute; right: 14px; bottom: 234px; display: flex; gap: 2px; padding: 3px; border-radius: 999px; pointer-events: auto; z-index: 3; }
+#hud #mmBar > button { position: relative; inset: auto; transform: none; margin: 0; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%;
+  background: transparent; box-shadow: none; color: inherit; display: grid; place-items: center; font: 900 18px/1 var(--font-body); }
+#hud #mmBar > button:hover { background: rgba(0,0,0,.08); }
+#hud #mmBar > button.on { background: #3b2a6b; color: #fff; }
+#mmBar > button span { transition: opacity .2s, filter .2s; }
+#mmBar > button.off span { opacity: .45; filter: grayscale(1); }
+#mmBar > button.off::after { content: ''; position: absolute; width: 24px; height: 3px; border-radius: 2px; background: #e8504c; transform: rotate(-45deg); }
+#hud > #hintTog { visibility: hidden; } /* world.js kurar; \xE7ubu\u011Fa ta\u015F\u0131nana dek g\xF6r\xFCnmez */
+/* temiz g\xF6r\xFCn\xFCm (\u{1F441}\uFE0F): b\xF6lgelerin ve \xF6\u011Felerin \xFCst\xFCndeki yaz\u0131lar gizlenir (bilgi kutusu, kilitli yaz\u0131s\u0131, isim etiketi, olgun \xFCr\xFCn rozeti,
+   kilit pedinin fiyat\u0131, kasa ad\u0131, oyun pedi). M\xFC\u015Fteri balonu, sipari\u015F kutusu ve para yaz\u0131s\u0131 oyun i\xE7in kal\u0131r */
+body.clean-view #labels > .hint, body.clean-view #labels > .lock, body.clean-view #labels > .staff, body.clean-view #labels > .ripe, body.clean-view #labels > .pad,
+body.clean-view #labels > .minipad, body.clean-view #labels > .kasa, body.clean-view #labels > .promo, body.clean-view #labels > .rushb { display: none !important; }
+/* t\xFCm yaz\u0131lar (\u{1F3F7}\uFE0F, 2026-11-03 kullan\u0131c\u0131: "t\xFCm ek a\xE7\u0131klamalar\u0131 kapatan, oyunda \xF6\u011Fe a\xE7\u0131klamas\u0131 kalmas\u0131n"): yerdeki yaz\u0131 katman\u0131n\u0131n hepsi
+   kapan\u0131r: bilgi kutusu, ad, rozet, fiyat, m\xFC\u015Fteri balonu, sipari\u015F kutusu, y\xFCzen para yaz\u0131s\u0131. Kapal\u0131yken yerleri de hesaplanmaz (game.js) */
+body.no-labels #labels { display: none !important; }
+/* k\xFC\xE7\xFClt (2026-11-03, kullan\u0131c\u0131: "ekrandaki sabit tu\u015Flar\u0131n, g\xF6stergelerin yan\u0131nda minik k\xFC\xE7\xFClt tu\u015Fu olsun"): g\xF6stergenin yan\u0131ndaki
+   minik \u2212 onu yerinde simgesine indirir, simgeye dokununca geri a\xE7\u0131l\u0131r. Bu cihazda saklan\u0131r; \u2212 d\xFC\u011Fmeleri \u22EE men\xFCs\xFCnden topluca gizlenir */
+#kbMins { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+#kbMins button { position: absolute; left: 0; top: 0; width: 18px; height: 18px; box-sizing: border-box; padding: 0; border-radius: 50%; pointer-events: auto; display: none;
+  place-items: center; background: var(--hud-bg); color: var(--hud-ink); border: 1.5px solid var(--line); box-shadow: 0 1px 0 rgba(0,0,0,.18); font: 900 14px/1 var(--font-body); opacity: .72; }
+#kbMins button::before { content: ''; position: absolute; inset: -6px; border-radius: 50%; } /* parmak i\xE7in geni\u015F dokunma alan\u0131 */
+#kbMins button:hover { opacity: 1; }
+#hud .kbm { width: 34px !important; height: 34px !important; min-width: 0 !important; max-width: none !important; box-sizing: border-box !important; padding: 0 !important;
+  border-radius: 50% !important; overflow: hidden !important; font-size: 0 !important; pointer-events: auto !important; cursor: pointer; animation: none !important; }
+#hud .kbm > * { display: none !important; }
+#hud .kbm::before { content: attr(data-kbi); position: absolute; inset: 0; display: grid; place-items: center; font: 18px/1 var(--font-body); }
+#hud #carryDest.kbm { background: var(--hud-bg); border: var(--bw) solid var(--line); box-shadow: var(--shadow); }
+#hud #upgBtn.kbm { --s: 46px; width: var(--s) !important; height: var(--s) !important; }
+#hud #upgBtn.kbm > svg { display: block !important; width: 26px; height: 26px; }
+#hud #upgBtn.kbm::before { content: none; }
 
-// ekran yönü (sağ, aşağı) → dünya yönü: kamera döndükçe "yukarı" hep ekranın yukarısıdır
-function screenToWorld(x, z) {
-  const s = Math.sin(yaw), c = Math.cos(yaw);
-  return { x: x * c + z * s, z: -x * s + z * c };
+/* telefon: d\xFC\u011Fmeler k\xFC\xE7\xFCk, ekran\u0131n ortas\u0131 a\xE7\u0131k. \xDCst: saat solda, para ortada, Men\xFC sa\u011Fda; alt\u0131nda bildirimler.
+   Sol alt s\xFCtun: Y\xFCkselt, b\xF6lge, mertebe, puan, g\xF6rev. Sa\u011F alt: mini harita; \xFCst\xFCnde \u22EE, \u{1F4AC} ve yaz\u0131\u015Fma, onlar\u0131n \xFCst\xFCnde BA\u011EIR.
+   Alt orta: elindekiler */
+@keyframes toastL { 0% { opacity: 0; transform: translateY(-10px); } 10%, 85% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@media (max-width: 640px) {
+  #hud #dayChip { top: 8px; left: 8px; transform: scale(.88); transform-origin: left top; }
+  /* \u22EE mini haritan\u0131n \xFCst\xFCndeki \xE7ubukta, sa\u011F u\xE7ta (kullan\u0131c\u0131: "kutular\u0131 a\xE7 kapa tu\u015Funu eskisi gibi minimap \xFCst\xFCne koy"); men\xFC \xE7ubu\u011Fun
+     \xFCst\xFCnden a\xE7\u0131l\u0131r (y\xFCksekli\u011Fi JS ile \xE7ubu\u011Fa g\xF6re) */
+  #hud #mmBar > button { width: 30px; height: 30px; font-size: 16px; }
+  #hud #mmBar > #kbDTab { font-size: 19px; }
+  #hud #mmBar.vert { flex-direction: column; }
+  #hud #kbDrawer { top: auto; left: auto; right: 8px; bottom: 170px; max-height: calc(100% - 230px); }
+  #hud #money { top: 6px; font-size: 19px; padding: 2px 12px 2px 3px; } #hud #money .coin { width: 24px; height: 24px; }
+  #hud #menuBtn { top: 6px; right: 8px; height: 38px; padding: 0 10px; } #hud #menuBtn span { display: none; } #hud #menuBtn svg { width: 22px; height: 22px; }
+  #hud #musicBtn { top: 6px; right: 60px; width: 38px; height: 38px; } #hud #musicBtn svg { width: 22px; height: 22px; }
+  #sndPanel { top: 50px; right: 8px; width: min(330px, calc(100vw - 16px)); }
+  /* \xFCst s\xFCtun alt alta, hi\xE7biri birbirinin \xFCst\xFCne binmez (2026-11-01 kullan\u0131c\u0131: "hedef g\xF6stergesi \xFCst\xFCne bildirimler geliyor"):
+     hedef tam geni\u015Flik; alt\u0131nda solda-ortada bildirim, sa\u011Fda uyar\u0131lar; bereket rozeti bildirimin alt\u0131nda. Hedef bitince hepsi yukar\u0131 kayar */
+  #hud #goal { top: 46px; left: 8px; right: 8px; width: auto; box-sizing: border-box; }
+  #hud #toast { top: 118px; left: 8px; transform: none; text-align: left; max-width: calc(100vw - 204px); }
+  #hud #toast.show { animation-name: toastL; }
+  body:not(:has(#alerts .al)) #hud #toast { max-width: calc(100vw - 70px); } /* sa\u011Fda bildirim yokken dar s\xFCtuna s\u0131k\u0131\u015Fmas\u0131n */
+  #hud #alerts { top: 118px; right: 8px; width: min(180px, 46vw); }
+  #hud #boost { top: 160px; }
+  body:has(#goal.done) #hud #toast, body:has(#goal.done) #hud #alerts { top: 50px; }
+  body:has(#goal.done) #hud #boost { top: 92px; }
+  #hud #upgBtn { left: 8px; bottom: 8px; --s: 58px; } /* ok ve yaz\u0131 \xE7apla \xF6l\xE7eklenir (index.html #upgBtn) */
+  #hud #region { bottom: 70px; left: 8px; font-size: 12px; padding: 1px 9px 1px 2px; } #hud #region .ri { width: 21px; height: 21px; font-size: 12px; }
+  #hud #lvl { bottom: 98px; left: 8px; padding: 1px 9px 1px 2px; } #hud #lvl .ln { width: 21px; height: 21px; font-size: 11px; }
+  #hud #lvl .lt { min-width: 74px; } #hud #lvl .lt b { font-size: 11px; } #hud #lvl .bar { height: 4px; }
+  #hud #rep { bottom: 128px; left: 8px; padding: 1px 8px 1px 4px; } #hud #rep .rs { font-size: 11px; } #hud #rep b { font-size: 12px; }
+  #hud #repPanel { bottom: 150px; }
+  #hud #taskChip { bottom: 150px; left: 8px; font-size: 12px; padding: 1px 8px 1px 5px; }
+  #hud #taskPop { bottom: 176px; }
+  #hud #minimap { right: 8px; bottom: 8px; width: 104px; height: 104px; border-radius: 16px; }
+  #hud #minimap.mini { width: 58px; height: 58px; border-radius: 14px; }
+  #hud #minimap.big { width: 74vw; height: 74vw; }
+  /* mini haritan\u0131n \xFCst\xFCnde \xE7ubuk, solunda yaz\u0131\u015Fma; pazarda BA\u011EIR \xE7ubu\u011Fun \xFCst\xFCnde (ikisinin de y\xFCksekli\u011Fi JS ile \xE7ubu\u011Fa g\xF6re) */
+  #hud #shout { right: 8px; bottom: 170px; width: 64px; height: 64px; font-size: 12px; }
+  #hud #chatBtn { width: 34px; height: 34px; }
+  body.mm-mini #hud #carryDest { right: 70px; }
+  #hud #chatPan { bottom: 120px; }
+  #hud #carryDest { left: 70px; right: 116px; bottom: 10px; }
+  #hud #help { bottom: 236px; font-size: 11px; }
+  /* k\xFC\xE7\xFClen g\xF6sterge telefonda sol s\xFCtunun sat\u0131r boyunda: alttan dayal\u0131 olanlar b\xFCy\xFCy\xFCp \xFCstteki sat\u0131ra binmez */
+  #hud .kbm { width: 22px !important; height: 22px !important; } #hud .kbm::before { font-size: 13px; } #hud #upgBtn.kbm { --s: 40px; }
 }
-// otomatik koşunun hedef işareti: yerde yeşil halka
-const marker = new THREE.Group();
-{
-  const m = new THREE.MeshBasicMaterial({ color: '#56c27e', transparent: true, opacity: 0.9, depthWrite: false });
-  const r = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.46, 32), m); r.rotation.x = -Math.PI / 2; marker.add(r);
-  const d = new THREE.Mesh(new THREE.CircleGeometry(0.1, 16), m); d.rotation.x = -Math.PI / 2; marker.add(d);
-  marker.visible = false; scene.add(marker);
-}
-// seçilen yere otomatik koşu: yol gövdeye göre planlanır (autorun.js); bulunamazsa false döner (çağıran ışınlayabilir)
-G.hooks.goTo = (x, z) => {
-  if (!startRun(x, z)) return false;
-  const t = G.runGoal;
-  if (settings.mouseMark !== false) { marker.position.set(t.x, heightAt(t.x, t.z) + 0.04, t.z); marker.visible = true; ring(marker.position.clone(), '#56c27e', 0.9); }
-  return true;
-};
-const endRun = () => { if (running()) stopRun(); marker.visible = false; };
-function inputVec(dt) {
-  if (joy.dirty) drawJoy();
-  if (G.menuOpen || G.cine || G.mini) return { x: 0, z: 0 }; // açılış sinematiğinde ve mini oyunda oyuncu kıpırdamaz (cinema.js, minioyun.js)
-  let x = 0, z = 0;
-  if (keys.has('KeyA') || keys.has('ArrowLeft')) x -= 1;
-  if (keys.has('KeyD') || keys.has('ArrowRight')) x += 1;
-  if (keys.has('KeyW') || keys.has('ArrowUp')) z -= 1;
-  if (keys.has('KeyS') || keys.has('ArrowDown')) z += 1;
-  if (x || z) { endRun(); const l = Math.hypot(x, z); return screenToWorld(x / l, z / l); }
-  if (joy.on) {
-    // parmak titremesi yönü oynatmasın: kısa bir süzgeç (~22 ms); ölü bölgeden sonra hız yumuşak artar, halkanın %62'sinde tam koşu
-    const f = 1 - Math.exp(-45 * dt);
-    joy.sx = (joy.sx ?? joy.x) + (joy.x - (joy.sx ?? joy.x)) * f; joy.sy = (joy.sy ?? joy.y) + (joy.y - (joy.sy ?? joy.y)) * f;
-    const l = Math.hypot(joy.sx, joy.sy);
-    if (l > JOY_DEAD) {
-      endRun();
-      const m = Math.min(1, (l - JOY_DEAD) / (JOY_FULL - JOY_DEAD)), w = screenToWorld(joy.sx / l, joy.sy / l);
-      return { x: w.x * (0.4 + 0.6 * m), z: w.z * (0.4 + 0.6 * m) }; // en yavaşta yürür, biraz itince koşar
-    }
-  }
-  // otomatik koşu: planlanan yolu izler, varınca işaret kaybolur
-  if (running()) { const d = runSteer(dt); if (d.done) marker.visible = false; return d; }
-  return { x: 0, z: 0 };
-}
-
-const shoutBtn = document.getElementById('shout');
-shoutBtn.addEventListener('pointerdown', (e) => { e.stopPropagation(); initAudio(); tryShout(); });
-function tryShout() {
-  const R = regionAt(G.player.position);
-  if (R && R.id === 'pazar') doShout();
-}
-let resetting = false;
-function doReset() {
-  clearSave();
-  try { localStorage.removeItem('koyBakkali.hints'); } catch (e) { /* yok */ } // kapattığın bilgi kutuları yeniden açık
-  markNewGame(); // açıkça yeni oyun: diskteki eski oyunun yerine geçebilir (persist.js)
-  G.unlocked.clear(); G.money = 0;
-  for (const k in G.upg) G.upg[k] = 0;
-  resetting = true;
-  location.reload();
-}
-// grafik kalitesi (kalite.js kademeleri): çözünürlük, gölge, alan derinliği, kare hızı sınırı, görüş uzaklığı, şekil ayrıntısı
-let fpsCap = 60, fogK = 1;
-// dönüş: gölge açılıp kapandı mı (bütün malzemeler yeniden derlenecek demek)
-function applyQuality(q) {
-  const T = tierOf(q), sh = T.shadow > 0, flip = renderer.shadowMap.enabled !== sh;
-  prMax = prNow = Math.min(window.devicePixelRatio, T.pr); prMin = Math.min(prMax, T.prMin); slowT = fastT = 0;
-  renderer.setPixelRatio(prNow);
-  if (renderer.shadowMap.enabled !== sh) {
-    renderer.shadowMap.enabled = sh;
-    scene.traverse((o) => { if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true; });
-  }
-  if (!sh && sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } // gölgesiz kademede harita ekran kartı belleğinde boş durmasın (2048'lik 16 MB)
-  if (sh && sun.shadow.mapSize.x !== T.shadow) { sun.shadow.mapSize.set(T.shadow, T.shadow); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
-  dofOn = T.dof || (q === 'orta' && !TOUCH); // alan derinliği: Yüksek'te, masaüstünde Orta'da da (dof.js)
-  if (!dofOn) disposeDof(); // kapalı kademede çizim hedefi ekran kartı belleğinde boş durmasın
-  shadowMin = T.shadowEvery; setArmShadows(T.shadowEvery === 1); // Orta: gölge haritası en sık 2 karede bir, kollar gölgesiz (perf.js)
-  fpsCap = T.fps; fogK = T.fog; M.setDetail(T.detail); slowFor = 0;
-  resize();
-  return flip;
-}
-// kalite geçişi (2026-11-02 kullanıcı: "grafik kalitesi geçişlerinde çok takılıyor ve sayfanın başına atıyor, geçiş hissini versin"):
-// gölge açılıp kapanınca sahnedeki bütün malzemelerin gölgelendiricisi yeniden derlenir; eskiden hepsi kalitenin uygulandığı karede
-// birden derlenip oyun donuyordu. Şimdi ekran yumuşak bir perdeyle örtülür (#qVeil), değişiklik onun arkasında uygulanır,
-// gölgelendiriciler compileAsync ile hazırlanır (destekleyen tarayıcıda arka planda; bu sırada çizim bekler, son kare ekranda kalır),
-// alan derinliğinin hedefi kurulur, yeni görüntünün ilk karesi çizilince perde açılır. quiet: oyun kendiliğinden hafiflerken perde yok.
-// Ölçüm (2 Kasım): eski yolda gölge kapanırken 1,17 sn, açılırken 0,54 sn donma. compileAsync'in kendisi de sahneyi gezerken ~0,47 sn
-// sürüyor, bu yüzden yalnız gölge açılıp kapanınca çağrılır (gölgelendiriciler ilk geçişten sonra önbellekte). Perdenin dönen simgesi ve
-// solması CSS'le tarayıcının ayrı iş parçacığında oynar, ana iş parçacığı meşgulken de akıcı kalır
-let qChain = Promise.resolve(), holdDraw = false;
-const qFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
-const qWait = (ms) => new Promise((r) => setTimeout(r, ms));
-function switchQuality(q, quiet = false) {
-  qChain = qChain.then(async () => {
-    const veil = quiet ? null : document.getElementById('qVeil'), t0 = performance.now();
-    if (veil) {
-      veil.querySelector('b').textContent = QNAME[q] || q;
-      veil.classList.add('on');
-      await qFrame(); await qWait(240); // perde inip ekrana çizilsin, derleme onun arkasında kalsın
-    }
-    holdDraw = true;
-    try {
-      if (applyQuality(q)) await Promise.race([renderer.compileAsync(scene, camera), qWait(4000)]);
-      if (dofOn) renderDof(renderer, scene, camera, dofS, dofF);
-    } catch (e) { /* eski tarayıcı: ilk karede derlenir */ }
-    holdDraw = false;
-    // çizimde hata çıksa da perde kalkar, zincir kırılmaz (yoksa sonraki kalite geçişleri hiç çalışmaz, perde dokunmayı keserdi)
-    try { renderFrame(); await qFrame(); if (veil) await qWait(Math.max(0, 560 - (performance.now() - t0))); } // çok kısa yanıp sönmesin
-    catch (e) { console.error(e); }
-    finally { if (veil) veil.classList.remove('on'); }
-  }).catch((e) => { holdDraw = false; console.error(e); });
-  return qChain;
-}
-
-// otomatik çözünürlük: kare süresi 20 ms'yi (50 kare/sn) aşınca çizim çözünürlüğü kademe kademe 1'e kadar iner, akıcılık
-// dönünce ayarın üst sınırına çıkar. Yavaş ekran kartında kasmayı keser; hızlı makinede görüntü değişmez.
-// Her düşüşten sonra yeniden çıkmak için daha uzun beklenir, iki değer arasında gidip gelmez.
-let prMax = 2, prNow = 2, prMin = 1, slowT = 0, fastT = 0, frameAvg = 1 / 60, drops = 0;
-// Hızlı ekran (100 Hz ve üstü: yeni telefonların çoğu 120 Hz) algısı. Oyun eskiden ekranın hızında çiziyordu: 120 Hz telefonda iki kat
-// kare, iki kat ısı ve pil (2026-11-10 denetimi). Son 90 rAF aralığının çoğu 10,5 ms'den kısaysa ekran hızlıdır; tek tük kısa aralık
-// (Safari ve Firefox'ta zaman damgası oynar) saymaz. Bir kez açılınca aralıkların beşte birinden azı kısa kalmadıkça kapanmaz
-let hiHz = false, rafAt = 0, hzN = 0, hzFast = 0;
-function seeRaf(now) {
-  const d = now - rafAt; rafAt = now;
-  if (d <= 0 || d > 100) return;
-  hzN++; if (d < 10.5) hzFast++;
-  if (hzN < 90) return;
-  hiHz = hiHz ? hzFast > 18 : hzFast > 54;
-  hzN = hzFast = 0;
-}
-// kare hızı sınırı (kare/sn; 0: sınır yok). Pil tasarrufu 30. Hızlı ekranda telefon ve tabletler ile masaüstünün Yüksek dışındaki
-// kademeleri 60'ta tutulur (120 Hz'te iki karede bir, 144 Hz'te 72 kare); masaüstü Yüksek ekranın hızında çizer
-const capNow = () => (fpsCap < 60 ? fpsCap : hiHz && (TOUCH || settings.quality !== 'yuksek') ? 60 : 0);
-const frameBase = () => { const cap = capNow(); return cap ? 1 / cap : 1 / 60; }; // çözünürlük eşiklerinin dayandığı beklenen kare aralığı
-function adaptResolution(raw) {
-  if (document.hidden || raw > 0.25) return; // arka plandan dönüş ve yükleme takılmaları sayılmaz
-  frameAvg += (raw - frameAvg) * 0.05;
-  const base = frameBase(), slowAt = base * 1.2, fastAt = base * 1.05;
-  if (frameAvg > slowAt && prNow > prMin) {
-    fastT = 0;
-    if ((slowT += raw) > 1.5) { slowT = 0; drops = Math.min(5, drops + 1); prNow = Math.max(prMin, prNow - 0.25); renderer.setPixelRatio(prNow); } // Performans'ta 1'in altına da iner
-  } else if (frameAvg < fastAt && prNow < prMax) {
-    slowT = 0;
-    if ((fastT += raw) > 8 + 20 * drops) { fastT = 0; prNow = Math.min(prMax, prNow + 0.25); renderer.setPixelRatio(prNow); }
-  } else slowT = fastT = 0;
-}
-// kademeli kendiliğinden düşürme: oyuncu kaliteyi elle seçmediyse oyun 6 sn boyunca saniyede 28 karenin altında kalırsa (çözünürlük
-// düşürmesi de yetmediyse) kalite bir kademe iner: Yüksek → Orta → Performans → Pil tasarrufu. İlk 15 sn ve arka plan sayılmaz
-let slowFor = 0, watchFrom = 15;
-function watchSpeed(raw) {
-  if (settings.autoQ || document.hidden || raw > 0.25 || (watchFrom -= raw) > 0) return;
-  // eşik 28 kare: 30'a kilitli çizim "yavaş" sayılmaz. Bilerek: düşük güç kipindeki iPhone bütün sayfaları 30 karede çizer; eşik
-  // 30'un üstünde olsaydı o kipte oynanan her oyun kaliteyi kalıcı olarak en alta düşürürdü
-  slowFor = raw > 1 / 28 ? slowFor + raw : Math.max(0, slowFor - raw / 2);
-  if (slowFor < 6) return;
-  slowFor = 0; watchFrom = 12;
-  const i = TIERS.indexOf(settings.quality);
-  if (i < 0 || i >= TIERS.length - 1) return;
-  settings.quality = TIERS[i + 1]; saveSettings(); switchQuality(settings.quality, true);
-  toast(`⚙️ Oyun akıcı olsun diye grafik hafifledi: ${QNAME[settings.quality]} (Ayarlar › Grafik)`);
-}
-
-// ---------- oyuncu ----------
-const vel = new THREE.Vector3();
-const PR = 0.38;
-// daire–dikdörtgen çarpışma: engelin en yakın noktasından dışarı itilir; köşelerde yuvarlanır, kenar boyunca kayar, takılmaz
-// skip: oyuncunun zaten içinde kaldığı engeller (sonradan üstüne kurulan: park eden araba, açılan bina). Onlardan itilerek değil
-// yürüyerek çıkılır; eskiden kutunun en yakın kenarına bir anda atılıyordu ("ışınlanma")
-function resolve(x, z, skip) {
-  for (let it = 0; it < 4; it++) {
-    let pushed = false;
-    for (const c of G.colliders) {
-      if (skip && skip.includes(c)) continue;
-      if (x < c[0] - PR || x > c[1] + PR || z < c[2] - PR || z > c[3] + PR) continue;
-      const S = shapeOf(c); // nesnenin izine uydurulmuş çokgenler (colfit.js): yuvarlak, yan dönmüş, aralıklı nesneler
-      if (S) { for (const H of S) if (pushPoly(H, x, z, PR)) { x = COL_OUT[0]; z = COL_OUT[1]; pushed = true; } continue; }
-      const cx = Math.max(c[0], Math.min(c[1], x)), cz = Math.max(c[2], Math.min(c[3], z));
-      const ox = x - cx, oz = z - cz, d2 = ox * ox + oz * oz;
-      if (d2 >= PR * PR) continue;
-      if (d2 > 1e-9) { const d = Math.sqrt(d2), k = (PR - d) / d; x += ox * k; z += oz * k; }
-      else { // merkez kutunun içinde kaldıysa en yakın kenardan çıkar
-        const l = x - c[0], r = c[1] - x, t = z - c[2], b = c[3] - z, m = Math.min(l, r, t, b);
-        if (m === l) x = c[0] - PR; else if (m === r) x = c[1] + PR; else if (m === t) z = c[2] - PR; else z = c[3] + PR;
-      }
-      pushed = true;
-    }
-    if (!pushed) break;
-  }
-  return [x, z];
-}
-// oyuncu bölge ve yol dışındaki çimenlerde de yürür (deniz, nehir, ağaç gövdesi ve dekor köyü hariç; nature.js)
-const roam = (x, z) => walkable(x, z) || openGround(x, z);
-function tryStep(p, dx, dz, skip) {
-  let q = resolve(p.x + dx, p.z + dz, skip);
-  if (!roam(q[0], q[1])) { // yürünemeyen yerin kıyısında: kıyı boyunca kay
-    const a = resolve(p.x + dx, p.z, skip), b = resolve(p.x, p.z + dz, skip), oa = roam(a[0], a[1]), ob = roam(b[0], b[1]);
-    if (oa && (!ob || Math.abs(dx) >= Math.abs(dz))) q = a; else if (ob) q = b; else return null;
-  }
-  return q;
-}
-// takılınca sapma (2026-11-08 kullanıcı: "bazı nesnelerin etrafından geçerken takılıyorum"): adım istenen yönde %30'dan az ilerlediyse
-// 25° ve 50° sağa sola sapılarak denenir, istenen yönde belirgin daha çok ilerleten seçilir. Direğe, köşeye kafa kafaya gelince ve iki
-// engelin arasındaki dar oyukta durmaz, kenarından akar; düz duvara dik yürüyünce sapmanın ilerletmesi olmadığından yine durur
-let STEER = true;
-const STEER_A = [0.45, -0.45, 0.9, -0.9];
-function slideStep(p, dx, dz, skip) {
-  let q = tryStep(p, dx, dz, skip);
-  const L2 = dx * dx + dz * dz;
-  let pr = q ? (q[0] - p.x) * dx + (q[1] - p.z) * dz : -1;
-  if (STEER && L2 > 1e-6 && pr < 0.3 * L2) {
-    for (const a of STEER_A) {
-      const c = Math.cos(a), s = Math.sin(a), r = tryStep(p, dx * c + dz * s, dz * c - dx * s, skip);
-      if (!r) continue;
-      const pr2 = (r[0] - p.x) * dx + (r[1] - p.z) * dz;
-      if (pr2 > pr + 0.15 * L2) { pr = pr2; q = r; }
-    }
-  }
-  if (!q) return;
-  p.x = q[0]; p.z = q[1];
-}
-const inside = []; // oyuncunun içinde kaldığı engeller (her karede yeniden)
-function moveSlide(p, dx, dz) {
-  inside.length = 0;
-  const h = -0.03; // oyuncunun merkezi kutunun içindeyse kutu sonradan üstüne kurulmuştur (yürüyerek çıkar); iki kutu arasına sıkışmak bunu tetiklemez, raf ve tezgahın içinden geçilmez
-  for (const c of G.colliders) if (p.x > c[0] - h && p.x < c[1] + h && p.z > c[2] - h && p.z < c[3] + h) { const S = shapeOf(c); if (!S || S.some((H) => inPoly(H, p.x, p.z, -h))) inside.push(c); }
-  const n = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.25)); // hızlıyken ince engellerin içinden geçmesin
-  for (let i = 0; i < n; i++) slideStep(p, dx / n, dz / n, inside.length ? inside : null);
-}
-// test kancası (colfit karşılaştırması): (x, z)'den ang yönüne secs saniye koşu; ilerleme ve takılan kare sayısı
-window.__slideRun = (x, z, ang, secs = 1.5, sp = 6.6, steer = true) => {
-  const p = new THREE.Vector3(x, 0, z), dt = 1 / 30, dx = Math.sin(ang) * sp * dt, dz = Math.cos(ang) * sp * dt, was = STEER;
-  let prog = 0, stuck = 0;
-  STEER = steer;
-  for (let t = 0; t < secs; t += dt) { const ox = p.x, oz = p.z; moveSlide(p, dx, dz); const d = Math.hypot(p.x - ox, p.z - oz); prog += d; if (d < sp * dt * 0.3) stuck++; }
-  STEER = was;
-  return [prog, stuck, p.x, p.z];
-};
-let moved = false, dustT = 0, lastSp = 0, stepL = false;
-function updatePlayer(dt) {
-  // eğlenceye binmişken (lunapark.js G.onRide) oyuncuyu eğlence taşır: yürüyüş, toz ve eğilme yok; yön tuşları eğlenceye gider
-  // (çarpışan arabayı sürer)
-  if (G.onRide) { vel.set(0, 0, 0); J.y = J.v = 0; J.run = false; G.onRide(dt, inputVec(dt)); G.stack.update(dt); return; }
-  const p = G.player.position;
-  const inp = inputVec(dt);
-  G.inMag = Math.hypot(inp.x, inp.z); // basılan yönün gücü: adada oturan/uzanan oyuncu yürümek isteyince kalkar (adacanli.js)
-  const speed = runSpeed(6.6 * G.speedMul, keys.has('ShiftLeft') || keys.has('ShiftRight'), Math.hypot(inp.x, inp.z) > 0.6 && lastSp > 1, dt); // hızlı koşu ve enerji (yetenek.js)
-  // tepki seri: hız hedefe hızlı ulaşır, karakter basılan yöne hemen döner
-  vel.x += (inp.x * speed - vel.x) * (1 - Math.exp(-22 * dt));
-  vel.z += (inp.z * speed - vel.z) * (1 - Math.exp(-22 * dt));
-  const ox = p.x, oz = p.z;
-  moveSlide(p, vel.x * dt, vel.z * dt);
-  // duvara dayanınca hız gerçekten gidilen yöne döner: karakter kayarken o yöne bakar, yerinde koşmaz
-  if (dt > 0) {
-    vel.x = (p.x - ox) / dt; vel.z = (p.z - oz) / dt;
-    // engelden itilme hıza dönmesin: yoksa itme bir sonraki karede daha büyük adıma, kamera da ileri atlamaya döner
-    const v = Math.hypot(vel.x, vel.z); if (v > speed) vel.multiplyScalar(speed / v);
-  }
-  if (marker.visible) marker.scale.setScalar(1 + Math.sin(G.time * 6) * 0.12);
-  p.y -= J.y; // zıplama payı ayrı tutulur: zemin takibi aynı kalır
-  p.y += (heightAt(p.x, p.z) - p.y) * Math.min(1, dt * 14);
-  p.y += stepJump(dt);
-  const sp = Math.hypot(vel.x, vel.z), il = Math.hypot(inp.x, inp.z), k01 = Math.min(1, sp / speed);
-  const R = G.player.rotation;
-  if (R.order !== 'YXZ') R.order = 'YXZ'; // önce yön, sonra öne eğilme
-  if (il > 0.2 || sp > 0.4) {
-    const want = il > 0.2 ? Math.atan2(inp.x, inp.z) : Math.atan2(vel.x, vel.z);
-    const turn = Math.abs(Math.atan2(Math.sin(want - R.y), Math.cos(want - R.y)));
-    if (turn > 1.9 && sp > 3 && dustT < 0.05 && J.y === 0) { for (let i = 0; i < 3; i++) smoke(p, { size: 0.36, grow: 3.0, alpha: 0.55, v: new THREE.Vector3(vel.x * 0.18, 0, vel.z * 0.18) }); dustT = 0.12; } // sert dönüşte toz bulutu savrulur
-    R.y = lerpAngle(R.y, want, 1 - Math.exp(-32 * dt));
-  }
-  if (!moved && sp > 1) { moved = true; document.getElementById('help').classList.add('hide'); }
-  // aceleci koşu: hızlanırken daha çok, koşarken hafif öne eğilir; arkasında ayak tozu
-  const lean = k01 * (J.run ? 0.34 : 0.2) + Math.max(0, (sp - lastSp) / Math.max(dt, 1e-3)) * 0.004;
-  R.x += (Math.min(J.run ? 0.42 : 0.3, lean) - R.x) * (1 - Math.exp(-10 * dt));
-  lastSp = sp;
-  dustT -= dt;
-  if (sp > 3 && dustT <= 0 && J.y === 0) {
-    // ayak tozu: adım adım arkada bir bulutçuk; hızlı koşuda daha sık ve büyük, geriye doğru savrulur. Eskiden iki kat sık ve koyuydu
-    // (2026-11-05 kullanıcı: "arkamızdan çıkan koşarken toz dumanı biraz azalt")
-    dustT = 0.085 - k01 * 0.015;
-    const d = 0.36 / sp, side = (stepL = !stepL) ? 0.14 : -0.14;
-    smoke({ x: p.x - vel.x * d + vel.z / sp * side, y: p.y, z: p.z - vel.z * d - vel.x / sp * side }, { size: 0.24 + k01 * 0.1, grow: 2.1 + k01 * 0.4, alpha: 0.5 + k01 * 0.15, life: 0.7, v: new THREE.Vector3(-vel.x * 0.07, 0, -vel.z * 0.07) });
-  }
-  M.animateCharacter(G.player, J.y > 0 ? 0.2 : k01, J.run ? dt * 1.4 : dt, G.stack.items.length > 0, true);
-  G.stack.anchor.rotation.x = -R.x - Math.min(0.1, sp * 0.012); // yığın eğilmeye rağmen dik durur, koşarken biraz geride sallanır
-  G.stack.update(dt);
-}
-
-// ---------- kamera ----------
-const camT = new THREE.Vector3(), camGoal = new THREE.Vector3(), miniLook = new THREE.Vector3();
-let miniK = 0, miniLast = null;
-function updateCamera(dt, snap) {
-  const p = G.player.position;
-  if (G.camSnap) { G.camSnap = false; snap = true; } // ışınlanınca kamera süzülmeden yerine geçer (adacanli.js gemi yolculuğu)
-  // hareket yönüne hafif önden bakış
-  // hırsız para çalınca kamera birkaç saniye ona döner (thief.js G.camFocus), sonra oyuncuya geri gelir
-  // oyuncu koşuyorsa odak atlanır: kamera başka yere kayıp geri gelince "ışınlandım" sanılıyordu
-  if (G.camFocus && Math.hypot(vel.x, vel.z) > 1.5) G.camFocus = null;
-  const cf = G.camFocus;
-  if (cf && G.time < cf.until) camGoal.set(cf.pos.x, 0, cf.pos.z);
-  else camGoal.set(p.x + vel.x * 0.28, p.y - J.y, p.z + vel.z * 0.22); // zıplarken kamera sıçramaz
-  if (snap) camT.copy(p); else camT.lerp(camGoal, 1 - Math.exp(-5 * dt));
-  zoom += (zoomT - zoom) * (1 - Math.exp(-8 * dt));
-  const a = VIEW.w / VIEW.h; // pencere değişince güncellenir (game.js VIEW): burada okumak sayfa yerleşimini kare ortasında hesaplatıyordu
-  const f = (a < 0.75 ? 1.55 : a < 1.2 ? 1.25 : 1) * zoom * (G.camK || 1); // G.camK: gemi yolculuğunda ve zirvede uzaklaşır (adacanli.js)
-  const k = snap ? 1 : 1 - Math.exp(-10 * dt);
-  // sipariş kutuları uzaklaştıkça küçülür (index.html .order --lz)
-  const lz = THREE.MathUtils.clamp(0.85 / Math.pow(zoom, 0.8), 0.62, 1.05);
-  // değişkenler etiket katmanına yazılır (kullananların hepsi onun içinde): kökte değişince yakınlaştırırken her karede bütün sayfanın
-  // (menüler, HUD) stili yeniden hesaplanıyordu
-  if (Math.abs(lz - lastLz) > 0.01) { lastLz = lz; labelsEl.style.setProperty('--lz', lz.toFixed(3)); }
-  // avatarların üstündeki balonlar ve ad etiketleri dünyayla aynı oranda büyüyüp küçülür: uzaklaşınca avatara göre büyümez (index.html --az)
-  const az = THREE.MathUtils.clamp(1 / zoom, 0.2, 1.4);
-  if (Math.abs(az - lastAz) > 0.01) { lastAz = az; labelsEl.style.setProperty('--az', az.toFixed(3)); }
-  // ipucu, kilit ve fiyat etiketleri de uzaklaştıkça küçülür, yakınlaşınca büyümez; çok uzakta ipuçları gizlenir (game.js Labels)
-  G.labelScale = THREE.MathUtils.clamp(1 / zoom, 0.42, 1); G.farLabels = zoom > 1.9;
-  pitch += (pitchT - pitch) * k;
-  yaw += (yawT - yaw) * k;
-  const dist = 23.8 * f, h = Math.cos(pitch) * dist; // varsayılan açıda eski (0, 18.5, 15) ofsetiyle aynı
-  const sy = Math.sin(yaw), cy = Math.cos(yaw);
-  camera.position.set(camT.x + sy * h, camT.y + Math.sin(pitch) * dist, camT.z + cy * h);
-  camera.lookAt(camT.x - sy * 1.2, camT.y + 0.4, camT.z - cy * 1.2);
-  // lunapark mini oyunu: kamera süzülerek çadırın önüne geçer, bitince oyuncuya döner (minioyun.js G.mini)
-  if (G.mini) miniLast = G.mini;
-  miniK = THREE.MathUtils.clamp(miniK + (G.mini ? dt : -dt) * 2.4, 0, 1);
-  if (miniK > 0 && miniLast) {
-    const e = miniK * miniK * (3 - 2 * miniK);
-    camera.position.lerp(miniLast.cam, e);
-    camera.lookAt(miniLook.set(camT.x - sy * 1.2, camT.y + 0.4, camT.z - cy * 1.2).lerp(miniLast.look, e));
-  }
-  camera.updateMatrixWorld(); // etiketler bu karenin kamerasına göre yerleşsin, bir kare geriden gelip titremesin
-  camera.layers.mask = layerMask(miniK > 0 ? 1 : zoom); // uzaklaştıkça minik ve küçük parçalar çizilmez (perf.js); mini oyunda hepsi
-  // çok uzaklaşınca sis de geri çekilir, kamera uzak düzlemi sisin ötesine kadar çizer
-  // düşük kalitede sis yakına gelir, uzak düzlem de onunla: sisin ardındaki parçalar hiç çizilmez (fogK, applyQuality)
-  const fx = Math.max(0, dist - 24), fn = (80 + fx * 0.9) * fogK, ff = (240 + fx * 1.6) * fogK;
-  if (Math.abs(scene.fog.far - ff) > 2) { scene.fog.near = fn; scene.fog.far = ff; camera.far = Math.max(400 * fogK, ff + 40); camera.updateProjectionMatrix(); }
-  // derinlik hassasiyeti: yakın düzlem kamera uzaklaştıkça büyür. 0,5 m sabitken uzaktan bakınca üst üste binen ince zeminler
-  // (yol, kaldırım, bölge zemini) kenarlarda titriyordu (2026-11-04). Mini oyunda ve sinematikte kamera yakına iner: 0,5 kalır
-  const nr = miniK > 0 || cineActive() ? 0.5 : THREE.MathUtils.clamp(dist * 0.05, 0.5, 6);
-  if (Math.abs(camera.near - nr) > 0.05) { camera.near = nr; camera.updateProjectionMatrix(); }
-  // yeni bölgenin açılış sinematiği kamerayı devralır, sonunda oyuncuya süzülerek geri verir (cinema.js)
-  if (cineActive()) cineCamera(camera, cineTgt.set(camT.x - sy * 1.2, camT.y + 0.4, camT.z - cy * 1.2), dt, scene);
-  // alan derinliği: yakınlaştıkça ve kamera yataya indikçe güçlenir, odak oyuncuda (dof.js); varsayılan görünümde kapalı
-  const dz = THREE.MathUtils.clamp((0.98 - zoom) / 0.4, 0, 1), dp = THREE.MathUtils.clamp((PITCH_DEF - 0.05 - pitch) / 0.45, 0, 1);
-  dofS = cineActive() || miniK > 0 ? 0 : Math.min(1, dp + dz * 0.65);
-  dofF = camFwd.set(0, 0, -1).applyQuaternion(camera.quaternion).dot(sRel.copy(camT).sub(camera.position));
-  fitShadow();
-}
-const cineTgt = new THREE.Vector3(), camFwd = new THREE.Vector3();
-let dofOn = true, dofS = 0, dofF = 20;
-G.hooks.cinema = (o) => playCinema(o);
-G.hooks.cineShots = (o) => playShots(o); // birkaç yeri sırayla gösteren açılış (world.js kbTour)
-// gölge kutusu yalnızca ekranda görünen alanı kaplar: kameranın zemindeki görüş dörtgeni (ve 4 m yükseklikteki kesiti) ışık
-// yönünde izdüşürülür. Eskiden oyuncunun çevresinde 66 m'lik kare vardı; ekran dışındaki yüzlerce nesne de gölge çiziyordu.
-// LD (güneş yönü) ve eksenleri gün döngüsüyle her karede değişir (daylight.js)
-const LD = new THREE.Vector3(-14, 28, 12).normalize(), LX = new THREE.Vector3(0, 1, 0).cross(LD).normalize(), LY = LD.clone().cross(LX);
-const NDC = [[-1, -1], [1, -1], [1, 1], [-1, 1]], sRay = new THREE.Vector3(), sRel = new THREE.Vector3();
-function fitShadow() {
-  const T = sun.target.position.set(camT.x, 0, camT.z);
-  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, d0 = Infinity, d1 = -Infinity;
-  for (const [nx, ny] of NDC) {
-    sRay.set(nx, ny, 0.5).unproject(camera).sub(camera.position).normalize();
-    for (const hy of [0, 4]) {
-      const t = sRay.y < -0.02 ? Math.min(150, (hy - camera.position.y) / sRay.y) : 150; // ufka bakan köşe 150 m'de kesilir
-      sRel.copy(camera.position).addScaledVector(sRay, t).sub(T);
-      const lx = sRel.dot(LX), ly = sRel.dot(LY), ld = sRel.dot(LD);
-      x0 = Math.min(x0, lx); x1 = Math.max(x1, lx); y0 = Math.min(y0, ly); y1 = Math.max(y1, ly); d0 = Math.min(d0, ld); d1 = Math.max(d1, ld);
-    }
-  }
-  // güneş görüş alanının ışığa en yakın noktasından 12 m geride durur (uzun nesnelerin tepesi kesilmesin)
-  const back = Math.max(33.5, d1 + 12), far = Math.ceil((back - d0 + 4) / 4) * 4, m = 2;
-  // gölge titremesin: kutu 4 m'lik adımlarla büyüyüp küçülür, merkezi ışık düzleminde gölge pikseline oturur. Böylece kamera
-  // kayarken gölge pikselleri yerinde kalır, kenarlar kıpırdamaz (eskiden kutu her karede kayıp boyut değiştiriyordu)
-  const Q = 4, l = Math.max(-112, Math.floor((x0 - m) / Q) * Q), r = Math.min(112, Math.ceil((x1 + m) / Q) * Q), b = Math.max(-112, Math.floor((y0 - m) / Q) * Q), tp = Math.min(112, Math.ceil((y1 + m) / Q) * Q);
-  const px = (r - l) / sun.shadow.mapSize.x, py = (tp - b) / sun.shadow.mapSize.y, ox = T.dot(LX), oy = T.dot(LY);
-  T.addScaledVector(LX, Math.round(ox / px) * px - ox).addScaledVector(LY, Math.round(oy / py) * py - oy);
-  sun.position.copy(T).addScaledVector(LD, back);
-  if (Math.abs(sc.left - l) + Math.abs(sc.right - r) + Math.abs(sc.bottom - b) + Math.abs(sc.top - tp) + Math.abs(sc.far - far) > 0.1) {
-    sc.left = l; sc.right = r; sc.bottom = b; sc.top = tp; sc.far = far; sc.updateProjectionMatrix();
-    sun.shadow.bias = -0.037 / (far - sc.near); // derinlik aralığı değişse de dünyadaki sapma aynı kalsın (gölge lekesi çıkmasın)
-  }
-}
-// uzaktan bakarken gölge kutusu büyür, yüzlerce nesne gölge çizer: harita 2-3 karede bir yenilenir. Yakında her karede
-// ('orta' kalitede en sık 2 karede bir: shadowMin, applyQuality)
-let shadowTurn = 0, sizeT = 0, shadowMin = 1;
-function renderFrame() {
-  const every = Math.max(shadowMin, zoom > 2.6 ? 3 : zoom > 1.6 ? 2 : 1);
-  if (++shadowTurn >= every) { shadowTurn = 0; renderer.shadowMap.needsUpdate = true; }
-  if (dofOn) renderDof(renderer, scene, camera, dofS, dofF); else renderer.render(scene, camera);
-}
-
-// ---------- arayüz ----------
-let arrow = null;
-function updateHud(dt) {
-  const R = regionAt(G.player.position);
-  updateUI(dt, R);
-  const inPazar = R && R.id === 'pazar' && R.unlocked;
-  shoutBtn.style.display = inPazar ? 'flex' : 'none';
-  if (inPazar) shoutBtn.style.setProperty('--c', (G.shout.cool / 14).toFixed(3));
-  shoutBtn.classList.toggle('active', G.shout.t > 0);
-  // sonraki kilit alanını gösteren ok
-  // ilk adımlar rehberi (rehber.js) varken ok sıradaki işi gösterir; işin yeri yoksa (müşteri bekleniyor) ok gizlenir
-  const g = G.guide, pad = g ? g.zone && g : G.nextPad || G.needPad || G.finalPad; // bölge şartı bekleniyorsa o işin yeri (sart.js); son görevde en yakın açık yan kilit (final.js)
-  if (pad) {
-    const dx = pad.zone.x - G.player.position.x, dz = pad.zone.z - G.player.position.z, d = Math.hypot(dx, dz);
-    arrow.visible = d > (g ? 2.4 : 6) && !(G.thief && G.thief.loot > 0); // hırsız kaçarken kırmızı ok onu gösterir (thief.js)
-    if (arrow.visible) {
-      arrow.position.set(G.player.position.x + (dx / d) * 1.5, G.player.position.y + 0.18 + Math.sin(G.time * 5) * 0.05, G.player.position.z + (dz / d) * 1.5);
-      arrow.rotation.y = Math.atan2(dx, dz);
-    }
-  } else arrow.visible = false;
-}
-
-function resize() {
-  // piksel yoğunluğu değiştiyse (tarayıcı yakınlaştırması, pencere başka ekrana taşındı) çözünürlük sınırı yeniden kurulur: yoksa %50
-  // uzaklaştırmada dört kat piksel çizilir, oyun yavaşlar ve kalite kalıcı düşerdi
-  const T = tierOf(settings.quality), m = Math.min(window.devicePixelRatio, T.pr);
-  if (m !== prMax) { prMax = prNow = m; prMin = Math.min(m, T.prMin); slowT = fastT = 0; slowFor = 0; watchFrom = Math.max(watchFrom, 3); renderer.setPixelRatio(m); }
-  const w = innerWidth, h = innerHeight;
-  renderer.setSize(w, h, false);
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
-}
-addEventListener('resize', resize);
-// aynı boyutlu başka ekrana taşınınca resize gelmeyebilir: yoğunluk değişimi ayrıca dinlenir
-(function watchDpr() { try { matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`).addEventListener('change', () => { resize(); watchDpr(); }, { once: true }); } catch (e) { /* eski tarayıcı */ } })();
-
-// ---------- başlat ----------
-async function start() {
-  await initLang(); // İngilizcede sözlük gelir, ekrana çıkan metinler çevrilir (dil.js)
-  const tekP = tekSekme(); // oyun başka sekmede açık mı: cevap modeller inerken gelir (koruma.js)
-  const loadEl = document.getElementById('loading');
-  setTip(`İpucu: ${say('tips')}`);
-  initOnline().catch(() => {}); // Firebase SDK ve oturum modellerle birlikte iner (hata olursa kapı yine görür)
-  await M.loadModels(MODEL_LIST, (p) => { loadEl.querySelector('b').style.width = `${Math.round(p * 100)}%`; });
-  await breathe();
-  makeIcons();
-  await breathe();
-  G.labels = new Labels(document.getElementById('labels'));
-  const player = M.makeCharacter({ shirt: '#3b8beb', pants: '#2d3e66', hat: 'cap', hatColor: '#ffd23f', skin: '#f3cfae' });
-  player.position.set(-2, 0, -1);
-  player.rotation.y = PI_;
-  scene.add(player);
-  G.player = player;
-  G.stack = new Stack(player, 8, 0.98, 0.5);
-  arrow = M.makeArrow();
-  scene.add(arrow);
-  await onlineGate(); // çevrimiçiyse giriş/üye ol kapısı (online-ui.js); çevrimdışıysa hemen geçer
-  await tekP;
-  const { saved, flag } = await pickSave(); // yerel kayıt ya da disk kaydı: oyun süresi uzun olan (persist.js)
-  await breathe();
-  buildWorld(saved);
-  alignGroundUV(scene); // yol, kaldırım, bölge zemini ve güverte dokuları dünyaya hizalı: dikişlerde kaymaz (tex.js)
-  await breathe();
-  if (saved && saved.custom) Object.assign(G.custom, saved.custom);
-  if (saved && saved.stats) Object.assign(G.stats, saved.stats);
-  applyFlag(flag);
-  if (saved && Array.isArray(saved.ach)) for (const a of saved.ach) G.ach.add(a);
-  applyCustom();
-  initUpgrades(saved && saved.upg);
-  needsReady(saved); // bölge kilitlerinin şartı elemanlara ve kazanca bakar (sart.js)
-  initUI();
-  const onCustom = (done) => { applyCustom(); if (done) save(); };
-  initCustomize(onCustom);
-  initEvents();
-  initMenu({
-    onReset: doReset, onCustom, quality: switchQuality, bootQuality: Q0,
-    gfx: () => ({ fps: Math.round(1 / frameAvg), pr: prNow, shadow: renderer.shadowMap.enabled }), // ayarlardaki canlı satır
-    getZoom: () => zoomT, setZoom: (v) => { zoomT = THREE.MathUtils.clamp(v, 0.55, ZOOM_MAX); },
-    snapCamera: () => updateCamera(0, true), beforeImport: () => { resetting = true; markNewGame(); },
-  });
-  initTasarim(onCustom); // dükkân tasarımı seçimi: büyürken açılır, Dükkan menüsünden de (tasarim.js). Menüden sonra: Esc önce menüye düşmesin
-  applyQuality(settings.quality); // ilk açılışta cihaza göre seçildi (kalite.js initQuality)
-  initDaylight({ scene, sun, hemi, LD, LX, LY }); // gün döngüsü: güneşin yönü ve rengi, gök, sis, fenerler (daylight.js)
-  initGorev(); // her oyun gününe üç görev (gorev.js)
-  initMevsim(); // 7 günde bir mevsim: renkler, sıcak, mevsim ürünleri ve görevi (mevsim.js)
-  initCursor(canvas);
-  initMinimap();
-  setMusicRegion(() => (regionAt(G.player.position) || { id: 'koy' }).id);
-  // müzik klasöründeki bölüm: pazar 2, sahil 3, han 4, bütün kilitler açılınca 5
-  setMusicStage(() => (!G.nextPad && !G.nextWait ? 5 : G.unlocked.has('gh') ? 4 : G.unlocked.has('gs') ? 3 : G.unlocked.has('gp') ? 2 : 1));
-  resize();
-  updateCamera(0, true);
-  // gölgelendiriciler yükleme ekranı açıkken derlenir (tarayıcı destekliyorsa arka planda): eskiden oyun göründükten sonraki ilk
-  // karede hepsi birden derlenip ekran bir saniye kadar donuyordu. En çok 5 sn beklenir
-  try { await Promise.race([renderer.compileAsync(scene, camera), new Promise((res) => setTimeout(res, 5000))]); } catch (e) { /* eski tarayıcı: ilk karede derlenir */ }
-  // alan derinliğinin çizim hedefi ve gölgelendiricisi de yükleme ekranında kurulur: ilk yakınlaşmada takılmasın (dof.js)
-  if (dofOn) try { renderDof(renderer, scene, camera, 1, 20); } catch (e) { /* desteklemeyen cihaz: kalite ayarında kapanır */ }
-  loadEl.classList.add('hide');
-  try { sessionStorage.removeItem('koyBakkali.yukle'); } catch (e) { /* yok */ } // açılış başarılı: yeniden deneme sayacı sıfırlanır (index.html __kbFail)
-  kaliciDepo(); // tarayıcı yer açarken kaydı silmesin (koruma.js)
-  // servis çalışanı ilk açılışta sayfayı denetlemiyordu: yüklenen kod ve modeller önbelleğine girmez, bağlantısız açılış ikinci ziyareti
-  // beklerdi. Açılış bitince yüklenen dosyaların listesi ona verilir; tarayıcı önbelleğinden alır (sw.js warm)
-  try {
-    if (navigator.serviceWorker && !navigator.serviceWorker.controller) navigator.serviceWorker.ready.then((reg) => {
-      const urls = performance.getEntriesByType('resource').map((e) => e.name.split('#')[0])
-        .filter((u) => u.startsWith(location.origin) && /\.(js|json|glb|png|webp|ogg|mp3|woff2?)(\?|$)/.test(u));
-      if (reg.active && urls.length) reg.active.postMessage({ warm: urls });
-    }).catch(() => {});
-  } catch (e) { /* servis çalışanı yok */ }
-  if (G.fromBackup) toast('💾 Son kayıt okunamadı: 5 dakika önceki yedekten devam ediyorsun');
-  if (!G.custom.named) setTimeout(() => openCustomize(true), 500);
-  onlineStart(); // gelen kutusu, haftalık ödül; komşu ziyaretinde yardım vardiyası (online-ui.js)
-  initCanli(); // canlı ziyaret: aynı köydeki oyuncular birbirini görür, yazışır (canli.js)
-  setInterval(() => { sekmeNobet(); if (!resetting) { save(); diskSave(); } }, 3000); // diske 10 sn'de bir
-  watchForUpdates();
-  // sekme ya da tarayıcı kaydetmeden kapanınca da son hal diske gider
-  addEventListener('beforeunload', () => { if (!resetting) { save(); diskSave(true); } });
-  // geri dönünce: başka cihazda (telefon/bilgisayar) daha ileri oynandıysa o kayıt yüklenir; bu cihazın eski hali buluta yazılmaz
-  let hiddenAt = 0;
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { hiddenAt = Date.now(); if (!resetting) { save(); diskSave(true); } return; }
-    if (hiddenAt && Date.now() - hiddenAt > 15000) cloudNewer(G.stats.time).then((d) => { if (d && !resetting) { resetting = true; writeSave(d); location.reload(); } });
-  });
-  initInstall(); // uygulama olarak kurma daveti (install.js)
-  if (TOUCH) document.getElementById('help').textContent = 'Yürümek için basılı tut, sürükle';
-  let last = performance.now();
-  const tick = (dt) => {
-    G.labels.measure(); // etiket boyları karenin başında, sayfa yerleşimi temizken ölçülür (game.js Labels)
-    G.time += dt;
-    G.stats.time += dt;
-    updatePlayer(dt);
-    updateYetenek(dt); // düğmeler, enerji çubuğu, para mıknatısı
-    for (const s of G.stations.slice()) { s.setInside(!G.onRide && s.near(G.player.position)); s.update(dt); } // eğlencedeyken altından geçtiği yer tetiklenmez
-    updateWorld(dt);
-    updateYemlik(dt); // hayvan yemlikleri: boşken üretim durur (yemlik.js)
-    updateMutfak(dt); // sahil mutfağının vitrin müşterileri (mutfak.js)
-    updateKano(dt); // derede kanolar ve kano iskelesinin müşterileri (kano.js)
-    updatePark(dt); // çocuk parkında oynayan çocuklar (park.js)
-    updateCityLife(dt); // şehir caddesinde yayalar, araba, motor, bisiklet (sehirhayat.js)
-    updateTahsilat(); // muhasebecinin arabası (tahsilat.js)
-    updateRehber(dt);
-    needTick(dt);
-    updateCalgi(dt); // dünyadan gelen müzik: çalgıcılar ve atlıkarınca orgu (calgi.js)
-    updateGround(dt); // üst üste düz zemin parçaları titremesin (zfix.js)
-    for (const c of G.customers.slice()) c.update(dt);
-    updateFading(dt); // giden müşteri yavaşça silinir (game.js)
-    updateUpgrades(dt);
-    updateEvents(dt);
-    updateCore(dt);
-    updateFx(dt);
-    updateDaylight(dt); // güneş döner: fitShadow (updateCamera) yeni yönü okur
-    updateGorev(dt);
-    updateMevsim(dt);
-    updateSincap(dt);
-    updateHoca(dt);
-    updateColFit();
-    updateCanli(dt);
-    updateCamera(dt);
-    updateHud(dt);
-    updateMenu(dt);
-    updateCursor(dt);
-    updateMinimap(dt);
-  };
-  // karenin sonu: etiketler, boy taraması, birleştirme. Oyun adımından ayrı korunur: bir alt sistem her karede hata verse de etiketler
-  // yerinde kalır, birleştirme sürer (yoksa çizim sayısı sessizce patlardı)
-  const tail = (dt) => {
-    G.labels.update(camera, VIEW.w, VIEW.h, dt);
-    if ((sizeT -= dt) <= 0) { sizeT = 2; sweepSizes(scene); } // sonradan eklenen parçalar da boyuna göre ayrılır (perf.js)
-    bakeTick(dt, scene); // kımıldamayan parçalar birleşir, değişen olursa geri ayrılır (perf.js)
-  };
-  const loopErr = new Set();
-  const guard = (where, fn) => { try { fn(); } catch (e) { const k = String(e); if (!loopErr.has(k)) { loopErr.add(k); console.error(e); hata(k, where, e && e.stack); } } };
-  const loop = (now) => {
-    requestAnimationFrame(loop); // sıradaki kare en başta istenir: aşağıda ne olursa olsun döngü durmaz
-    seeRaf(now);
-    // kare hızı sınırı (capNow): erken gelen kare atlanır, ekran kartı ve işlemci dinlenir. Pay: 3-4 ms (zaman damgası oynaması)
-    const cap = capNow();
-    if (cap && now - last < 1000 / cap - (cap < 60 ? 3 : 4)) return;
-    if (holdDraw) { last = now; return; } // kalite geçişinde gölgelendiriciler hazırlanırken çizilmez
-    const raw = Math.max(0, (now - last) / 1000), dt = Math.min(0.05, raw); // ilk karede rAF zamanı son çizimden geride kalabilir: oyun zamanı eksiye düşmesin
-    last = now;
-    adaptResolution(raw);
-    watchSpeed(raw);
-    // menü açıkken oyun durur; kamera yalnızca yakınlık ayarını göstermek için çalışır
-    // bir karede çıkan hata oyunu kalıcı dondurmasın: o adımın kalanı atlanır, döngü ve çizim sürer (aynı hata bir kez yazılır)
-    if (G.paused) guard('kare', () => { updateCamera(dt); G.labels.measure(); G.labels.update(camera, VIEW.w, VIEW.h, 0); });
-    else { guard('kare', () => tick(dt)); guard('kare sonu', () => tail(dt)); }
-    guard('çizim', renderFrame);
-  };
-  requestAnimationFrame(loop);
-  // test kancası: oyunu elle ileri sarar (sekme arka plandayken doğrulama için)
-  window.__G = G;
-  window.__R = renderer; // test kancası: çizim istatistikleri (renderer.info)
-  window.__q = { switchQuality, applyQuality, scene, camera }; // test kancası: kalite geçişini ölçmek için (eski yol: applyQuality)
-  window.__bake = bakeStats;
-  window.__cam = (z, p, y, dof) => { zoom = zoomT = z; pitch = pitchT = p ?? PITCH_DEF; if (y != null) yaw = yawT = y; if (dof != null) dofOn = dof; return { dofS, dofF }; }; // test: yakınlık, eğim, dönüş, alan derinliği
-  window.__step = (seconds, dt = 1 / 30, draw = true) => { for (let t = 0; t < seconds; t += dt) { tick(dt); tail(dt); } if (draw) renderFrame(); }; // draw=false: denetim botu için hızlı
-  window.__keys = keys;
-  window.__mk = makeItem;
-}
-// yerel sunucuda oynarken: oyun dosyaları değişince kaydedip yeni sürümle kaldığı yerden devam eder
-const WATCH = ['index.html', 'src/main.js', 'src/game.js', 'src/world.js', 'src/models.js', 'src/ui.js', 'src/upgrades.js', 'src/events.js', 'src/decor.js', 'src/audio.js', 'src/fx.js', 'src/texts.js', 'src/tex.js', 'src/menu.js', 'src/intro.js', 'src/sounds.js', 'src/soundpanel.js', 'src/cursor.js', 'src/minimap.js', 'src/station.js', 'src/roads.js', 'src/ambience.js', 'src/birds.js', 'src/thief.js', 'src/riders.js', 'src/chicks.js', 'src/resort.js', 'src/plaza.js', 'src/trucks.js', 'src/nature.js', 'src/carsi.js', 'src/energy.js', 'src/level.js', 'src/dress.js', 'src/wind.js', 'src/farmland.js', 'src/rating.js', 'src/rivals.js', 'src/alerts.js', 'src/avatar.js', 'src/bank.js', 'src/requests.js', 'src/services.js', 'src/fishing.js', 'src/sea.js', 'src/persist.js', 'src/perf.js', 'src/account.js', 'src/dest.js', 'src/autorun.js', 'src/cinema.js', 'src/expand.js', 'src/expand-west.js', 'src/expand-east.js', 'src/city.js', 'src/beach.js', 'src/catalog.js', 'src/ripe.js', 'src/online.js', 'src/online-ui.js', 'src/firebase-config.js', 'src/install.js', 'src/reyon.js', 'src/daylight.js', 'src/gorev.js', 'src/mevsim.js', 'src/canli.js'];
-function watchForUpdates() {
-  if (!['localhost', '127.0.0.1'].includes(location.hostname)) return;
-  let stamp = null, changedAt = 0;
-  const check = async () => {
-    try {
-      const marks = await Promise.all(WATCH.map((f) => fetch(f, { method: 'HEAD', cache: 'no-store' }).then((r) => r.headers.get('Last-Modified') || '')));
-      const key = marks.join('|');
-      if (stamp === null) stamp = key;
-      else if (key !== stamp) { stamp = key; changedAt = performance.now(); }
-    } catch (e) { /* sunucu kapalı */ }
-    // dosyalar 3 sn sabit kalınca (yazım bitti) yenile; açık pencere varken bekle. src/.bakim varken (büyük değişiklik sürüyor)
-    // yenilemez: yarım kalmış haritayı göstermez, bakım bitince tek seferde yenilenir
-    if (changedAt && performance.now() - changedAt > 3000 && !G.menuOpen && !resetting) {
-      const hold = await fetch('src/.bakim', { method: 'HEAD', cache: 'no-store' }).then((r) => r.ok).catch(() => false);
-      if (hold) return;
-      changedAt = 0;
-      save(); diskSave(true);
-      document.getElementById('tip').textContent = 'Yeni sürüm yükleniyor, kaldığın yerden devam…';
-      document.getElementById('loading').classList.remove('hide');
-      document.getElementById('loading').style.display = '';
-      setTimeout(() => location.reload(), 300);
-    }
-  };
-  setInterval(check, 2500);
-}
-
-const PI_ = Math.PI;
-start().catch((e) => {
-  console.error(e);
-  fatal('Oyun yüklenemedi. Bağlantını kontrol edip yeniden dene. (' + e.message + ')', 'The game could not load. Check your connection and try again. (' + e.message + ')');
-  hata(String(e), 'açılış', e && e.stack);
-});
+`,Q,et,yn;function el(){let t=document.getElementById("hud");if(!t||document.getElementById("kbDTab"))return;let n=document.createElement("style");n.textContent=df,document.head.appendChild(n);let e=we(),a=new Set(e.hide||[]),o=l(()=>{for(let[b]of Da)document.body.classList.toggle("hh-"+b,a.has(b))},"apply");o(),Q=document.createElement("button"),Q.id="kbDTab",Q.type="button",Q.className="hp",Q.textContent="\u22EE",Q.title="Ekran: g\xF6stergeleri gizle / g\xF6ster",et=document.createElement("div"),et.id="kbDrawer",et.innerHTML='<h4>Ekran</h4><div class="dbtns"></div>'+Da.map(([b,v])=>`<label>${v}<input type="checkbox" data-id="${b}" ${a.has(b)?"":"checked"}></label>`).join("")+`<div class="dfoot"><button type="button" data-a="all">Hepsini g\xF6ster</button>${vr()?'<button type="button" data-a="fs">Tam ekran</button>':""}</div>`,yn=et.querySelector(".dbtns"),t.appendChild(Q),t.appendChild(et);let i=document.createElement("div");i.id="mmBar",i.className="hp",i.addEventListener("pointerdown",b=>b.stopPropagation());let s=l((b,v,E,z,x,k,M)=>{let T=document.createElement("button");T.id=b,T.type="button",T.innerHTML=`<span>${v}</span>`;let B=l(()=>{let C=!!we()[E];document.body.classList.toggle(z,C),T.classList.toggle("off",C),T.title=C?x:k,T.setAttribute("aria-label",T.title),M&&M(C)},"sync");T.addEventListener("click",()=>{ho({...we(),[E]:!we()[E]}),B()}),i.appendChild(T),B()},"tog");s("cleanTog","\u{1F441}\uFE0F","clean","clean-view","Ekrandaki yaz\u0131lar\u0131 g\xF6ster","Ekrandaki yaz\u0131lar\u0131 gizle (temiz g\xF6r\xFCn\xFCm)"),s("labTog","\u{1F3F7}\uFE0F","labs","no-labels","Oyundaki t\xFCm yaz\u0131lar\u0131 g\xF6ster","Oyundaki t\xFCm yaz\u0131lar\u0131 gizle (balon, sipari\u015F, ad, bilgi kutusu)",b=>{r.labelsOff=b}),t.appendChild(i);let f=new Set(e.mins||[]),c=document.createElement("div"),d={};c.id="kbMins",t.appendChild(c);let p=l((b,v)=>{v?f.add(b):f.delete(b);let E=document.getElementById(b);E&&E.classList.toggle("kbm",v),ho({...we(),mins:[...f]}),h()},"setMin");for(let[b]of Qs){let v=d[b]=document.createElement("button");v.type="button",v.textContent="\u2212",v.title="K\xFC\xE7\xFClt",v.setAttribute("aria-label","K\xFC\xE7\xFClt"),v.addEventListener("pointerdown",E=>E.stopPropagation()),v.addEventListener("click",()=>p(b,!0)),c.appendChild(v)}let h=l(()=>{let b=t.getBoundingClientRect(),v=b.width,E=b.height,z=18,x=l(L=>{let P=L.getBoundingClientRect();return{l:P.left-b.left,t:P.top-b.top,r:P.right-b.left,b:P.bottom-b.top}},"rect"),k=l(L=>L&&L.offsetParent&&+getComputedStyle(L).opacity>.1,"seen"),M=[],T=[];for(let L of cf){let P=document.getElementById(L);k(P)&&M.push(x(P))}for(let[L,P]of Qs){let _=document.getElementById(L),O=f.has(L);if(!_||(_.dataset.kbi!==P&&(_.dataset.kbi=P),_.classList.contains("kbm")!==O&&_.classList.toggle("kbm",O),!k(_)))continue;let D=x(_);M.push(D),O||T.push([d[L],D])}let B=new Set,C=l(()=>{for(let L in d)!B.has(d[L])&&d[L].style.display!==""&&(d[L].style.display="")},"hideRest");if(document.body.classList.contains("hh-kbMins")){C();return}let A=l((L,P,_)=>L<2||P<2||L+z>v-2||P+z>E-2||M.some(O=>O!==_&&L<O.r&&L+z>O.l&&P<O.b&&P+z>O.t),"hit");for(let[L,P]of T){let _=(P.t+P.b-z)/2,O=[[P.r+4,_],[P.l-z-4,_]];(P.l+P.r)/2>v*.6&&O.reverse();let D=[...O,[P.r-z+5,P.t-z+7],[P.r-z+5,P.b-7],[P.r-z-2,P.t+2]],Y=D.find(([tn,De],Hc)=>!A(tn,De,Hc>1?P:null))||D[4],Ht=`translate(${Math.round(Y[0])}px,${Math.round(Y[1])}px)`;L.style.display!=="grid"&&(L.style.display="grid"),L.style.transform!==Ht&&(L.style.transform=Ht),B.add(L),M.push({l:Y[0],t:Y[1],r:Y[0]+z,b:Y[1]+z})}C()},"seatMins"),m=null,u=0;t.addEventListener("pointerdown",b=>{let v=b.target.closest&&b.target.closest(".kbm");v&&(b.stopPropagation(),b.preventDefault(),m=v,u=performance.now()+700,p(v.id,!1))},!0);for(let b of["pointerup","click"])t.addEventListener(b,v=>{m&&performance.now()<u&&m.contains(v.target)&&(v.stopPropagation(),v.preventDefault(),b==="click"&&(m=null))},!0);let g=l(b=>{et.classList.toggle("open",b),Q.classList.toggle("on",b)},"open");for(let b of[Q,et])b.addEventListener("pointerdown",v=>v.stopPropagation());Q.addEventListener("click",()=>g(!et.classList.contains("open"))),et.addEventListener("change",b=>{let v=b.target.dataset&&b.target.dataset.id;v&&(b.target.checked?a.delete(v):a.add(v),o(),ho({...we(),hide:[...a]}),h())}),et.addEventListener("click",b=>{let v=b.target.closest("button[data-a]");if(v&&(v.dataset.a==="fs"&&(Er(),g(!1)),v.dataset.a==="all")){a.clear(),f.clear(),o(),ho({...we(),hide:[],mins:[]});for(let E of et.querySelectorAll("input[data-id]"))E.checked=!0;h()}}),addEventListener("pointerdown",b=>{et.classList.contains("open")&&!et.contains(b.target)&&b.target!==Q&&g(!1)},!0);let w=l(()=>{let b=document.getElementById("minimap"),v=!!b&&b.classList.contains("big");if(i.style.display=v?"none":"",v)return;let E=t.getBoundingClientRect(),z=b&&b.offsetParent?b.getBoundingClientRect():null,x=z?E.right-z.right:Et.matches?8:14,k=z?E.bottom-z.top+6+(parseFloat(getComputedStyle(b).outlineWidth)||0):Et.matches?8:16;i.style.right=`${Math.round(x)}px`,i.style.bottom=`${Math.round(k)}px`;let M=Et.matches&&!z;i.classList.contains("vert")!==M&&i.classList.toggle("vert",M);let T=i.getBoundingClientRect(),B=T.width||i.offsetWidth,C=T.height||i.offsetHeight,A=k+C,L=document.getElementById("chatBtn");if(L){let O=L.getBoundingClientRect(),D=O.height||L.offsetHeight||34,Y=O.width||L.offsetWidth||34;M?(Object.assign(L.style,{right:`${Math.round(x+(B-Y)/2)}px`,bottom:`${Math.round(A+6)}px`}),L.offsetParent&&(A+=D+6)):Object.assign(L.style,{right:`${Math.round(x+B+6)}px`,bottom:`${Math.round(k+(C-D)/2)}px`})}let P=document.getElementById("shout");P&&(P.style.bottom=Et.matches?`${Math.round(A+8)}px`:""),et.style.bottom=Et.matches?`${Math.round(A+8)}px`:"";let _=document.getElementById("carryDest");if(_){let O=Et.matches?`${Math.round(z?E.right-z.left+6:x+B+6)}px`:"";_.style.right!==O&&(_.style.right=O)}},"seat"),S=l(()=>{let b=document.getElementById("hintTog");b&&b.parentNode!==i&&i.insertBefore(b,i.firstChild),Et.matches?Q.parentNode!==i&&i.appendChild(Q):Q.parentNode===i&&t.insertBefore(Q,et);let v=document.getElementById("menuBtn");if(!Et.matches&&v){let E=v.getBoundingClientRect(),z=t.getBoundingClientRect();Object.assign(Q.style,{left:"auto",right:`${Math.round(z.right-E.left+10)}px`,top:`${Math.round(E.top-z.top+(E.height-34)/2)}px`}),et.classList.add("side-r"),et.style.top=`${Math.round(E.bottom-z.top+10)}px`}else Q.style.left=Q.style.right=Q.style.top="",et.classList.add("side-r"),et.style.top="";for(let[E,z]of ff){let x=document.getElementById(E);if(!x)continue;let k=yn.querySelector(`[data-for="${E}"]`);if(Et.matches&&!k){let M=document.createElement("div");M.className="dbtn",M.dataset.for=E,M.appendChild(x),M.appendChild(Object.assign(document.createElement("span"),{textContent:z})),yn.appendChild(M)}else!Et.matches&&k&&(t.insertBefore(x,Q),k.remove())}yn.classList.toggle("has",!!yn.children.length),w()},"place");S(),setInterval(S,1e3),setInterval(h,300),Et.addEventListener&&Et.addEventListener("change",S),addEventListener("resize",()=>{w(),h()}),window.ResizeObserver&&new ResizeObserver(w).observe(document.getElementById("minimap"))}l(el,"initHudMenu");var pl={x0:-88,x1:106,z0:-70,z1:46},pf={x0:ht.x-36,x1:ht.x+36,z0:ht.z-20,z1:ht.z+24},j=pl,tt=10,ul=44,oe={koy:{col:"#a3db83",edge:"#5f9e4a",icon:"\u{1F3E1}",short:"K\xF6y"},pazar:{col:"#d8d0c0",edge:"#8f8676",icon:"\u{1F349}",short:"Pazar"},sahil:{col:"#f7e3a8",edge:"#c9a65a",icon:"\u{1F3D6}\uFE0F",short:"Sahil"},han:{col:"#eecb95",edge:"#b0814a",icon:"\u{1F42B}",short:"Han"},tarla:{col:"#bfe28d",edge:"#6f9e45",icon:"\u{1F33D}",short:"Tarla"},mera:{col:"#b3d98a",edge:"#6f8f45",icon:"\u{1F411}",short:"Mera"},meydan:{col:"#dcd6c8",edge:"#8f8676",icon:"\u{1F17F}\uFE0F",short:"Otopark"},ciftlik:{col:"#b9e08f",edge:"#6f9e45",icon:"\u{1F404}",short:"\xC7iftlik"},atolye:{col:"#d8d0c0",edge:"#8f8676",icon:"\u{1F9F6}",short:"At\xF6lye"},atlar:{col:"#e3c99a",edge:"#9b6a3e",icon:"\u{1F40E}",short:"Ah\u0131r"},firin:{col:"#e8d2b0",edge:"#9b7a5a",icon:"\u{1F96F}",short:"F\u0131r\u0131n"},kargo:{col:"#d8dde2",edge:"#7d776b",icon:"\u{1F4E6}",short:"Kargo"},tatil:{col:"#f7e3a8",edge:"#3ec1b5",icon:"\u{1F41A}",short:"Tatil K\xF6y\xFC"},kasaba:{col:"#b9e08f",edge:"#8f8676",icon:"\u26F2",short:"Meydan"},enerji:{col:"#cfe3b0",edge:"#6d8a4a",icon:"\u{1F32C}\uFE0F",short:"Enerji"},tarlalar:{col:"#d9c98a",edge:"#9b6a3e",icon:"\u{1F69C}",short:"Tarlalar"},iskele:{col:"#c8a06a",edge:"#2f6db5",icon:"\u{1F3A3}",short:"\u0130skele"},lunapark:{col:"#bfe3a0",edge:"#e8473c",icon:"\u{1F3A1}",short:"Lunapark"}};for(let t in sa)oe[t]&&(oe[t].edge=sa[t].color);var uf=[],hf=[[-97,-16,8.8,12.6],[-97,-16,-22.6,-21.2],[53,127,4.7,8.3],[11.1,14.1,-28,-21.2],[15.6,23.4,-2.8,-.2],[19.1,22.5,-15.8,5],[-62.6,-59.4,-59.6,-22.6],[-84,-59.4,-59.6,-57]],nl={sahil:[[-60,-15.6,28.9,30.5],[-59.4,-57.8,12.8,28.9]],han:[[-33,-29,-66,-21.2],[-33,-15.6,-34.4,-30.4]]},mf=[[-97,22.5,-21.4,-15.8]],Pt,xn,y,Bt=null,ol="",nt=!1,al=!1,gn=0,K=0,R=1,bn=0,kn=0,Dt=ul,_e=1,kt=l(t=>(t-bn)*_e,"X"),wt=l(t=>(t-kn)*_e,"Z"),X=l(t=>(t-j.x0)*tt,"SX"),J=l(t=>(t-j.z0)*tt,"SZ"),il=new Ie,yf=new Vn(new $(0,1,0),0),Aa=new $,rl=new de,mo=l((t,n,e)=>Math.max(n,Math.min(e,t)),"clamp");function hl(){Pt=document.getElementById("minimap"),xn=document.getElementById("mmap"),y=xn.getContext("2d"),el();let t=document.createElement("span");t.className="mms",t.textContent="\u2212",t.title="Haritay\u0131 k\xFC\xE7\xFClt",Pt.appendChild(t);let n=l(e=>{al=e,Pt.classList.toggle("mini",e),document.body.classList.toggle("mm-mini",e);try{localStorage.setItem("koyBakkali.mmMini",e?"1":"0")}catch{}},"setMini");try{localStorage.getItem("koyBakkali.mmMini")==="1"&&n(!0)}catch{}Pt.addEventListener("pointerdown",e=>{if(e.stopPropagation(),e.target===t){n(!0);return}if(al){n(!1);return}if(nt){let a=xn.getBoundingClientRect(),o=(e.clientX-a.left)*(K/a.width),i=(e.clientY-a.top)*(K/a.height);!(o>K-44*R&&i<44*R)&&r.hooks.goTo&&r.hooks.goTo(o/_e+bn,i/_e+kn)}nt=!nt,Pt.classList.toggle("big",nt),gn=0}),window.ResizeObserver?new ResizeObserver(go).observe(Pt):addEventListener("resize",go),go()}l(hl,"initMinimap");function go(){R=Math.min(2,window.devicePixelRatio||1),K=xn.width=xn.height=Math.max(1,Math.round(Math.min(Pt.clientWidth,Pt.clientHeight)*R)),gn=0}l(go,"resize");function xf(){Bt=Bt||document.createElement("canvas");let t=(j.x1-j.x0)*tt,n=(j.z1-j.z0)*tt,e=r.regions.sehir;Bt.width=t,Bt.height=n;let a=Bt.getContext("2d"),o=l((g,w,S,b,v)=>{a.fillStyle=v,a.fillRect(X(g),J(S),(w-g)*tt,(b-S)*tt)},"rect");o(j.x0,j.x1,j.z0,j.z1,"#d8d2c6");let[i,s]=ht.street,f=J((i+s)/2);o(j.x0,j.x1,i,s,"#6b6f76"),a.strokeStyle="rgba(255,255,255,.85)",a.lineWidth=3,a.setLineDash([24,18]),a.beginPath(),a.moveTo(0,f),a.lineTo(t,f),a.stroke(),a.setLineDash([]);let[c,d,p,h]=ht.rect;if(o(c,d,p,h,e&&e.unlocked?"#f3ead9":"#c9c3b8"),a.strokeStyle="#2f6db5",a.lineWidth=6,a.strokeRect(X(c),J(p),(d-c)*tt,(h-p)*tt),e&&e.unlocked){for(let g of e.shelves||[])o(g.zone.x-1.2,g.zone.x+1.2,g.zone.z-.55,g.zone.z+.55,"#6fb35a");for(let g of e.registers||(e.register?[e.register]:[]))o(g.zone.x-1.35,g.zone.x+1.35,g.zone.z+.9,g.zone.z+2.1,"#2f6db5")}let[m,u]=ht.stop;o(m-1.6,m+1.6,u-1.2,u-.3,"#2f6db5")}l(xf,"drawCity");function gf(){Bt=Bt||document.createElement("canvas");let t=(j.x1-j.x0)*tt,n=(j.z1-j.z0)*tt;Bt.width=t,Bt.height=n;let e=Bt.getContext("2d"),a=l((c,d,p,h,m=0)=>{e.beginPath(),e.roundRect(X(c),J(p),(d-c)*tt,(h-p)*tt,m*tt)},"rr");e.fillStyle="#c4e6a8",e.fillRect(0,0,t,n);let o=7,i=l(()=>(o=o*16807%2147483647,o/2147483647),"rnd");for(let c=0;c<1400;c++)e.fillStyle=c%2?"rgba(80,140,60,.13)":"rgba(255,255,255,.18)",e.beginPath(),e.arc(i()*t,i()*n,1.5+i()*2,0,7),e.fill();e.beginPath(),e.moveTo(X(j.x0),J(fa(j.x0)));for(let c=j.x0;c<=j.x1+.5;c+=.5)e.lineTo(X(c),J(fa(c)));for(let c=j.x1;c>=j.x0-.5;c-=.5)e.lineTo(X(c),J(Jn(c)));e.closePath(),e.fillStyle="#efdca3",e.fill();let s=e.createLinearGradient(0,J(31),0,n);s.addColorStop(0,"#84d2f2"),s.addColorStop(1,"#4fa9de"),e.beginPath(),e.moveTo(X(j.x0),n);for(let c=j.x0;c<=j.x1+.5;c+=.5)e.lineTo(X(c),J(Jn(c)));e.lineTo(X(j.x1),n),e.closePath(),e.fillStyle=s,e.fill(),e.strokeStyle="rgba(255,255,255,.7)",e.lineWidth=2.5;for(let c=32.4;c<j.z1;c+=1.1){e.beginPath();let d=!1;for(let p=j.x0;p<=j.x1;p+=.5){let h=c+Math.sin(p*.9+c*3)*.18;if(h<Jn(p)+.6){d=!1;continue}d?e.lineTo(X(p),J(h)):(e.moveTo(X(p),J(h)),d=!0)}e.stroke()}for(let[c,d,p,h]of uf){a(c-p/2,c+p/2,d-h/2,d+h/2,.8),e.fillStyle="#ddd27c",e.fill(),e.save(),e.clip(),e.strokeStyle="rgba(150,125,40,.35)",e.lineWidth=3;for(let m=d-h/2+.45;m<d+h/2;m+=.9)e.beginPath(),e.moveTo(X(c-p/2),J(m)),e.lineTo(X(c+p/2),J(m)),e.stroke();e.restore()}for(let c of[...hf,...Object.keys(nl).flatMap(d=>r.regions[d]&&r.regions[d].unlocked?nl[d]:[])])a(...c,.5),e.fillStyle="#e8cf9a",e.fill(),e.strokeStyle="rgba(150,110,60,.4)",e.lineWidth=2,e.stroke();for(let c of mf)a(...c,.4),e.fillStyle="#8e959c",e.fill(),e.setLineDash([12,10]),e.strokeStyle="rgba(255,255,255,.9)",e.lineWidth=2,e.beginPath(),e.moveTo(X(c[0]),J((c[2]+c[3])/2)),e.lineTo(X(c[1]),J((c[2]+c[3])/2)),e.stroke(),e.setLineDash([]);let f=r.stationOpen;(f||r.stationRevealed)&&(a(-84.5,-63.5,-14.8,-1.8,.6),e.fillStyle=f?"#a7adb3":"#c3c7cb",e.fill(),e.lineWidth=3,e.strokeStyle=f?"#c8102e":"#9aa0a6",e.stroke(),e.font=`${5*tt}px sans-serif`,e.textAlign="center",e.textBaseline="middle",e.fillText(f?"\u26FD":"\u{1F512}",X(-74),J(-8.3))),a(-62.4,-42.6,-14.4,-4.4,.8),e.fillStyle="#cfe8b4",e.fill(),e.lineWidth=3,e.strokeStyle="#6fae5a",e.stroke(),e.font=`${5*tt}px sans-serif`,e.textAlign="center",e.textBaseline="middle",e.fillText("\u{1F3A0}",X(-52.5),J(-9.4));for(let c of r.annexes||[]){let d=oe[c.region]||{col:"#cfd3d7",edge:"#9aa0a6"};a(...c.rect,.8),e.fillStyle=d.col,e.fill(),e.lineWidth=3,e.strokeStyle=d.edge,e.stroke()}for(let c in oe){let d=r.regions[c];if(!d||d.hidden)continue;let[p,h,m,u]=d.rect,g=oe[c];if(a(p,h,m,u,1.2),d.unlocked)e.fillStyle=g.col,e.fill(),e.lineWidth=5,e.strokeStyle=g.edge,e.stroke(),a(p+.5,h-.5,m+.5,u-.5,.8),e.lineWidth=2,e.strokeStyle="rgba(255,255,255,.55)",e.stroke();else{e.fillStyle="#c3c7cb",e.fill(),e.save(),e.clip(),e.strokeStyle="rgba(255,255,255,.4)",e.lineWidth=7;for(let w=-(u-m);w<h-p;w+=2.4)e.beginPath(),e.moveTo(X(p+w),J(m)),e.lineTo(X(p+w+(u-m)),J(u)),e.stroke();e.restore(),a(p,h,m,u,1.2),e.lineWidth=3,e.strokeStyle="#9aa0a6",e.stroke()}}if(r.regions.sahil&&r.regions.sahil.unlocked){a(-16,46,12.8,15.2),e.fillStyle="#d9a066",e.fill(),e.strokeStyle="rgba(120,70,30,.35)",e.lineWidth=1.5;for(let c=-16;c<46;c+=1.2)e.beginPath(),e.moveTo(X(c),J(12.8)),e.lineTo(X(c),J(15.2)),e.stroke()}for(let c of r.soft||[]){a(c[0]+.1,c[1]-.1,c[2]+.1,c[3]-.1,.4),e.fillStyle="#a8744a",e.fill(),e.fillStyle="#6fbf4f";for(let d=c[0]+.8;d<c[1]-.3;d+=1.1)for(let p=c[2]+.7;p<c[3]-.3;p+=1.1)e.beginPath(),e.arc(X(d),J(p),3,0,7),e.fill()}if(r.regions.koy.unlocked){a(-10.7,10.7,-13.4,-4,.5),e.fillStyle="#fbefd9",e.fill(),e.lineWidth=3,e.strokeStyle="#c0504d",e.stroke(),e.save(),a(-10.7,10.7,-13.4,-12.1,.4),e.clip();for(let c=-10.7,d=0;c<10.7;c+=1.1,d++)e.fillStyle=d%2?"#ffffff":"#e8604c",e.fillRect(X(c),J(-13.4),1.1*tt,1.3*tt);e.restore()}for(let c of r.colliders){if(c.dyn&&!c.mm)continue;let d=c[1]-c[0],p=c[3]-c[2];if(!(c[1]<j.x0||c[0]>j.x1||c[3]<j.z0||c[2]>j.z1)){if(d<1&&p<1){e.fillStyle="#4f9a45",e.beginPath(),e.arc(X((c[0]+c[1])/2),J((c[2]+c[3])/2),5,0,7),e.fill();continue}d>18&&p<1||(a(c[0],c[1],c[2],c[3],.25),e.fillStyle=d<.8||p<.8?"#8a5a33":"rgba(150,105,65,.75)",e.fill())}}}l(gf,"drawStatic");function yo(t,n,e,a,o=!0){y.font=`${o?900:700} ${Math.round(a*R)}px 'Nunito','Segoe UI',sans-serif`,y.textAlign="center",y.textBaseline="middle",y.lineWidth=3.2*R,y.strokeStyle="rgba(255,255,255,.95)",y.lineJoin="round",y.strokeText(t,n,e),y.fillStyle="#3b2a6b",y.fillText(t,n,e)}l(yo,"label");var sl=new Map;function Ia(t,n,e,a){let o=t+"|"+n,i=sl.get(o);if(!i){i=document.createElement("canvas"),i.width=i.height=Math.ceil(n*1.6);let s=i.getContext("2d");s.font=`${n}px sans-serif`,s.textAlign="center",s.textBaseline="middle",s.fillText(t,i.width/2,i.height/2),sl.set(o,i)}y.drawImage(i,e-i.width/2,a-i.height/2)}l(Ia,"icon");function xo(t,n,e,a,o="#ffffff",i=1.4){y.beginPath(),y.arc(kt(t),wt(n),e*R,0,Math.PI*2),y.fillStyle=a,y.fill(),y.lineWidth=i*R,y.strokeStyle=o,y.stroke()}l(xo,"dot");function ll(t,n,e,a,o){let i=n*R,s=i+2;y.beginPath();for(let f of t){let c=kt(f.obj.position.x),d=wt(f.obj.position.z);c<-s||d<-s||c>K+s||d>K+s||(y.moveTo(c+i,d),y.arc(c,d,i,0,Math.PI*2))}y.fillStyle=e,y.fill(),y.lineWidth=o*R,y.strokeStyle=a,y.stroke()}l(ll,"dots");function Oa(t,n,e){y.beginPath();for(let a=0;a<10;a++){let o=a*Math.PI/5-Math.PI/2,i=a%2?e*.46:e;y.lineTo(t+Math.cos(o)*i,n+Math.sin(o)*i)}y.closePath(),y.fillStyle="#ffd23f",y.fill(),y.lineWidth=1.6*R,y.strokeStyle="#7a4a00",y.stroke()}l(Oa,"star");var cl=0,fl=-1,Fa="",dl=null;function ml(t){if(gn-=t,gn>0||!y||!r.player||(gn=.08,Pt.style.visibility=r.world==="ada"?"hidden":"",r.world==="ada"))return;(cl=(cl+1)%12)===0&&Math.round(Math.min(Pt.clientWidth,Pt.clientHeight)*R)!==K&&go();let n=r.world==="sehir",e=r.regions.sehir;j=n?pf:pl,((fl=(fl+1)%6)===0||n!==dl)&&(dl=n,Fa=n?`sehir|${e.unlocked?1:0}|${(e.shelves||[]).length}|${(e.registers||[]).length}`:`${Object.values(r.regions).map(E=>E.unlocked?1:E.hidden?2:0).join("")}|${r.stationRevealed?1:0}|${r.colliders.reduce((E,z)=>E+!z.dyn,0)}|${(r.soft||[]).length}|${r.regions.pazar?r.regions.pazar.rowV:0}|${(r.annexes||[]).length}`),Fa!==ol&&(ol=Fa,n?xf():gf());let a=r.player.position;nt?(Dt=Math.max(j.x1-j.x0,j.z1-j.z0),bn=(j.x0+j.x1-Dt)/2,kn=(j.z0+j.z1-Dt)/2):(Dt=ul,bn=mo(a.x-Dt/2,j.x0,j.x1-Dt),kn=mo(a.z-Dt/2,j.z0,j.z1-Dt)),_e=K/Dt,y.clearRect(0,0,K,K),y.fillStyle=n?"#d8d2c6":"#4fa9de",y.fillRect(0,0,K,K);let o=(bn-j.x0)*tt,i=(kn-j.z0)*tt,s=Dt*tt;if(y.drawImage(Bt,o,i,s,s,0,0,K,K),nt){let E=[];for(let[z,x]of[[-1,-1],[1,-1],[1,1],[-1,1]])rl.set(z,x),il.setFromCamera(rl,r.camera),il.ray.intersectPlane(yf,Aa)&&E.push([kt(Aa.x),wt(Aa.z)]);E.length===4&&(y.beginPath(),E.forEach(([z,x],k)=>k?y.lineTo(z,x):y.moveTo(z,x)),y.closePath(),y.fillStyle="rgba(255,255,255,.2)",y.fill(),y.setLineDash([6*R,4*R]),y.strokeStyle="rgba(59,42,107,.65)",y.lineWidth=1.6*R,y.stroke(),y.setLineDash([]))}if(n){y.font=`${Math.round((nt?22:17)*R)}px sans-serif`,y.textAlign="center",y.textBaseline="middle";let E=kt(ht.x),z=wt(ht.rect[2]+3),x=Math.round((nt?22:17)*R);Ia("\u{1F3D9}\uFE0F",x,E,z),nt&&yo("\u015Eehir Marketi",E,z+17*R,11),Ia("\u{1F68C}",x,kt(ht.stop[0]),wt(ht.stop[1])-12*R),nt&&yo("K\xF6ye otob\xFCs",kt(ht.stop[0]),wt(ht.stop[1])+6*R,10)}for(let E in oe){let z=r.regions[E];if(n||!z||z.hidden)continue;let x=kt((z.rect[0]+z.rect[1])/2),k=wt((z.rect[2]+z.rect[3])/2)+(E==="koy"?3.5*_e:0);x<-20*R||k<-20*R||x>K+20*R||k>K+20*R||(y.globalAlpha=z.unlocked?1:.75,Ia(z.unlocked?oe[E].icon:"\u{1F512}",Math.round((nt?22:17)*R),x,k),nt&&(z.unlocked||z.named!==!1)&&yo(oe[E].short,x,k+17*R,11),y.globalAlpha=1)}for(let E of r.stations)E.amount>0&&E.bills&&(xo(E.zone.x,E.zone.z,nt?4.6:5.4,"#ffd23f","#c97a00",1.6),y.font=`900 ${Math.round((nt?7:8)*R)}px Arial,sans-serif`,y.textAlign="center",y.textBaseline="middle",y.fillStyle="#7a4a00",y.fillText("\u20BA",kt(E.zone.x),wt(E.zone.z)+.5*R));let f=nt?.85:1;ll(r.customers,2.3*f,"#ffffff","rgba(59,42,107,.8)",1.1),r.thief&&xo(r.thief.obj.position.x,r.thief.obj.position.z,(r.thief.loot?5+Math.sin(r.time*10):3.6)*f,"#e8473c","#ffffff",1.6),ll(r.workers,3.4*f,"#9c6cf0","#ffffff",1.5);let c=r.regions.han&&r.regions.han.caravan;c&&c.state!=="away"&&xo(c.members[0].position.x,c.members[0].position.z,4*f,"#f6a623","#ffffff",1.5);let d=r.regions.koy.cars&&r.regions.koy.cars.car;d&&xo(d.position.x,d.position.z,3.6*f,"#e8604c","#ffffff",1.5);let p=r.nextPad||r.needPad||r.finalPad;if(p){let E=1+Math.sin(r.time*5)*.15,z=kt(p.def.at[0]),x=wt(p.def.at[1]),k=12*R;if(z>k&&x>k&&z<K-k&&x<K-k)y.beginPath(),y.arc(z,x,11*R*E,0,7),y.fillStyle="rgba(255,210,63,.3)",y.fill(),Oa(z,x,7.5*R*E);else{let M=kt(a.x),T=wt(a.z),B=Math.atan2(x-T,z-M),C=mo(M+Math.cos(B)*K,k,K-k),A=mo(T+Math.sin(B)*K,k,K-k);y.save(),y.translate(C,A),y.rotate(B),y.beginPath(),y.moveTo(9*R,0),y.lineTo(-5*R,-6*R),y.lineTo(-5*R,6*R),y.closePath(),y.fillStyle="#ffd23f",y.fill(),y.lineWidth=1.6*R,y.strokeStyle="#7a4a00",y.stroke(),y.restore(),Oa(C-Math.cos(B)*12*R,A-Math.sin(B)*12*R,5.5*R)}}let h=r.player.rotation.y,m=Math.sin(h),u=Math.cos(h),g=(nt?7.5:8.5)*R,w=kt(a.x),S=wt(a.z),b=r.time*1.4%1;y.beginPath(),y.arc(w,S,g*(1+b*1.3),0,7),y.strokeStyle=`rgba(59,139,235,${.6*(1-b)})`,y.lineWidth=2.2*R,y.stroke(),y.beginPath(),y.moveTo(w+m*g,S+u*g),y.lineTo(w-m*g*.65+u*g*.7,S-u*g*.65-m*g*.7),y.lineTo(w-m*g*.25,S-u*g*.25),y.lineTo(w-m*g*.65-u*g*.7,S-u*g*.65+m*g*.7),y.closePath(),y.fillStyle="#3b8beb",y.fill(),y.lineWidth=2.2*R,y.strokeStyle="#ffffff",y.lineJoin="round",y.stroke();let v=r.runGoal;if(v&&(y.beginPath(),y.arc(kt(v.x),wt(v.z),6.5*R,0,7),y.lineWidth=3*R,y.strokeStyle="#56c27e",y.stroke(),y.beginPath(),y.arc(kt(v.x),wt(v.z),2.4*R,0,7),y.fillStyle="#56c27e",y.fill()),nt){yo("Gitmek istedi\u011Fin yere dokun",K/2,18*R,12);let E=K-22*R,z=22*R;y.beginPath(),y.arc(E,z,15*R,0,7),y.fillStyle="rgba(255,255,255,.92)",y.fill(),y.lineWidth=1.5*R,y.strokeStyle="rgba(59,42,107,.35)",y.stroke(),y.font=`900 ${Math.round(14*R)}px sans-serif`,y.textAlign="center",y.textBaseline="middle",y.fillStyle="#3b2a6b",y.fillText("\u2715",E,z+.5*R)}if(nt){let E=[["#ffd23f","Hedef","star"],["#ffd23f","Para","coin"],["#9c6cf0","Eleman"],["#ffffff","M\xFC\u015Fteri"],["#3b8beb","Sen"]];y.font=`800 ${Math.round(11*R)}px 'Nunito','Segoe UI',sans-serif`;let z=Math.max(...E.map(C=>y.measureText(C[1]).width)),x=17*R,k=7*R,M=k*2+16*R+z,T=k*2+x*E.length,B=K-T-8*R;y.fillStyle="rgba(255,255,255,.9)",y.beginPath(),y.roundRect(8*R,B,M,T,10*R),y.fill(),y.lineWidth=1.2*R,y.strokeStyle="rgba(59,42,107,.25)",y.stroke(),E.forEach(([C,A,L],P)=>{let _=8*R+k+6*R,O=B+k+x*(P+.5);L==="star"?Oa(_,O,6*R):(y.beginPath(),y.arc(_,O,4.8*R,0,7),y.fillStyle=C,y.fill(),y.lineWidth=1.3*R,y.strokeStyle=L==="coin"?"#c97a00":"rgba(59,42,107,.8)",y.stroke()),y.font=`800 ${Math.round(11*R)}px 'Nunito','Segoe UI',sans-serif`,y.textAlign="left",y.textBaseline="middle",y.fillStyle="#3b2a6b",y.fillText(A,_+10*R,O+.5*R)})}}l(ml,"updateMinimap");var yl=.006,bf=.012,kf=.5,wf=.3,dt=new Ae,ae=new $,ie=new $,xl=0,gl=0,Na=!1,Me=[],wn=[];function Mf(t){if(!t.isMesh||t.isInstancedMesh||t.isSkinnedMesh||t.userData.zfix!==void 0)return!1;let n=Array.isArray(t.material)?t.material[0]:t.material;return!(!n||n.polygonOffset)}l(Mf,"flatMesh");function vf(){wn.length||wn.push(r.scene);let t=performance.now();for(let n=1;wn.length;n++){if((n&63)===0&&performance.now()-t>1)return!1;let e=wn.pop();if(!e.visible||e!==r.scene&&!e.parent)continue;for(let o=0;o<e.children.length;o++)wn.push(e.children[o]);if(!Mf(e)||(e.updateWorldMatrix(!0,!1),dt.setFromObject(e),e.userData.zfix=null,dt.isEmpty()||dt.max.y-dt.min.y>bf||dt.max.y>kf))continue;let a=(dt.max.x-dt.min.x)*(dt.max.z-dt.min.z);a<wf||(e.userData.zfix={y0:(dt.max.y+dt.min.y)/2,x0:dt.min.x,x1:dt.max.x,z0:dt.min.z,z1:dt.max.z,area:a,lift:0},Me.push(e),Na=!0)}return!0}l(vf,"collect");function Ef(){let t=Me.filter(a=>a.parent);Me.length=0,Me.push(...t),t.sort((a,o)=>a.userData.zfix.y0-o.userData.zfix.y0||o.userData.zfix.area-a.userData.zfix.area);let n=new Map,e=0;for(let a=0;a<t.length;a++){let o=t[a].userData.zfix,i=o.y0;for(let d=0;d<a;d++){let p=t[d].userData.zfix;o.y0-p.y0>=yl||p.x1<=o.x0||p.x0>=o.x1||p.z1<=o.z0||p.z0>=o.z1||(i=Math.max(i,n.get(t[d])+yl))}n.set(t[a],i);let s=i-o.y0,f=s-o.lift;if(Math.abs(f)<1e-5)continue;let c=t[a];c.parent&&(c.getWorldPosition(ae),ie.copy(ae),ie.y+=f,c.parent.worldToLocal(ae),c.parent.worldToLocal(ie),c.position.add(ie.sub(ae)),c.updateMatrixWorld()),o.lift=s,e++}return e}l(Ef,"layer");function bl(t){if((gl-=t)>0||!vf())return;gl=3;let n=r.scene.children.length;(Na||n!==xl)&&Ef(),Na=!1,xl=n}l(bl,"updateGround");window.__zfix=()=>({flat:Me.length,lifted:Me.filter(t=>t.userData.zfix&&t.userData.zfix.lift>0).length});window.__zfixSet=t=>{for(let n of Me){let e=n.userData.zfix;if(!e||!n.parent)continue;let a=t?e.lift:0,o=e.cur??e.lift,i=a-o;i&&(n.getWorldPosition(ae),ie.copy(ae),ie.y+=i,n.parent.worldToLocal(ae),n.parent.worldToLocal(ie),n.position.add(ie.sub(ae)),n.updateMatrixWorld(),e.cur=a)}};var kl=l(t=>Math.max(5,Math.round(t/5)*5),"r5"),Ga=l(t=>r.stats.time>600?t/r.stats.time*xr*.5:0,"per"),ve={mus:{icon:"\u{1F465}",text:l(t=>`${t} m\xFC\u015Fteriye hizmet et`,"text"),val:l(()=>r.stats.customers,"val"),goal:l(()=>kl(Math.max(12+1.5*r.level,Ga(r.stats.customers))),"goal")},sat:{icon:"\u{1F4E6}",text:l(t=>`${t} \xFCr\xFCn sat`,"text"),val:l(()=>r.stats.sold,"val"),goal:l(()=>kl(Math.max(20+2.5*r.level,Ga(r.stats.sold))),"goal")},kaz:{icon:"\u{1F4B0}",text:l(t=>`${t.toLocaleString("tr-TR")} \u20BA kazan`,"text"),val:l(()=>r.stats.earned,"val"),goal:l(()=>Math.max(200,Math.round(Ga(r.stats.earned)/100)*100),"goal")},kervan:{icon:"\u{1F42B}",text:l(t=>`${t} kervan\u0131 memnun et`,"text"),val:l(()=>r.stats.caravans,"val"),goal:l(()=>2+Math.floor(r.level/10),"goal"),ok:l(()=>r.unlocked.has("gh"),"ok")},paket:{icon:"\u{1F697}",text:l(t=>`${t} paket sipari\u015Fi teslim et`,"text"),val:l(()=>r.stats.cars,"val"),goal:l(()=>3+Math.floor(r.level/8),"goal"),ok:l(()=>r.unlocked.has("kc"),"ok")},golge:{icon:"\u2602\uFE0F",text:l(t=>`\xD6\u011Flen ${t} m\xFC\u015Fteriye \u015Femsiye g\xF6lgesinde servis yap`,"text"),val:l(()=>r.stats.shade||0,"val"),goal:l(()=>3+Math.floor(r.level/8),"goal"),ok:l(()=>r.unlocked.has("gs"),"ok")}},bo=l(()=>Math.round((75+60*(r.level||1))/5)*5,"reward"),_t=null,Wt=null,wl="",Ml=0;function vl(t){let n=["mus","sat","kaz"].sort(()=>Math.random()-.5).slice(0,2),e=["kervan","paket","golge"].filter(o=>ve[o].ok()),a=e.length?[...n,e[Math.floor(Math.random()*e.length)]]:["mus","sat","kaz"];r.stats.daily={day:t,list:a.map(o=>({k:o,goal:ve[o].goal(),from:ve[o].val(),done:!1})),all:!1}}l(vl,"newDay");var El=l(t=>Math.min(t.goal,Math.max(0,ve[t.k].val()-t.from)),"prog");function zl(){r.stats.dailyDone=r.stats.dailyDone||0,(!r.stats.daily||!Array.isArray(r.stats.daily.list)||r.stats.daily.list.some(e=>!e||!ve[e.k]||typeof e.goal!="number"))&&vl(r.stats.dayN||0),r.hooks.newDay=e=>{r.stats.dayN=e,vl(e),r.player&&ut("\u{1F4CB} Yeni g\xFCn, yeni g\xF6revler: saatin alt\u0131ndaki rozete dokun")};let t=document.createElement("style");t.textContent=`#taskChip { position: absolute; top: 194px; left: 14px; padding: 4px 12px 4px 8px; border-radius: 999px; font: 16px var(--font-title); cursor: pointer; white-space: nowrap; pointer-events: auto; }
+#taskChip.all { background: #d9f7c8; }
+#taskPop { position: absolute; top: 234px; left: 14px; width: min(300px, calc(100vw - 28px)); padding: 10px 12px; border-radius: 16px; display: none; z-index: 30; font: 14px/1.35 var(--font-body); pointer-events: auto; }
+#taskPop.on { display: block; }
+#taskPop h5 { margin: 0 0 6px; font: 17px var(--font-title); font-weight: normal; }
+#taskPop .t { display: grid; grid-template-columns: 26px 1fr auto; gap: 6px; align-items: center; margin: 6px 0; }
+#taskPop .t i { font-style: normal; font-size: 18px; }
+#taskPop .t .bar { grid-column: 2 / 4; height: 6px; border-radius: 4px; background: rgba(0,0,0,.12); overflow: hidden; }
+#taskPop .t .bar u { display: block; height: 100%; background: linear-gradient(90deg, #7ed957, #3fae6b); }
+#taskPop .t.done b { text-decoration: line-through; opacity: .6; }
+#taskPop small { display: block; margin-top: 6px; opacity: .75; }
+#taskPop .sz { margin: 0 0 4px; font-size: 13px; opacity: .85; } #taskPop hr { border: 0; border-top: 1px dashed rgba(0,0,0,.2); margin: 10px 0; }
+@media (max-width: 640px) { #taskChip { top: auto; bottom: 256px; left: 14px; font-size: 14px; } #taskPop { top: auto; bottom: 292px; } } /* mahalle puan\u0131n\u0131n (#rep) \xFCst\xFCnde */`,document.head.appendChild(t);let n=document.getElementById("hud")||document.body;_t=document.createElement("div"),_t.id="taskChip",_t.className="hp",_t.title="Bug\xFCn\xFCn g\xF6revleri",Wt=document.createElement("div"),Wt.id="taskPop",Wt.className="hp",_t.onclick=e=>{e.stopPropagation(),Wt.classList.toggle("on"),Tl()},Wt.onclick=()=>Wt.classList.remove("on"),n.append(_t,Wt)}l(zl,"initGorev");function Tl(){if(!Wt.classList.contains("on"))return;let t=r.stats.daily;Wt.innerHTML=`${Fr()}${r.hooks.weekHTML?r.hooks.weekHTML():""}<h5>\u{1F4CB} Bug\xFCn\xFCn g\xF6revleri</h5>${t.list.map(n=>{let e=ve[n.k],a=El(n);return`<div class="t${n.done?" done":""}"><i>${n.done?"\u2705":e.icon}</i><b>${e.text(n.goal)}</b><span>${a.toLocaleString("tr-TR")}/${n.goal.toLocaleString("tr-TR")}</span><span class="bar"><u style="width:${a/n.goal*100}%"></u></span></div>`}).join("")}<small>Her g\xF6rev ${bo().toLocaleString("tr-TR")} \u20BA, 15 XP ve \u{1F48E} 1 elmas; \xFC\xE7\xFC bitince ${(bo()*2).toLocaleString("tr-TR")} \u20BA ve \u{1F48E} 1 daha (elmasla tatile gidilir). G\xF6revler yeni g\xFCnde (\u{1F305}) yenilenir.</small>`}l(Tl,"renderPop");function Sl(t){if(!_t||(Ml-=t)>0)return;Ml=.5;let n=r.stats.daily;for(let o of n.list){if(o.done||El(o)<o.goal)continue;o.done=!0,r.stats.dailyDone++;let i=bo();r.visit||(r.money+=i),dr(15),sn(1),la("G\xD6REV TAMAM",`${ve[o.k].icon} +${i.toLocaleString("tr-TR")} \u20BA \xB7 \u{1F48E} +1`),Jt("buy")}if(!n.all&&n.list.every(o=>o.done)){n.all=!0;let o=bo()*2;r.visit||(r.money+=o),sn(1),la("G\xDCN\xDCN G\xD6REVLER\u0130 TAMAM",`\u{1F381} +${o.toLocaleString("tr-TR")} \u20BA \xB7 \u{1F48E} +1`),Jt("hire")}let e=n.list.filter(o=>o.done).length,a=`\u{1F4CB} ${e}/${n.list.length}`;a!==wl&&(wl=a,_t.textContent=a,_t.classList.toggle("all",n.all)),Tl()}l(Sl,"updateGorev");var zf=4,Tf=1/6,Sf=5,ko=2e4,Rf=["\u{1F44B}","\u{1F44D}","\u2764\uFE0F","\u{1F602}","\u{1F389}","\u{1F64F}","\u{1F62E}","\u{1F525}"],Lf=["Merhaba!","K\xF6y\xFCn \xE7ok g\xFCzel!","Kasaya bak\u0131yorum","Raflar\u0131 dolduruyorum","\u015Eehre gidiyorum","G\xF6r\xFC\u015F\xFCr\xFCz!"],ot=null,Mt=null,At=new Map,Va=0,Wa=0,Ke=null,Ue=null,Ee=[];async function Pf(t,n){let e=await Mr();if(!e||e.mock)return e&&e.mock?Cl(t,n):null;let{D:a,db:o}=e,i=`rooms/${t}`,s=a.ref(o,`${i}/players/${n}`);return a.onDisconnect(s).remove(),{count:l(async()=>{let f=await a.get(a.ref(o,`${i}/players`));return f.exists()?Object.values(f.val()).filter(c=>c&&Date.now()-(c.t||0)<ko).length:0},"count"),put:l(f=>a.set(s,f).catch(()=>{}),"put"),onPlayers:l(f=>a.onValue(a.ref(o,`${i}/players`),c=>f(c.val()||{})),"onPlayers"),say:l(f=>a.push(a.ref(o,`${i}/chat`),{uid:n,name:Mt.name,text:f,t:Date.now()}).catch(()=>{}),"say"),onChat:l(f=>a.onChildAdded(a.query(a.ref(o,`${i}/chat`),a.limitToLast(8)),c=>f(c.val(),c.key)),"onChat"),trim:l(async()=>{let f=await a.get(a.ref(o,`${i}/chat`));if(!f.exists())return;let c=Object.keys(f.val());for(let d of c.slice(0,Math.max(0,c.length-20)))a.remove(a.ref(o,`${i}/chat/${d}`)).catch(()=>{})},"trim"),act:l(f=>a.push(a.ref(o,`${i}/acts`),{...f,uid:n,t:Date.now()}).catch(()=>{}),"act"),onAct:l(f=>a.onChildAdded(a.ref(o,`${i}/acts`),c=>{f(c.val()),a.remove(c.ref).catch(()=>{})}),"onAct"),leave:l(()=>{a.remove(s).catch(()=>{}),a.off(a.ref(o,`${i}/players`))},"leave")}}l(Pf,"firebaseRoom");function Cl(t,n){let e=new BroadcastChannel(`koyBakkali.canli.${t}`),a={},o={},i=l(()=>{},"onP"),s=l(()=>{},"onC"),f=l(()=>{},"onA");return e.onmessage=c=>{let d=c.data;d.k==="p"?(o[d.uid]=d.d,a[d.uid]=Date.now(),i({...o})):d.k==="x"?(delete o[d.uid],i({...o})):d.k==="c"?s(d.msg,`${d.msg.t}${d.msg.uid}`):d.k==="a"&&f(d.a)},setInterval(()=>{let c=Date.now(),d=!1;for(let p in a)c-a[p]>5e3&&(delete o[p],delete a[p],d=!0);d&&i({...o})},1e3),addEventListener("pagehide",()=>e.postMessage({k:"x",uid:n})),{count:l(async()=>Object.keys(o).length,"count"),put:l(c=>{o[n]=c,e.postMessage({k:"p",uid:n,d:c}),i({...o})},"put"),onPlayers:l(c=>{i=c},"onPlayers"),say:l(c=>{let d={uid:n,name:Mt.name,text:c,t:Date.now()};e.postMessage({k:"c",msg:d}),s(d,`${d.t}${n}`)},"say"),onChat:l(c=>{s=c},"onChat"),trim:l(()=>{},"trim"),act:l(c=>e.postMessage({k:"a",a:{...c,uid:n,t:Date.now()}}),"act"),onAct:l(c=>{f=c},"onAct"),leave:l(()=>{e.postMessage({k:"x",uid:n}),e.close()},"leave")}}l(Cl,"mockRoom");function Bf(t,n){let e=Fe({shirt:n.c||"#3b8beb",pants:"#2d3e66",hat:"cap",hatColor:"#ffd23f",skin:"#f3cfae"});e.position.set(n.x,0,n.z),e.rotation.y=n.r||0,r.scene.add(e);let a=document.createElement("div");a.className="staff live",a.textContent=`${n.a||"\u{1F9D1}\u200D\u{1F33E}"} ${ye(n.n)||"Kom\u015Fu"}`;let o=r.labels.add(a,i=>i.copy(e.position).setY(e.position.y+2.5));return{uid:t,o:e,tag:o,el:a,d:n,tx:n.x,tz:n.z,tr:n.r||0,bub:null,bubT:0}}l(Bf,"avatar");function Rl(t){r.scene.remove(t.o),r.labels.remove(t.tag),t.bub&&r.labels.remove(t.bub),At.delete(t.uid)}l(Rl,"drop");function Cf(t){let n=Date.now();for(let[e,a]of At)(!t[e]||n-(t[e].t||0)>ko)&&Rl(a);for(let e in t){if(e===Mt.uid)continue;let a=t[e];if(n-(a.t||0)>ko||(a.w||"koy")!==(r.world||"koy")){let i=At.get(e);i&&Rl(i);continue}let o=At.get(e);o||(o=Bf(e,a),At.set(e,o),ut(`${a.a||"\u{1F9D1}\u200D\u{1F33E}"} ${ye(a.n)||"Bir kom\u015Fu"} k\xF6yde`)),o.d=a,o.tx=a.x,o.tz=a.z,o.tr=a.r||0}if(Ue&&(Ue.btn.style.display=At.size?"flex":"none"),r.visit){let e=t[r.visit.uid],a=!!(e&&n-(e.t||0)<ko);a&&!Mo&&ut(`\u{1F534} ${r.visit.name} \u015Fu an oyunda: dizdi\u011Fin \xFCr\xFCnler ve toplad\u0131\u011F\u0131n para ona an\u0131nda gidiyor`),Mo=a}}l(Cf,"players");function $f(t,n){let e=t===Mt.uid?{o:r.player}:At.get(t);if(!e||!e.o)return;e.bub&&r.labels.remove(e.bub);let a=document.createElement("div");a.className="bubble livesay",a.textContent=n,e.bub=r.labels.add(a,o=>o.copy(e.o.position).setY(e.o.position.y+3.1),6)}l($f,"bubble");var Mo=!1,Ll=0,Pl=new Set,$l=l(t=>`${Math.round(t.zone.x*10)}:${Math.round(t.zone.z*10)}`,"skey"),Hf=l(()=>r.player.position.clone().set(0,0,0),"V3");function jf(t,n){let e=r.visit;!e||e.ended||(e.stocked=(e.stocked||0)+1,Mo&&ot&&ot.act({k:"stock",key:$l(t),type:n}))}l(jf,"stocked");function Df(t){if(!t||t.uid===Mt.uid)return;let n=At.get(t.uid);if(!n)return;let e=ye(n.d&&n.d.n||"Kom\u015Fu"),a=n.o.position;if(Pl.has(t.uid)||(Pl.add(t.uid),ut(`\u{1F91D} ${e} yard\u0131m ediyor: dizdi\u011Fi \xFCr\xFCnler ve toplad\u0131\u011F\u0131 para sana geliyor`)),t.k==="para"&&t.n>0){let o=Math.min(5e4,Math.floor(t.n));r.money+=o,on(a,`\u{1F91D} +${o.toLocaleString("tr-TR")} \u20BA`,"pos")}else if(t.k==="stock"&&Xt[t.type]){let o=r.stations.find(f=>f instanceof Ge&&$l(f)===t.key);if(!o||!o.hasSpaceFor(t.type))return;let i=o.slots.indexOf(null),s=pe(t.type);s.position.copy(a).setY(1.4),r.scene.add(s),o.slots[i]={type:t.type,obj:s},an(s,o.anchors[i],Hf(),.45,1.3)}}l(Df,"applyAct");var Af=`#chatBtn { position: absolute; right: 22px; bottom: 236px; width: 52px; height: 52px; border-radius: 50%; display: none; place-items: center; font-size: 26px; cursor: pointer; pointer-events: auto; }
+#chatPan { position: absolute; right: 22px; bottom: 296px; width: min(320px, calc(100vw - 28px)); padding: 10px 12px; border-radius: 16px; display: none; z-index: 31; font: 14px/1.35 var(--font-body); pointer-events: auto; }
+#chatPan.on { display: block; }
+#chatPan .em, #chatPan .ph { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+#chatPan button { border: 0; border-radius: 10px; padding: 5px 8px; background: rgba(0,0,0,.07); font: inherit; cursor: pointer; }
+#chatPan .em button { font-size: 20px; padding: 3px 6px; }
+#chatPan form { display: flex; gap: 6px; } #chatPan input { flex: 1; min-width: 0; border-radius: 10px; border: 1px solid rgba(0,0,0,.2); padding: 6px 8px; font: inherit; }
+#chatPan .log { max-height: 110px; overflow: auto; margin-bottom: 8px; } #chatPan .log p { margin: 2px 0; } #chatPan .log b { font-weight: 800; }
+.staff.live { background: #3b8beb; color: #fff; }
+.bubble.livesay { max-width: 180px; white-space: normal; text-align: center; }
+@media (max-width: 640px) { #chatBtn { right: 14px; bottom: 262px; width: 46px; height: 46px; } #chatPan { right: 14px; bottom: 314px; } }`;function If(){let t=document.createElement("style");t.textContent=Af,document.head.appendChild(t);let n=document.getElementById("hud")||document.body,e=document.createElement("div");e.id="chatBtn",e.className="hp",e.textContent="\u{1F4AC}",e.title="K\xF6ydekilerle yaz\u0131\u015F";let a=document.createElement("div");a.id="chatPan",a.className="hp",a.innerHTML=`<div class="log"></div><div class="em">${Rf.map(i=>`<button type="button" data-t="${i}">${i}</button>`).join("")}</div>
+<div class="ph">${Lf.map(i=>`<button type="button" data-t="${i}">${i}</button>`).join("")}</div>
+<form><input maxlength="80" placeholder="Bir \u015Fey yaz\u2026" autocomplete="off"><button type="submit">G\xF6nder</button></form>`,e.onclick=i=>{i.stopPropagation(),a.classList.toggle("on")},a.addEventListener("click",i=>{let s=i.target.closest("button[data-t]");s&&Bl(s.dataset.t)});let o=a.querySelector("input");o.addEventListener("keydown",i=>i.stopPropagation()),a.querySelector("form").onsubmit=i=>{i.preventDefault(),Bl(o.value),o.value=""},n.append(e,a),Ue={btn:e,pan:a,log:a.querySelector(".log")}}l(If,"buildUi");function Bl(t){t=String(t||"").replace(/\s+/g," ").trim().slice(0,80),!(!t||!ot)&&ot.say(ye(t))}l(Bl,"send");var Hl=0;function Of(t){!t||typeof t.text!="string"||Dl().includes(t.uid)||(t={...t,name:ye(String(t.name||"Kom\u015Fu")),text:ye(t.text)},(t.t||0)>Hl-3e4&&$f(t.uid,t.text),Ee.push(t),Ee.length>6&&Ee.shift(),wo())}l(Of,"heard");var jl="koyBakkali.sustur",Dl=l(()=>{try{return JSON.parse(localStorage.getItem(jl)||"[]")}catch{return[]}},"muted"),Mn=-1;function wo(){Ue&&(Ue.log.innerHTML="",Ee.forEach((t,n)=>{let e=document.createElement("p");e.setAttribute("translate","no");let a=document.createElement("b");if(a.textContent=`${t.name}: `,e.append(a,t.text),t.uid!==Mt.uid&&(e.style.cursor="pointer",e.onclick=o=>{o.stopPropagation(),!o.target.closest("button")&&(Mn=Mn===n?-1:n,wo())},Mn===n)){let o=document.createElement("span");o.style.cssText="display:flex;gap:6px;margin:3px 0 4px";let i=document.createElement("button");i.type="button",i.textContent="\u{1F507} Sustur",i.onclick=()=>{let f=Dl();f.includes(t.uid)||f.push(t.uid);try{localStorage.setItem(jl,JSON.stringify(f.slice(-200)))}catch{}for(let c=Ee.length-1;c>=0;c--)Ee[c].uid===t.uid&&Ee.splice(c,1);Mn=-1,wo(),ut(`\u{1F507} ${t.name} susturuldu`)};let s=document.createElement("button");s.type="button",s.textContent="\u{1F6A9} Bildir",s.onclick=()=>{Yn("sikayet",`uid ${t.uid} \xB7 ${t.name}: ${t.text} \xB7 k\xF6y ${r.visit?r.visit.uid:Mt.uid}`).catch(()=>{}),Mn=-1,wo(),ut("\u{1F6A9} Bildirildi, te\u015Fekk\xFCrler")},o.append(i,s),e.append(o)}Ue.log.append(e)}))}l(wo,"drawLog");async function Al(){if(Ve.mode==="off"||!wr())return;let t=r.visit?r.visit.uid:Ve.user.uid,n=Ve.profile;Mt={uid:Ve.user.uid,name:n&&(n.name||n.username)||"Oyuncu",avatar:n&&n.avatar||"\u{1F9D1}\u200D\u{1F33E}",color:n&&n.color||r.custom.shirt};try{ot=Ve.mode==="mock"?Cl(t,Mt.uid):await Pf(t,Mt.uid)}catch(e){console.warn("canl\u0131 ziyaret a\xE7\u0131lamad\u0131",e),ot=null}if(ot){if(r.visit&&await ot.count()>=zf){ut("\u{1F465} Bu k\xF6y \u015Fu an dolu (4 ki\u015Fi): canl\u0131 g\xF6r\xFCnmeden ziyaret ediyorsun"),ot=null;return}Hl=Date.now(),If(),ot.onPlayers(Cf),ot.onChat(Of),r.visit?r.hooks.stocked=jf:ot.onAct(Df),r.visit||ot.trim(),addEventListener("pagehide",()=>ot&&ot.leave())}}l(Al,"initCanli");function Il(t){if(!ot||!r.player)return;let n=r.player.position,e=r.player.rotation.y,a=r.world||"koy";if(Va-=t,Wa-=t,((!Ke||Math.abs(n.x-Ke.x)+Math.abs(n.z-Ke.z)>.05||Math.abs(e-Ke.r)>.1||a!==Ke.w)&&Va<=0&&At.size>0||Wa<=0)&&(Va=Tf,Wa=Sf,Ke={x:n.x,z:n.z,r:e,w:a},ot.put({x:Math.round(n.x*100)/100,z:Math.round(n.z*100)/100,r:Math.round(e*100)/100,w:a,n:Mt.name,a:Mt.avatar,c:Mt.color,t:Date.now()})),r.visit&&Mo&&!r.visit.ended&&(Ll-=t)<=0){Ll=1;let s=r.visit,f=Math.max(0,Math.floor(r.money-s.purse)),c=f-(s.liveSent||0);c>=5&&(s.liveSent=f,ot.act({k:"para",n:c}))}let i=Math.min(1,t*8);for(let s of At.values()){let f=s.o,c=s.tx-f.position.x,d=s.tz-f.position.z,p=Math.hypot(c,d);p>12?f.position.set(s.tx,0,s.tz):(f.position.x+=c*i,f.position.z+=d*i);let h=s.tr-f.rotation.y;h=Math.atan2(Math.sin(h),Math.cos(h)),f.rotation.y+=h*i,Ne(f,p>.08?1:0,t,!1)}}l(Il,"updateCanli");var To=Math.PI,vo=40,Ol=48,_a=2.6,Ua=.2,Te=1.3,Ff=.42,Nf={yuksek:6,orta:5,dusuk:3,pil:3},Gf=1,Vf=l((t,n)=>{let e=Math.sin(t*12.9898+n*78.233)*43758.5453;return e-Math.floor(e)},"hash"),So=[["root",-1,0,0,0],["hips",0,0,.13,.04],["hind",1,0,.1,.03],["chest",1,0,.14,.1],["head",3,0,.2,.22],["front",3,0,.13,.22],["nut",5,0,.05,.27],["t1",1,0,.14,-.07],["t2",7,0,.27,-.07],["t3",8,0,.41,-.07]],Wf=Object.fromEntries(So.map((t,n)=>[t[0],n]));function at(t,n,e,a,o,i,s=1,f=1,c=1,d=0){t.index&&(t=t.toNonIndexed()),t.deleteAttribute("uv"),t.scale(s,f,c),d&&t.rotateZ(d),t.translate(a,o,i);let p=new Fn(n),h=t.attributes.position.count,m=new Float32Array(h*3),u=new Uint16Array(h*4),g=new Float32Array(h*4);for(let w=0;w<h;w++)m[w*3]=p.r,m[w*3+1]=p.g,m[w*3+2]=p.b,u[w*4]=Wf[e],g[w*4]=1;return t.setAttribute("color",new Gn(m,3)),t.setAttribute("skinIndex",new Gn(u,4)),t.setAttribute("skinWeight",new Gn(g,4)),t}l(at,"part");var lt=l(()=>new Di(1,1),"ball"),qa=null,_l=null;function _f(){if(qa)return;let t="#c0662e",n="#9c4f22",e="#f1d9b5",a="#7f3f1a",o=[];for(let i of[-1,1])o.push(at(lt(),n,"hind",i*.075,.085,.02,.06,.075,.09)),o.push(at(lt(),a,"hind",i*.07,.015,.075,.03,.02,.065)),o.push(at(lt(),t,"front",i*.042,.09,.225,.022,.05,.024)),o.push(at(lt(),a,"front",i*.044,.04,.235,.022,.02,.028)),o.push(at(lt(),"#141414","head",i*.048,.27,.31,.019,.019,.019)),o.push(at(lt(),"#ffffff","head",i*.054,.277,.325,.006,.006,.006)),o.push(at(lt(),e,"head",i*.042,.222,.312,.034,.03,.034)),o.push(at(new ji(.028,.07,5),n,"head",i*.045,.33,.24,1,1,1,-i*.25));o.push(at(lt(),t,"hips",0,.13,.03,.115,.11,.125)),o.push(at(lt(),e,"hips",0,.105,.065,.08,.075,.09)),o.push(at(lt(),t,"chest",0,.15,.16,.1,.1,.12)),o.push(at(lt(),e,"chest",0,.125,.2,.07,.07,.08)),o.push(at(lt(),t,"head",0,.24,.26,.085,.085,.085)),o.push(at(lt(),e,"head",0,.225,.33,.055,.05,.06)),o.push(at(lt(),"#2b1b14","head",0,.235,.39,.016,.016,.016)),o.push(at(lt(),"#a8743a","nut",0,.045,.272,.026,.032,.026)),o.push(at(lt(),"#5b3a1e","nut",0,.073,.272,.029,.014,.029));for(let[i,s,f,c]of[["t1",.17,.056,"#b25a28"],["t1",.225,.07,"#bd642d"],["t2",.285,.082,"#c56d34"],["t2",.35,.092,"#cb7539"],["t3",.42,.09,"#d07c40"],["t3",.49,.077,"#d88a4c"],["t3",.55,.055,"#e6ab72"]])o.push(at(lt(),c,i,0,s,-.07,f*1.05,f*.95,f*.9));qa=Gi(o),_l=new Oi({vertexColors:!0,roughness:.85})}l(_f,"geos");var Kl={run:{hips:0,hind:0,chest:0,head:-.1,front:0,t1:-1.25,t2:.35,t3:.45,pp:0},flee:{hips:0,hind:0,chest:0,head:-.05,front:0,t1:-1.5,t2:.12,t3:.18,pp:0},climb:{hips:0,hind:.3,chest:0,head:-.25,front:-.3,t1:-1.2,t2:.3,t3:.4,pp:0},cling:{hips:0,hind:.35,chest:0,head:-.2,front:-.35,t1:-1,t2:.5,t3:.6,pp:0},still:{hips:0,hind:0,chest:-.12,head:-.3,front:0,t1:-.7,t2:.65,t3:.75,pp:0},tall:{hips:0,hind:1.25,chest:-.15,head:1.25,front:-.9,t1:.6,t2:.6,t3:.7,pp:-1.25},eat:{hips:0,hind:1.05,chest:-.2,head:1.1,front:-1.35,t1:.45,t2:.65,t3:.85,pp:-1.05},dig:{hips:0,hind:-.15,chest:.18,head:.35,front:-.35,t1:-.9,t2:.75,t3:.6,pp:.22}},Kf=["hips","hind","chest","head","front","t1","t2","t3","pp"],Uf=new Set(["still","tall","cling"]);function qf(){_f();let t=new jt,n=new jt,e=new Pi(qa,_l),a=So.map(([i])=>{let s=new Bi;return s.name=i,s});So.forEach(([,i,s,f,c],d)=>{let p=i>=0?So[i]:[0,0,0,0,0];a[d].position.set(s-p[2],f-p[3],c-p[4]),i>=0&&a[i].add(a[d])}),e.add(a[0]),e.updateMatrixWorld(!0),e.bind(new Ci(a)),e.castShadow=!0,e.frustumCulled=!1,e.userData.bkNo=!0,n.add(e),t.add(n),t.scale.setScalar(Gf),t.visible=!1,r.scene.add(t);let o=Object.fromEntries(a.map(i=>[i.name,i]));return o.nut.scale.setScalar(.001),{o:t,pose:n,b:o,a:{...Kl.still},gw:0,hy:0,mode:"still",T:null,st:"hide",y:0,x:0,z:0,tx:0,tz:0,t:0,wait:0,yaw:0,pitch:0,ph:0,look:0,lookT:0,flick:0,hops:0,fast:!1,goal:"",T2:null,ck:0,act:"eat",pz:0,pzK:"still",run:1,cb:0,cp:0}}l(qf,"makeSquirrel");var It=[],Fl="",Nl=0,ze=null,Se=[],En=new Map;function Ul(t,n,e=.25){if(bt(t,n)<-.15)return!0;for(let a of r.colliders)if(t>a[0]-e&&t<a[1]+e&&n>a[2]-e&&n<a[3]+e)return!0;return!1}l(Ul,"blockedAt");function Yf(){let t=Object.values(r.regions).filter(o=>o.unlocked).length+"|"+(r.unlocked?r.unlocked.size:0)+"|"+(r.trees?r.trees.length:0);if(t===Fl)return;Fl=t,ze=null;let n=[];for(let o of r.trees||[])o[3]||n.push([o[0],o[1],2*o[2],null,null]);let e=new $,a=new $;r.scene.traverseVisible(o=>{o.userData.leafTree&&(o.getWorldPosition(e),o.getWorldScale(a),n.push([e.x,e.z,o.userData.leafTree*a.y,e.y,o]))}),It=[];for(let[o,i,s,f,c]of n){let d=o.toFixed(2)+","+i.toFixed(2),p=En.get(d);p!==!1&&It.push({x:o,z:i,y0:f??bt(o,i),hc:s,obj:c,k:d,m:p,busy:null})}for(let o of Se){if(!o.T)continue;let i=It.find(s=>s.k===o.T.k);i?(i.busy=o,o.T=i):(o.T=null,o.o.visible=!1,o.wait=0),o.T2&&(o.T2=It.find(s=>s.k===o.T2.k)||null)}}l(Yf,"refreshTrees");var vn=new Ie,Eo=[],zo=new Nt,Gl=new On,Ro=new $,Xf=new $;vn.layers.enableAll();var Vl=l((t,n)=>`${Math.floor(t/2)},${Math.floor(n/2)}`,"cellK");function Jf(t){if(!ze){ze=new Map;let o=new Set(It.filter(i=>!i.obj).map(i=>Vl(i.x,i.z)));r.scene.traverseVisible(i=>{if(!i.isInstancedMesh)return;let s=i.instanceMatrix.array;for(let f=0;f<i.count;f++){Ro.set(s[f*16+12],s[f*16+13],s[f*16+14]).applyMatrix4(i.matrixWorld);let c=Vl(Ro.x,Ro.z);o.has(c)&&(ze.has(c)||ze.set(c,[]),ze.get(c).push([i,f]))}})}let n=[],e=Math.floor(t.x/2),a=Math.floor(t.z/2);for(let o=-1;o<=1;o++)for(let i=-1;i<=1;i++)for(let s of ze.get(`${e+o},${a+i}`)||[])n.push(s);return n}l(Jf,"nearInst");function Zf(t,n,e,a,o,i){if(vn.set(Ro.set(t.x+e*Te+a*o,t.y0+i,t.z+a*Te-e*o),Xf.set(-e,0,-a)),vn.far=Te+.05,Eo.length=0,t.obj)vn.intersectObject(t.obj,!0,Eo);else for(let[f,c]of n)f.getMatrixAt(c,Gl),zo.geometry=f.geometry,zo.material=f.material,zo.matrixWorld.multiplyMatrices(f.matrixWorld,Gl),zo.raycast(vn,Eo);let s=1e9;for(let f of Eo)f.distance<s&&(s=f.distance);return s>Te?-1:s}l(Zf,"cast");var Qf=[[0,-.07,.07],[-.15,.15,-.25,.25]];function Xa(t){if(t.m!==void 0)return t.m;let n=!1;try{let e=t.obj?null:Jf(t),a=Vf(t.z,t.x)<.5?1:-1;for(let o of[.85*a,-.85*a,.4*a,-.4*a]){let i=Math.sin(o),s=Math.cos(o),f=[],c=!1,d=0,p=-1;for(let m=.3;m<t.hc+.6&&!c;m+=Ua){let u=-1,g=0;for(let w of Qf){for(let S of w){let b=Zf(t,e,i,s,d+S,m);b>=0&&(u<0||b<u)&&(u=b,g=d+S)}if(u>=0)break}if(u<0)break;if(Te-u>Ff+Math.abs(g)||p>=0&&p-u>.25){c=!0;break}f.push([t.x+i*(Te-u)+s*g,t.z+s*(Te-u)-i*g]),d=g,p=u}let h=.3+(f.length-1)*Ua;if(!(!c||h<1.1||Ul(f[0][0]+i*.6,f[0][1]+s*.6,.1))){n={dx:i,dz:s,pts:f,top:h};break}}}catch(e){console.warn("sincap \xF6l\xE7\xFCm\xFC",e)}return En.set(t.k,n),t.m=n,n}l(Xa,"measure");var Ka=[0,0];function Ya(t,n,e=0){let a=t.m.pts,o=Math.min(a.length-1,Math.max(0,(n-.3)/Ua)),i=Math.floor(o),s=Math.min(a.length-1,i+1),f=o-i;return Ka[0]=a[i][0]+(a[s][0]-a[i][0])*f+t.m.dx*e,Ka[1]=a[i][1]+(a[s][1]-a[i][1])*f+t.m.dz*e,Ka}l(Ya,"at");function td(t,n){t.T&&(t.T.busy=null,t.T=null),t.T2&&t.T2.busy===t&&(t.T2.busy=null);let e=[];for(let a of It){let o=a.x-n.x,i=a.z-n.z;if(a.busy||a.m===!1||Math.abs(o)>vo||Math.abs(i)>vo)continue;let s=o*o+i*i;s>16&&s<vo*vo&&e.push(a)}for(let a=0;a<2&&e.length;a++){let o=e.splice(Math.random()*e.length|0,1)[0];if(Xa(o))return o.busy=t,t.T=o,t.T2=null,t.st="hide",t.y=o.m.top+.3,t.t=G(.3,2.5),t.fast=!1,t.yaw=Math.atan2(o.m.dx,o.m.dz),t.pitch=To/2,t.o.visible=!1,!0}return!1}l(td,"assign");function Wl(t){let n=t.T;for(let e=0;e<5;e++){let a=Math.atan2(n.m.dx,n.m.dz)+G(-1.7,1.7),o=G(.8,2.3),i=n.x+Math.sin(a)*o,s=n.z+Math.cos(a)*o;if(!Ul(i,s,.15))return t.tx=i,t.tz=s,t.goal="sit",t.st="ground",!0}return!1}l(Wl,"pickGround");function zn(t,n,e){let a=Ya(n,0,.05);t.T2=n,t.tx=a[0],t.tz=a[1],t.goal="up",t.st="ground",t.fast=e}l(zn,"toTrunk");function ed(t){if(Math.random()<.3){let n=It.filter(e=>!e.busy&&e!==t.T&&e.m!==!1&&Math.hypot(e.x-t.x,e.z-t.z)<10&&Math.hypot(e.x-t.x,e.z-t.z)>3);for(let e=0;e<2&&n.length;e++){let a=n.splice(Math.random()*n.length|0,1)[0];if(Xa(a))return t.T.busy=null,a.busy=t,zn(t,a,!1)}}zn(t,t.T,!1)}l(ed,"decide");function nd(t){let n=Math.random();t.act=n<.4?"dig":n<.75?"eat":"tall",t.t=t.act==="dig"?G(.9,1.8):t.act==="eat"?G(1.8,3.4):G(.9,2),t.lookT=0}l(nd,"pickAct");function od(t,n,e){if(!t.T||Math.hypot(t.T.x-e.x,t.T.z-e.z)>Ol&&(Ji(t.o.position)||Math.hypot(t.T.x-e.x,t.T.z-e.z)>Ol+14)){if((t.wait-=n)>0)return;if(!td(t,e)){t.o.visible=!1,t.wait=2;return}}let a=t.T,o=a.m,i=t.yaw,s=0,f=!1,c=!1,d="still",p,h,m;t.t-=n;let u=Math.hypot(e.x-t.x,e.z-t.z),g=Math.hypot(e.x-(a.x+o.dx*.5),e.z-(a.z+o.dz*.5))<_a,w=l((v,E,z,x)=>{(t.lookT-=n)<=0&&(t.lookT=G(E,z),t.look=G(-v,v),Math.random()<x&&(t.flick=.5))},"glance");switch(t.st){case"hide":t.t<=0&&!g&&(t.st="down",t.y=o.top,t.cb=G(.3,.6),t.cp=0);break;case"down":if(d="climb",g)t.st="up",t.fast=!0,t.ck=0,t.cp=0;else if(t.cp>0)t.cp-=n,d="cling",w(.6,.3,.6,.3);else if(t.y-=1.2*n,f=!0,(t.cb-=n)<=0&&(t.cb=G(.3,.6),t.cp=G(.25,.7),t.lookT=0),t.y<=.3){let v=Ya(a,0,.05);t.y=0,t.x=v[0],t.z=v[1],t.hops=2+(Math.random()*3|0),t.run=G(.5,1.2),Wl(t)||zn(t,a,!1)}break;case"up":d="climb",!t.fast&&t.cp>0?(t.cp-=n,d="cling"):(t.y+=(t.fast?2.8:2)*n,f=!0,!t.fast&&(t.cb-=n)<=0&&(t.cb=G(.35,.8),t.cp=G(.12,.45))),t.ck>0&&t.y>=t.ck?(t.y=t.ck,t.ck=0,t.st="cling",t.t=G(1.5,4),t.look=0,t.lookT=G(.4,1)):t.y>=o.top+.3&&(t.y=o.top+.3,t.st="hide",t.t=G(2,6),t.fast=!1);break;case"cling":d="cling",g?(t.st="up",t.fast=!0):t.t<=0?(t.st=Math.random()<.6?"up":"down",t.cb=G(.3,.7),t.cp=0):w(.7,.5,1.4,.5);break;case"ground":{if(c=!0,t.goal==="sit"&&u<_a&&zn(t,t.T,!0),t.pz>0&&!t.fast){t.pz-=n,d=t.pzK,w(.8,.2,.5,.25);break}let v=t.tx-t.x,E=t.tz-t.z,z=Math.hypot(v,E),x=(t.fast?3.6:t.goal==="up"&&t.T2!==t.T?2.6:1.6)*n;z>.02&&(i=Math.atan2(v,E)),f=!0,d=t.fast?"flee":"run",z<=x?(t.x=t.tx,t.z=t.tz,t.goal==="up"?(t.T=t.T2||t.T,t.T2=null,t.y=0,t.st="up",t.cb=G(.35,.8),t.cp=0,t.ck=!t.fast&&Math.random()<.75?G(.35,.8)*t.T.m.top:0):(t.st="sit",nd(t))):(t.x+=v/z*x,t.z+=E/z*x,!t.fast&&z>.5&&(t.run-=x)<=0&&(t.run=G(.5,1.4),t.pz=G(.25,.9),t.pzK=Math.random()<.3?"tall":"still",t.lookT=0));break}case"sit":if(c=!0,d=t.act,u<_a){zn(t,a,!0);break}if(t.act==="tall"&&w(.9,.3,.8,.4),t.t<=0)if(t.act==="dig"&&Math.random()<.6)t.act="eat",t.t=G(1.8,3.4);else{if(--t.hops>0&&Wl(t))break;ed(t)}break}if(t.st==="hide"){t.o.visible=!1;return}let S=t.T,b=S.m;if(t.st==="up"||t.st==="down"||t.st==="cling"){let v=Math.atan2(b.dx,b.dz),E=Ya(S,t.y,.015);p=E[0],m=E[1],h=S.y0+t.y,i=t.st==="down"?v:v+To,s=t.st==="down"?To/2:-To/2,t.x=p,t.z=m}else p=t.x,m=t.z,h=bt(p,m);t.o.visible=!(t.st==="up"&&t.y>b.top+.15),ad(t,n,d,f,c,i,s,p,h,m)}l(od,"step");function ad(t,n,e,a,o,i,s,f,c,d){t.mode=e;let p=1-Math.exp(-12*n),h=1-Math.exp(-10*n),m=Kl[e],u=t.a,g=t.b,w=r.time;t.yaw=ue(t.yaw,i,p),t.pitch+=(s-t.pitch)*p;for(let P of Kf)u[P]+=(m[P]-u[P])*h;t.gw+=((a?1:0)-t.gw)*(1-Math.exp(-14*n)),a&&(t.ph+=n*(e==="flee"?31:e==="climb"?t.fast?30:24:22));let S=t.gw,b=t.ph,v=Math.sin(b),E=u.hips+S*.1*Math.sin(b+.4),z=u.hind+S*.9*Math.sin(b-.6),x=u.chest+S*.2*Math.cos(b),k=u.head-S*.12*Math.cos(b),M=u.front-S*.8*v,T=u.t1+S*.12*Math.sin(b-.9),B=u.t2+S*.22*Math.sin(b-1.8),C=u.t3+S*.3*Math.sin(b-2.7),A=0,L=u.pp-S*(o?.12:.05)*v;if(a||(x+=Math.sin(w*9+t.ph)*.02),e==="dig"&&(M+=Math.sin(w*24)*.55,k+=Math.sin(w*13)*.06),e==="eat"&&(k+=Math.sin(w*31)*.07,M+=Math.sin(w*15+1)*.05),t.flick>0){t.flick-=n;let P=t.flick*38;B+=Math.sin(P)*.45,C+=Math.sin(P-1.1)*.55,A=Math.sin(P)*.18}t.hy+=((Uf.has(e)?t.look:0)-t.hy)*(1-Math.exp(-25*n)),g.hips.rotation.x=E,g.hind.rotation.x=z,g.chest.rotation.x=x,g.front.rotation.x=M,g.head.rotation.x=k,g.head.rotation.y=t.hy,g.t1.rotation.x=T,g.t1.rotation.z=A,g.t2.rotation.x=B,g.t3.rotation.x=C,g.nut.scale.setScalar(e==="eat"?1:.001),t.o.position.set(f,c,d),t.o.rotation.y=t.yaw,t.pose.position.y=S*Math.max(0,v)*(o?e==="flee"?.09:.065:.03),t.pose.rotation.x=t.pitch+L}l(ad,"pose");function ql(t){if(!r.player||!r.scene||!r.regions)return;if((Nl-=t)<=0){Nl=5;try{Yf()}catch(a){console.warn("sincap a\u011Fa\xE7lar\u0131",a)}}if(!It.length)return;let n=Nf[ft.quality]||4,e=r.player.position;for(;Se.length<n;)Se.push(qf());for(let a=0;a<Se.length;a++){let o=Se[a];if(a>=n){o.T&&(o.T.busy=null),o.T2&&(o.T2.busy=null),o.T=o.T2=null,o.o.visible=!1;continue}od(o,t,e)}}l(ql,"updateSincap");window.__sincap=t=>{if(t==="olc"){En.clear();for(let n of It)n.m=void 0,Xa(n)}return t==="sq"?Se:{trees:It.length,olcu:[...En.values()].filter(Boolean).length,elenen:[...En.values()].filter(n=>!n).length,sq:Se.map(n=>[n.st,n.mode,+n.o.position.x.toFixed(1),+n.o.position.y.toFixed(2),+n.o.position.z.toFixed(1),n.o.visible])}};var Ja=[["G\xF6le maya \xE7al\u0131yorum evlat.","Ya tutarsa!"],["Neden e\u015Fe\u011Fe ters biniyorum?","Yolu e\u015Fek biliyor, ben de arkamdakilere s\u0131rt\u0131m\u0131 d\xF6nmeyeyim!"],['Kom\u015Fuya "Kazan\u0131n do\u011Furdu" dedim, inand\u0131.','"Kazan\u0131n \xF6ld\xFC" deyince inanmad\u0131. Do\u011Furdu\u011Funa inanan \xF6ld\xFC\u011F\xFCne de inan\u0131r!'],["D\xFC\u011F\xFCne eski c\xFCbbemle gittim, kimse yer vermedi.","K\xFCrkle d\xF6n\xFCnce ba\u015F k\xF6\u015Feye oturttular. Ye k\xFCrk\xFCm ye!"],["D\xFCnyan\u0131n ortas\u0131 neresi mi?","E\u015Fe\u011Fimin bast\u0131\u011F\u0131 yer! \u0130nanmazsan \xF6l\xE7."],["Herkes d\xFCd\xFCk \u0131smarlad\u0131, paray\u0131 bir tek \xE7ocuk verdi.","Ona d\xFCd\xFCk getirdim: paray\u0131 veren d\xFCd\xFC\u011F\xFC \xE7alar!"],["E\u015Fe\u011Fimi kaybettim, \u015F\xFCkrettim.","Ya ben de \xFCst\xFCnde olsayd\u0131m!"]],id=["koy","pazar","han","tarla","firin","ciftlik","kasaba","atlar","mera"],rd=1.15,sd=3,I=null,re=null,Ot="wait",Tn=0,Le=[],se=null,Re=0,Po=!1,ti=!1,Lo=0,Za=0,Q0=new $;function ld(){I=qi(),re=Fe({shirt:"#5f7f3e",pants:"#6b4a2a",hat:"turban",hatColor:"#ffffff",skin:"#e0b48a",mustache:!0});let t=re.userData,n=t.face||t.head;Ki(.15,Oe("#f2efe8"),0,-.2,.2,n,12,10).scale.set(1.15,1.35,.75),re.updateMatrixWorld(!0);let a=t.legs[0].getWorldPosition(new $),o=I.userData.saddle.getWorldPosition(new $);re.position.set(0,o.y-a.y+.04,o.z),re.rotation.y=Math.PI,I.add(re);let i=document.createElement("style");i.textContent=".bubble.hoca { max-width: calc(250px * var(--s, 1)); white-space: normal; text-align: center; line-height: 1.25; }",document.head.appendChild(i)}l(ld,"build");function Yl(t,n,e){let a=re.userData;Ne(re,0,t,!1);let o=Math.sin(I.userData.walk||0)*.08*n;a.legs[0].rotation.set(-.35+o,0,-.55),a.legs[1].rotation.set(-.35-o,0,.55),a.arms[0].rotation.x=-.5,a.arms[1].rotation.x=e?-1.9+Math.sin(r.time*6)*.35:-.5}l(Yl,"pose");function Qa(t){se&&r.labels.remove(se);let n=document.createElement("div");n.className="bubble txt hoca",n.textContent=t,se=r.labels.add(n,e=>e.copy(I.position).setY(I.position.y+3))}l(Qa,"say");var Bo=l(()=>{se&&(r.labels.remove(se),se=null)},"hush");function Zl(){let t=r.player.position,n=id.filter(i=>r.regions[i]&&r.regions[i].unlocked).map(i=>ts(i)).filter(Boolean).map(i=>new $(i[0],0,i[2])),e=n.filter(i=>{let s=Math.hypot(i.x-t.x,i.z-t.z);return s>15&&s<45});if(!e.length||n.length<2)return!1;let a=e[Math.floor(Math.random()*e.length)],o=n.filter(i=>i!==a).sort((i,s)=>Xl(s,a,t)-Xl(i,a,t))[0];return Ql(a,o)}l(Zl,"start");var Xl=l((t,n,e)=>-((t.x-e.x)*(n.x-e.x)+(t.z-e.z)*(n.z-e.z))/(1+Math.hypot(t.x-n.x,t.z-n.z)*.02),"score");function Ql(t,n){if(!Gt(t.x,t.z)||!Gt(n.x,n.z))return!1;let e=Zr(t,n);return!e||!e.length?!1:(Le=e,I.position.set(t.x,bt(t.x,t.z),t.z),I.rotation.y=Math.atan2(Le[0].x-t.x,Le[0].z-t.z),I.parent!==r.scene&&r.scene.add(I),I.visible=!0,Kn(I,.1),Ot="walk",Po=!1,ti=!1,!0)}l(Ql,"go");function Jl(){Ot="fade",Lo=.6,Bo()}l(Jl,"leave");function tc(t){if(!r.player||!r.regions||!r.regions.koy)return;I||(ld(),Tn=240+G(0,240));let n=r.player.position;if(Ot==="wait"){if(r.time<60||r.cine||r.mini||(Tn-=t)>0)return;Zl()||(Tn=30);return}let e=n.x-I.position.x,a=n.z-I.position.z,o=Math.hypot(e,a);if(Ot==="walk"){if(!ti&&o<26&&(ti=!0,ut("\u{1FACF} Biri e\u015Fe\u011Fine ters binmi\u015F ge\xE7iyor\u2026 Yan\u0131na git!")),!Po&&o<sd&&!r.onRide)Ot="talk",Re=0,Po=!0,Za=(r.stats.hoca||0)%Ja.length,Qa(Ja[Za][0]),Jt("happy");else{let i=Le[0];if(!i){Jl();return}let s=i.x-I.position.x,f=i.z-I.position.z,c=Math.hypot(s,f);if(c<.3)Le.shift(),Le.length||Jl();else{let d=Math.min(c,rd*t);I.position.x+=s/c*d,I.position.z+=f/c*d,I.rotation.y=ue(I.rotation.y,Math.atan2(s,f),1-Math.exp(-5*t))}I.position.y=bt(I.position.x,I.position.z),ra(I,1,t),Yl(t,1,!1)}return}if(Ot==="talk"){Re+=t,I.rotation.y=ue(I.rotation.y,Math.atan2(-e,-a),1-Math.exp(-4*t)),ra(I,0,t),Yl(t,0,!0),Re>3.6&&Re-t<=3.6&&Qa(Ja[Za][1]),Re>8.2&&Re-t<=8.2&&(r.stats.hoca=(r.stats.hoca||0)+1,sn(1,"Hoca"),Jt("hire"),Qa("Haydi eyvallah, bereketli kazan\xE7lar!")),Re>11.5&&(Bo(),Ot="walk");return}Ot==="fade"&&(Lo-=t,I.scale.setScalar(Math.max(.01,Lo/.6)),Lo<=0&&(r.scene.remove(I),I.scale.setScalar(1),Ot="wait",Tn=420+G(0,360)))}l(tc,"updateHoca");typeof window<"u"&&(window.__hoca=t=>{if(t==="gel"&&I){let n=r.player.position;for(let e of[1.5,-1.5,3,-3,5])for(let a of[1,.7,1.3]){let o=new $(n.x-8*a,0,n.z+e),i=new $(n.x+12*a,0,n.z+e);if(Bo(),Ql(o,i))return"yolda"}return"yol yok"}return t==="basla"&&I?(Bo(),Zl()?"yolda":"uygun giri\u015F yok"):JSON.stringify({st:Ot,wait:Math.round(Tn),met:Po,path:Le.length,pos:I?[+I.position.x.toFixed(1),+I.position.z.toFixed(1)]:null,n:r.stats.hoca||0,bub:se?se.el.textContent:""})});var cd=.1,fd=1.75,le=2,ec=10,dd=2.5,pd=.9,ud=.18,hd=.7,Ln=new WeakMap,ei=!1,Pn=null,ic=new WeakSet,Sn=null,Pe=null,ni=-1e9,Be=[],nc=0,ai=0,Rn=-1,$o=l((t,n)=>t*100003+n,"key"),yt=new Ae,qe=new On,ap=new $;function*oi(){let t=new Map,n=[r.scene],e=new WeakSet,a=0,o=0,i=l(s=>{for(let f=Math.floor(s.x0/le);f<=Math.floor(s.x1/le);f++)for(let c=Math.floor(s.z0/le);c<=Math.floor(s.z1/le);c++){let d=$o(f,c),p=t.get(d);p||t.set(d,p=[]),p.push(s)}},"add");for(let s of r.colliders)e.add(s);for(;n.length;){let s=n.pop(),f=s.userData;if(!s.visible||s===r.player||f&&(f.head||f.glbc||f.arms||f.animal||f.pet||f.bkNo))continue;for(let d=0;d<s.children.length;d++)n.push(s.children[d]);if((++a&255)===0&&(yield),!s.isMesh||s.isSkinnedMesh||s.isBatchedMesh||f.baked||!s.geometry||!s.geometry.attributes.position)continue;o++;let c=s.geometry;if(c.boundingBox||c.computeBoundingBox(),s.isInstancedMesh){for(let d=0;d<s.count;d++)s.getMatrixAt(d,qe),qe.premultiply(s.matrixWorld),yt.copy(c.boundingBox).applyMatrix4(qe),!(yt.max.y<-1||yt.min.y>4)&&i({o:s,i:d,x0:yt.min.x,x1:yt.max.x,z0:yt.min.z,z1:yt.max.z});continue}yt.copy(c.boundingBox).applyMatrix4(s.matrixWorld),!(yt.max.y<-1||yt.min.y>4)&&i({o:s,i:-1,x0:yt.min.x,x1:yt.max.x,z0:yt.min.z,z1:yt.max.z})}Pn=t,ic=e,ni=r.time||0,(Rn<0||Math.abs(o-Rn)>Math.max(20,Rn*.02))&&(Rn>=0&&ai++,Rn=o)}l(oi,"buildIndex");function md(t,n){for(let e=0;e<4;e++){let a=e<2?0:1,o=e%2?-1:1,i=n[e],s=[],f=t.length;for(let c=0;c<f;c++){let d=t[c],p=t[(c+1)%f],h=o*(d[a]-i)>=0,m=o*(p[a]-i)>=0;if(h&&s.push(d),h!==m){let u=(i-d[a])/(p[a]-d[a]);s.push([d[0]+(p[0]-d[0])*u,d[1]+(p[1]-d[1])*u])}}if(t=s,!t.length)return t}return t}l(md,"clip");function oc(t){if(t.length<3)return t;t.sort((o,i)=>o[0]-i[0]||o[1]-i[1]);let n=l((o,i,s)=>(i[0]-o[0])*(s[1]-o[1])-(i[1]-o[1])*(s[0]-o[0]),"cr"),e=[],a=[];for(let o of t){for(;e.length>=2&&n(e[e.length-2],e[e.length-1],o)<=1e-12;)e.pop();e.push(o)}for(let o=t.length-1;o>=0;o--){let i=t[o];for(;a.length>=2&&n(a[a.length-2],a[a.length-1],i)<=1e-12;)a.pop();a.push(i)}return a.pop(),e.pop(),e.concat(a)}l(oc,"hull");var Co=l(t=>{let n=0;for(let e=0;e<t.length;e++){let a=t[e],o=t[(e+1)%t.length];n+=a[0]*o[1]-o[0]*a[1]}return n/2},"area");function ac(t){for(;t.length>4;){let n=-1,e=1e9;for(let a=0;a<t.length;a++){let o=t[(a+t.length-1)%t.length],i=t[a],s=t[(a+1)%t.length],f=Math.abs((i[0]-o[0])*(s[1]-o[1])-(i[1]-o[1])*(s[0]-o[0]))/2;f<e&&(e=f,n=a)}if(t.length<=12&&e>1e-4)break;t.splice(n,1)}return t}l(ac,"simplify");var Kt=new $,Ut=new $,qt=new $;function*rc(t){let n=[t[0],t[1],t[2],t[3]],e=n[1]-n[0],a=n[3]-n[2],o=l(x=>{Ln.set(t,{b:n,polys:x,gen:ai})},"done");if(!(e>.02&&a>.02)||e*a>400)return o(null);let i=[];for(let x of[.15,.5,.85])for(let k of[.15,.5,.85])i.push(bt(n[0]+e*x,n[2]+a*k));if(Math.min(...i)<-.1)return o(null);i.sort((x,k)=>x-k);let s=i[4]+cd,f=i[4]+fd,c=[],d=new Set;for(let x=Math.floor(n[0]/le);x<=Math.floor(n[1]/le);x++)for(let k=Math.floor(n[2]/le);k<=Math.floor(n[3]/le);k++)for(let M of Pn.get($o(x,k))||[]){if(d.has(M)||M.x1<n[0]||M.x0>n[1]||M.z1<n[2]||M.z0>n[3])continue;d.add(M);let T=M.x0>=n[0]-.3&&M.x1<=n[1]+.3&&M.z0>=n[2]-.3&&M.z1<=n[3]+.3,B=T?i[4]-.05:s,C=M.o,A=C.geometry,L=A.attributes.position,P=A.index,_=P?P.count:L.count,O=C.matrixWorld;M.i>=0&&(C.getMatrixAt(M.i,qe),qe.premultiply(C.matrixWorld),O=qe.clone());for(let D=0;D<_;D+=3){if(Kt.fromBufferAttribute(L,P?P.getX(D):D).applyMatrix4(O),Ut.fromBufferAttribute(L,P?P.getX(D+1):D+1).applyMatrix4(O),qt.fromBufferAttribute(L,P?P.getX(D+2):D+2).applyMatrix4(O),Math.max(Kt.y,Ut.y,qt.y)<B||Math.min(Kt.y,Ut.y,qt.y)>f||Math.max(Kt.x,Ut.x,qt.x)<n[0]||Math.min(Kt.x,Ut.x,qt.x)>n[1]||Math.max(Kt.z,Ut.z,qt.z)<n[2]||Math.min(Kt.z,Ut.z,qt.z)>n[3])continue;let Y=md([[Kt.x,Kt.z],[Ut.x,Ut.z],[qt.x,qt.z]],n);Y.length&&c.push(Y),(D&1023)===0&&(yield)}yield}if(!c.length)return o(null);let p=c.map((x,k)=>k),h=l(x=>{for(;p[x]!==x;)x=p[x]=p[p[x]];return x},"find"),m=new Map,u=ud;c.forEach((x,k)=>{let M=1e9,T=-1e9,B=1e9,C=-1e9;for(let D of x)D[0]<M&&(M=D[0]),D[0]>T&&(T=D[0]),D[1]<B&&(B=D[1]),D[1]>C&&(C=D[1]);let A=[],L=Math.floor(M/u),P=Math.floor(T/u),_=Math.floor(B/u),O=Math.floor(C/u);if((P-L+1)*(O-_+1)<=64)for(let D=L;D<=P;D++)for(let Y=_;Y<=O;Y++)A.push($o(D,Y));else for(let D=0;D<x.length;D++){let Y=x[D],Ht=x[(D+1)%x.length],tn=Math.max(1,Math.ceil(Math.hypot(Ht[0]-Y[0],Ht[1]-Y[1])/(u*.7)));for(let De=0;De<=tn;De++)A.push($o(Math.floor((Y[0]+(Ht[0]-Y[0])*De/tn)/u),Math.floor((Y[1]+(Ht[1]-Y[1])*De/tn)/u)))}for(let D of A)for(let Y of[D,D+1,D-1,D+100003,D-100003]){let Ht=m.get(Y);Ht!==void 0&&(p[h(k)]=h(Ht))}for(let D of A)m.has(D)||m.set(D,k)});let g=new Map;c.forEach((x,k)=>{let M=h(k),T=g.get(M);T||g.set(M,T=[]);for(let B of x)T.push(B)});let w=[];for(let x of g.values()){let k=oc(x);if(k.length<3){let[M,T]=[x[0],x[x.length-1]],B=T[0]-M[0],C=T[1]-M[1],A=Math.hypot(B,C)||1,L=-C/A*.01,P=B/A*.01;k=[[M[0]-L,M[1]-P],[T[0]-L,T[1]-P],[T[0]+L,T[1]+P],[M[0]+L,M[1]+P]],Co(k)<0&&k.reverse()}k=ac(k),w.push(k)}let S=l((x,k,M)=>{for(let T=0;T<x.length;T++){let B=x[T],C=x[(T+1)%x.length];if((C[0]-B[0])*(M-B[1])-(C[1]-B[1])*(k-B[0])<-1e-9)return!1}return!0},"inside"),b=l((x,k,M)=>{let T=M[0]-k[0],B=M[1]-k[1],C=T*T+B*B,A=C?Math.max(0,Math.min(1,((x[0]-k[0])*T+(x[1]-k[1])*B)/C)):0;return Math.hypot(x[0]-k[0]-T*A,x[1]-k[1]-B*A)},"segD"),v=l((x,k,M,T)=>{let B=l((C,A,L)=>Math.sign((A[0]-C[0])*(L[1]-C[1])-(A[1]-C[1])*(L[0]-C[0])),"o");return B(x,k,M)!==B(x,k,T)&&B(M,T,x)!==B(M,T,k)},"cross"),E=l((x,k)=>{if(x.some(T=>S(k,T[0],T[1]))||k.some(T=>S(x,T[0],T[1])))return 0;let M=1e9;for(let T=0;T<x.length;T++)for(let B=0;B<k.length;B++){let C=x[T],A=x[(T+1)%x.length],L=k[B],P=k[(B+1)%k.length];if(v(C,A,L,P))return 0;M=Math.min(M,b(C,L,P),b(L,C,A))}return M},"dist");for(let x=!0;x&&w.length>1;){x=!1;for(let k=0;k<w.length&&!x;k++)for(let M=k+1;M<w.length&&!x;M++)E(w[k],w[M])>=hd||(w[k]=ac(oc(w[k].concat(w[M]))),w.splice(M,1),x=!0)}if(w.sort((x,k)=>Co(k)-Co(x)),w=w.filter((x,k)=>!w.slice(0,k).some(M=>x.every(T=>S(M,T[0],T[1])))),w.reduce((x,k)=>x+Co(k),0)>=pd*e*a)return o(null);o(w.map(x=>Float64Array.from(x.flat())))}l(rc,"fit");function sc(){if(!r.player||!r.colliders||!(r.time>3))return;let t=performance.now(),n=r.player.position;!Pe&&Pn&&(r.time||0)-ni>30&&(Pe=oi());try{for(;performance.now()-t<dd;){if(Pe){Pe.next().done&&(Pe=null);continue}if(Sn){Sn.next().done&&(Sn=null);continue}if((nc-=1)<=0||!Be.length){nc=20,Be=[];for(let a of r.colliders){let o=Ln.get(a);if(o&&o.gen===ai&&o.b[0]===a[0]&&o.b[1]===a[1]&&o.b[2]===a[2]&&o.b[3]===a[3])continue;let i=Math.max(a[0]-n.x,0,n.x-a[1]),s=Math.max(a[2]-n.z,0,n.z-a[3]);i<ec&&s<ec&&Be.push([i*i+s*s,a])}if(Be.sort((a,o)=>o[0]-a[0]),!Be.length)break}let e=Be.pop()[1];if(r.colliders.includes(e)){if(!Pn||!ic.has(e)&&(r.time||0)-ni>1){Be.push([0,e]),Pe=oi();continue}Sn=rc(e)}}}catch(e){console.warn("\xE7arp\u0131\u015Fma uydurma",e),Sn=Pe=null}}l(sc,"updateColFit");function Ye(t){if(ei)return null;let n=Ln.get(t);return!n||!n.polys||n.b[0]!==t[0]||n.b[1]!==t[1]||n.b[2]!==t[2]||n.b[3]!==t[3]?null:n.polys}l(Ye,"shapeOf");var Ce=[0,0];function lc(t,n,e,a){let o=t.length>>1,i=!0,s=1e18,f=0,c=0,d=1e18,p=0,h=0;for(let g=0;g<o;g++){let w=t[g*2],S=t[g*2+1],b=(g+1)%o,v=t[b*2]-w,E=t[b*2+1]-S,z=v*v+E*E;if(z<1e-12)continue;let x=Math.sqrt(z),k=E/x,M=-v/x,T=(n-w)*k+(e-S)*M;T>0&&(i=!1),-T<d&&(d=-T,p=k,h=M);let B=Math.max(0,Math.min(1,((n-w)*v+(e-S)*E)/z)),C=w+v*B,A=S+E*B,L=(n-C)*(n-C)+(e-A)*(e-A);L<s&&(s=L,f=C,c=A)}if(i)return Ce[0]=n+p*(d+a),Ce[1]=e+h*(d+a),!0;if(s>=a*a)return!1;let m=Math.sqrt(s),u=(a-m)/m;return Ce[0]=n+(n-f)*u,Ce[1]=e+(e-c)*u,!0}l(lc,"pushPoly");function cc(t,n,e,a=0){let o=t.length>>1;for(let i=0;i<o;i++){let s=t[i*2],f=t[i*2+1],c=(i+1)%o,d=t[c*2]-s,p=t[c*2+1]-f,h=Math.hypot(d,p);if(!(h<1e-6)&&((n-s)*p-(e-f)*d)/h>-a)return!1}return!0}l(cc,"inPoly");window.__colfit=(t,n)=>{if(t==="all"){let o=oi();for(;!o.next().done;);let i=0,s=0;for(let f of r.colliders){let c=rc(f);for(;!c.next().done;);i++,Ye(f)&&s++}return{n:i,sh:s}}if(t==="draw"){window.__colLines&&r.scene.remove(window.__colLines);let o=new jt,i=n&&n.r||30,s=n&&n.x!==void 0?n:r.player.position,f=l((h,m)=>bt(h,m)+.06,"y"),c={},d=new Si(1,.02,1),p=l((h,m)=>{let u=c[m]||(c[m]=new Nn({color:m,depthTest:!1,transparent:!0,opacity:.9}));for(let g=0;g<h.length;g++){let[w,S]=h[g],[b,v]=h[(g+1)%h.length],E=Math.hypot(b-w,v-S),z=new Nt(d,u);z.scale.set(m===16724016?.05:.08,1,E+.04),z.position.set((w+b)/2,f((w+b)/2,(S+v)/2)+.05,(S+v)/2),z.rotation.y=Math.atan2(b-w,v-S),z.renderOrder=999,z.userData.bkNo=!0,o.add(z)}},"line");for(let h of r.colliders)if(!(Math.abs((h[0]+h[1])/2-s.x)>i||Math.abs((h[2]+h[3])/2-s.z)>i)){p([[h[0],h[2]],[h[1],h[2]],[h[1],h[3]],[h[0],h[3]]],16724016);for(let m of Ye(h)||[]){let u=[];for(let g=0;g<m.length;g+=2)u.push([m[g],m[g+1]]);p(u,2162496)}}return o.renderOrder=999,r.scene.add(o),window.__colLines=o,o.children.length}if(t==="off")return ei=!!n,ei;if(t==="fit"){let o=Ln.get(n);return o?{b:o.b,polys:o.polys&&o.polys.map(i=>Array.from(i).map(s=>+s.toFixed(2)))}:null}let e=0,a=0;for(let o of r.colliders)Ln.has(o)&&e++,Ye(o)&&a++;return{fitted:e,shaped:a,total:r.colliders.length,index:!!Pn}};Ls();var pt=document.getElementById("c"),qo=matchMedia("(pointer: coarse)").matches,ki=rs();ia(ln(ki).detail);window.__kbBoot=!0;function Ec(t,n){let e=document.getElementById("loading");if(!e)return;let a=document.documentElement.lang==="en";if(e.classList.remove("hide"),e.style.display="",e.querySelector("span").textContent=a?n:t,e.querySelector("button"))return;let o=document.createElement("button");o.type="button",o.textContent=a?"Try again":"Yeniden dene",o.setAttribute("translate","no"),o.style.cssText="font: 800 16px Nunito, sans-serif; padding: 10px 24px; border-radius: 999px; border: 3px solid #3b2a6b; background: #ffd23f; color: #3b2a6b; cursor: pointer;",o.onclick=()=>location.reload(),e.appendChild(o)}l(Ec,"fatal");var q;try{q=new oa({canvas:pt,antialias:!qo&&ln(ki).pr>=1.5})}catch(t){throw Ec("Taray\u0131c\u0131n 3B \xE7izimi ba\u015Flatamad\u0131. Taray\u0131c\u0131n\u0131 g\xFCncelle ya da ayarlar\u0131ndan donan\u0131m h\u0131zland\u0131rmay\u0131 a\xE7.","Your browser could not start 3D graphics. Update your browser or turn on hardware acceleration in its settings."),t}Rs(pt);q.setPixelRatio(Math.min(window.devicePixelRatio,2));q.shadowMap.enabled=!0;q.shadowMap.type=Ei;q.shadowMap.autoUpdate=!1;q.toneMapping=Qo;q.toneMappingExposure=1;r.renderer=q;var U=new en;U.background=new Fn("#bfe6ff");U.fog=new Li("#bfe6ff",80,240);var F=new ta(38,1,.5,400);r.scene=U;r.camera=F;/[?&]eskimatris=/.test(location.search)||_i(U);var zc=new ea("#ffffff","#9cc27e",1.9);U.add(zc);var Z=new na("#fff4e2",2.3);Z.castShadow=!0;Z.shadow.mapSize.set(2048,2048);var it=Z.shadow.camera;it.left=-30;it.right=30;it.top=30;it.bottom=-30;it.near=1;it.far=90;Z.shadow.bias=-4e-4;Z.shadow.normalBias=.03;U.add(Z,Z.target);var yd=[["tomato",.42],["paprika",.42],["eggplant",.5],["watermelon",.62],["corn",.55],["ice-cream",.5],["loaf-round",.5],["bowl-soup",.5],["bag",.55],["barrel",.95],["cheese",.42],["pot-stew",.6],["carton",.42],["egg",.3],["cabbage",.42],["pumpkin",.5],["apple",.2],["orange",.2],["lemon",.18]],xd=[["truck",5.6],["delivery",5],["van",4.6],["sedan",4.4],["taxi",4.4],["tractor",3.4],["cone",.6],["suv",4.6]],gd=yd.map(([t,n])=>[t,`assets/food/${t}.glb`,n]).concat(xd.map(([t,n])=>[t,`assets/cars/${t}.glb`,n])),fc="koyBakkali.icons";function bd(t){let n=0,e="";t.traverse(o=>{if(!o.isMesh)return;n++;let i=o.geometry&&o.geometry.attributes.position;e+=`${i?i.count:0}:${[].concat(o.material).map(s=>s&&s.color?s.color.getHexString():"").join("")};`});let a=0;for(let o=0;o<e.length;o++)a=a*31+e.charCodeAt(o)|0;return`${n}.${a}`}l(bd,"iconPrint");function kd(){let t={};try{t=JSON.parse(localStorage.getItem(fc))||{}}catch{t={}}let n={},e=null,a,o,i=0,s=new $;for(let f of Object.keys(Xt)){let c=pe(f),d=bd(c),p=t[f];if(p&&p.f===d&&p.u){r.icons[f]=p.u,n[f]=p;continue}if(!e){e=new oa({alpha:!0,antialias:!0,preserveDrawingBuffer:!0}),e.setSize(96,96),e.toneMapping=Qo,a=new en,a.add(new ea("#ffffff","#999999",2.4));let w=new na("#ffffff",2.2);w.position.set(2,4,4),a.add(w),o=new ta(30,1,.01,50)}a.add(c);let h=new Ae().setFromObject(c),m=h.getCenter(new $),u=h.getSize(s).length();o.position.set(m.x+u*.35,m.y+u*.7,m.z+u*1.55),o.lookAt(m),e.render(a,o);let g=e.domElement.toDataURL("image/webp",.92);r.icons[f]=g.startsWith("data:image/webp")?g:e.domElement.toDataURL("image/png"),n[f]={f:d,u:r.icons[f]},i++,a.remove(c)}if(e&&(e.dispose(),e.forceContextLoss()),i||Object.keys(t).length!==Object.keys(n).length)try{localStorage.setItem(fc,JSON.stringify(n))}catch{}}l(kd,"makeIcons");var Ho=l(()=>new Promise(t=>setTimeout(t,0)),"breathe"),xt=new Set,H={on:!1,ox:0,oy:0,x:0,y:0,id:null,dx:0,dy:0,dirty:!1},wd=30,ii=.12,Md=.62;function Tc(){H.dirty=!1,wi.style.transform=`translate3d(${H.ox}px, ${H.oy}px, 0)`,vd.style.transform=`translate3d(${H.dx}px, ${H.dy}px, 0)`}l(Tc,"drawJoy");var wi=document.getElementById("joy"),vd=document.getElementById("knob"),Ft=new Map,Hn=0,Tt=1,Rt=1,Yo=4.2,Ed=/^(text|search|email|password|number|url|tel)$/,zd=l(t=>{let n=t.target;return!!n&&(n.tagName==="TEXTAREA"||n.isContentEditable===!0||n.tagName==="INPUT"&&Ed.test(n.type))},"typing"),jo=l(t=>document.getElementById(t).classList.contains("open"),"isOpen");addEventListener("keydown",t=>{if(zd(t)){t.code==="Escape"&&t.target.blur();return}xt.add(t.code),Wn(),t.code==="Space"&&(t.preventDefault(),r.paused||(_r()?t.repeat||Kr():hi())),t.code==="KeyQ"&&!t.repeat&&!r.paused&&hi(),t.code==="KeyE"&&!t.repeat&&(eo()?no("upg"):jo("welcome")||pa()),t.code==="KeyM"&&!t.repeat&&(eo()?ha():jo("welcome")||no()),t.code==="Escape"&&!t.repeat&&(eo()?ha():jo("upg")?pa(!1):jo("welcome")||no()),(t.code==="Equal"||t.code==="NumpadAdd")&&(Rt=Math.max(.55,Rt*.9)),(t.code==="Minus"||t.code==="NumpadSubtract")&&(Rt=Math.min(Yo,Rt*1.1))});addEventListener("keyup",t=>xt.delete(t.code));addEventListener("blur",()=>xt.clear());var Td=l(t=>{for(let n=t;n&&n.nodeType===1&&n!==document.body;n=n.parentElement)if(n.scrollHeight>n.clientHeight+1){let e=getComputedStyle(n).overflowY;if(e==="auto"||e==="scroll")return!0}return!1},"scrollsUnder");addEventListener("wheel",t=>{r.menuOpen||Td(t.target)||(t.preventDefault(),Rt=gt.clamp(Rt*(t.deltaY>0?1.1:1/1.1),.55,Yo))},{passive:!1});var Mi=Math.atan2(18.5,15),Sc=.3,Rc=1.5,tu=Math.PI*2,$e=gt.clamp(ft.camPitch??Mi,Sc,Rc),Dn=$e,fe=ft.camYaw??0,An=fe,dc=0,pc=0,uc=document.getElementById("labels"),Ct={on:!1,id:null,x:0,y:0,moved:0};pt.addEventListener("mousedown",t=>{t.button===1&&t.preventDefault()});pt.addEventListener("contextmenu",t=>t.preventDefault());pt.addEventListener("pointerdown",t=>{if(t.button===1){t.preventDefault(),t.stopImmediatePropagation(),Object.assign(Ct,{on:!0,id:t.pointerId,x:t.clientX,y:t.clientY,moved:0});try{pt.setPointerCapture(t.pointerId)}catch{}}});pt.addEventListener("pointermove",t=>{if(!Ct.on||t.pointerId!==Ct.id)return;t.stopImmediatePropagation();let n=t.clientX-Ct.x,e=t.clientY-Ct.y;Ct.x=t.clientX,Ct.y=t.clientY,Ct.moved+=Math.abs(n)+Math.abs(e),Dn=gt.clamp(Dn+e*.005,Sc,Rc),An-=n*.006});var Lc=l(t=>{!Ct.on||t.pointerId!==Ct.id||(Ct.on=!1,ft.camPitch=+Dn.toFixed(3),ft.camYaw=+Math.atan2(Math.sin(An),Math.cos(An)).toFixed(3),aa())},"endTilt");pt.addEventListener("pointerup",Lc);pt.addEventListener("pointercancel",Lc);pt.addEventListener("pointerdown",t=>{if(Wn(),r.mini){t.button===0&&r.mini.tap(t.clientX,t.clientY);return}if(!(t.pointerType==="mouse"&&t.button!==0)){if(t.pointerType==="touch"){if(Ft.set(t.pointerId,{x:t.clientX,y:t.clientY}),Ft.size===2){let[n,e]=[...Ft.values()];Hn=Math.hypot(n.x-e.x,n.y-e.y),vi({pointerId:H.id});return}if(Ft.size>2)return}H.on=!0,H.id=t.pointerId,H.ox=t.clientX,H.oy=t.clientY,H.x=H.y=H.dx=H.dy=0,Tc(),wi.style.display="block";try{pt.setPointerCapture(t.pointerId)}catch{}}});pt.addEventListener("pointermove",t=>{if(Ft.has(t.pointerId)&&(Ft.set(t.pointerId,{x:t.clientX,y:t.clientY}),Ft.size===2&&Hn)){let[i,s]=[...Ft.values()],f=Math.hypot(i.x-s.x,i.y-s.y);Rt=gt.clamp(Rt*(Hn/f),.55,Yo),Hn=f;return}if(!H.on||t.pointerId!==H.id)return;if(t.pointerType==="mouse"&&!(t.buttons&1)){vi(t);return}let n=t.clientX-H.ox,e=t.clientY-H.oy,a=Math.hypot(n,e),o=wd;if(a>o){let i=(a-o)/a;H.ox+=n*i,H.oy+=e*i,n-=n*i,e-=e*i}H.x=n/o,H.y=e/o,H.dx=n,H.dy=e,H.dirty=!0});function vi(t){t.pointerId===H.id&&(H.on=!1,H.x=H.y=0,H.sx=H.sy=void 0,wi.style.display="none")}l(vi,"endJoy");var Pc=l(t=>{Ft.delete(t.pointerId),Ft.size<2&&(Hn=0),vi(t)},"endPointer");pt.addEventListener("pointerup",Pc);pt.addEventListener("pointercancel",Pc);function hc(t,n){let e=Math.sin(fe),a=Math.cos(fe);return{x:t*a+n*e,z:-t*e+n*a}}l(hc,"screenToWorld");var $t=new jt;{let t=new Nn({color:"#56c27e",transparent:!0,opacity:.9,depthWrite:!1}),n=new Nt(new Ii(.3,.46,32),t);n.rotation.x=-Math.PI/2,$t.add(n);let e=new Nt(new Hi(.1,16),t);e.rotation.x=-Math.PI/2,$t.add(e),$t.visible=!1,U.add($t)}r.hooks.goTo=(t,n)=>{if(!Os(t,n))return!1;let e=r.runGoal;return ft.mouseMark!==!1&&($t.position.set(e.x,bt(e.x,e.z)+.04,e.z),$t.visible=!0,Tr($t.position.clone(),"#56c27e",.9)),!0};var mc=l(()=>{Ta()&&co(),$t.visible=!1},"endRun");function yc(t){if(H.dirty&&Tc(),r.menuOpen||r.cine||r.mini)return{x:0,z:0};let n=0,e=0;if((xt.has("KeyA")||xt.has("ArrowLeft"))&&(n-=1),(xt.has("KeyD")||xt.has("ArrowRight"))&&(n+=1),(xt.has("KeyW")||xt.has("ArrowUp"))&&(e-=1),(xt.has("KeyS")||xt.has("ArrowDown"))&&(e+=1),n||e){mc();let a=Math.hypot(n,e);return hc(n/a,e/a)}if(H.on){let a=1-Math.exp(-45*t);H.sx=(H.sx??H.x)+(H.x-(H.sx??H.x))*a,H.sy=(H.sy??H.y)+(H.y-(H.sy??H.y))*a;let o=Math.hypot(H.sx,H.sy);if(o>ii){mc();let i=Math.min(1,(o-ii)/(Md-ii)),s=hc(H.sx/o,H.sy/o);return{x:s.x*(.4+.6*i),z:s.z*(.4+.6*i)}}}if(Ta()){let a=Sa(t);return a.done&&($t.visible=!1),a}return{x:0,z:0}}l(yc,"inputVec");var No=document.getElementById("shout");No.addEventListener("pointerdown",t=>{t.stopPropagation(),Wn(),hi()});function hi(){let t=Qn(r.player.position);t&&t.id==="pazar"&&ns()}l(hi,"tryShout");var ce=!1;function Sd(){tr();try{localStorage.removeItem("koyBakkali.hints")}catch{}ya(),r.unlocked.clear(),r.money=0;for(let t in r.upg)r.upg[t]=0;ce=!0,location.reload()}l(Sd,"doReset");var mi=60,Go=1;function yi(t){let n=ln(t),e=n.shadow>0,a=q.shadowMap.enabled!==e;return Ze=St=Math.min(window.devicePixelRatio,n.pr),Ko=Math.min(Ze,n.prMin),Xe=Je=0,q.setPixelRatio(St),q.shadowMap.enabled!==e&&(q.shadowMap.enabled=e,U.traverse(o=>{if(o.material)for(let i of[].concat(o.material))i.needsUpdate=!0})),!e&&Z.shadow.map&&(Z.shadow.map.dispose(),Z.shadow.map=null),e&&Z.shadow.mapSize.x!==n.shadow&&(Z.shadow.mapSize.set(n.shadow,n.shadow),Z.shadow.map&&(Z.shadow.map.dispose(),Z.shadow.map=null)),Qe=n.dof||t==="orta"&&!qo,Qe||Ns(),$c=n.shadowEvery,n.shadowEvery,mi=n.fps,Go=n.fog,ia(n.detail),He=0,Zo(),a}l(yi,"applyQuality");var ri=Promise.resolve(),Vo=!1,xc=l(()=>new Promise(t=>requestAnimationFrame(()=>t())),"qFrame"),si=l(t=>new Promise(n=>setTimeout(n,t)),"qWait");function xi(t,n=!1){return ri=ri.then(async()=>{let e=n?null:document.getElementById("qVeil"),a=performance.now();e&&(e.querySelector("b").textContent=ua[t]||t,e.classList.add("on"),await xc(),await si(240)),Vo=!0;try{yi(t)&&await Promise.race([q.compileAsync(U,F),si(4e3)]),Qe&&fo(q,U,F,Xo,Jo)}catch{}Vo=!1;try{bi(),await xc(),e&&await si(Math.max(0,560-(performance.now()-a)))}catch(o){console.error(o)}finally{e&&e.classList.remove("on")}}).catch(e=>{Vo=!1,console.error(e)}),ri}l(xi,"switchQuality");var Ze=2,St=2,Ko=1,Xe=0,Je=0,Cn=1/60,li=0,gi=!1,gc=0,ci=0,Do=0;function Rd(t){let n=t-gc;gc=t,!(n<=0||n>100)&&(ci++,n<10.5&&Do++,!(ci<90)&&(gi=gi?Do>18:Do>54,ci=Do=0))}l(Rd,"seeRaf");var Bc=l(()=>mi<60?mi:gi&&(qo||ft.quality!=="yuksek")?60:0,"capNow"),Ld=l(()=>{let t=Bc();return t?1/t:1/60},"frameBase");function Pd(t){if(document.hidden||t>.25)return;Cn+=(t-Cn)*.05;let n=Ld(),e=n*1.2,a=n*1.05;Cn>e&&St>Ko?(Je=0,(Xe+=t)>1.5&&(Xe=0,li=Math.min(5,li+1),St=Math.max(Ko,St-.25),q.setPixelRatio(St))):Cn<a&&St<Ze?(Xe=0,(Je+=t)>8+20*li&&(Je=0,St=Math.min(Ze,St+.25),q.setPixelRatio(St))):Xe=Je=0}l(Pd,"adaptResolution");var He=0,Uo=15;function Bd(t){if(ft.autoQ||document.hidden||t>.25||(Uo-=t)>0||(He=t>1/28?He+t:Math.max(0,He-t/2),He<6))return;He=0,Uo=12;let n=to.indexOf(ft.quality);n<0||n>=to.length-1||(ft.quality=to[n+1],aa(),xi(ft.quality,!0),ut(`\u2699\uFE0F Oyun ak\u0131c\u0131 olsun diye grafik hafifledi: ${ua[ft.quality]} (Ayarlar \u203A Grafik)`))}l(Bd,"watchSpeed");var N=new $,zt=.38;function fi(t,n,e){for(let a=0;a<4;a++){let o=!1;for(let i of r.colliders){if(e&&e.includes(i)||t<i[0]-zt||t>i[1]+zt||n<i[2]-zt||n>i[3]+zt)continue;let s=Ye(i);if(s){for(let m of s)lc(m,t,n,zt)&&(t=Ce[0],n=Ce[1],o=!0);continue}let f=Math.max(i[0],Math.min(i[1],t)),c=Math.max(i[2],Math.min(i[3],n)),d=t-f,p=n-c,h=d*d+p*p;if(!(h>=zt*zt)){if(h>1e-9){let m=Math.sqrt(h),u=(zt-m)/m;t+=d*u,n+=p*u}else{let m=t-i[0],u=i[1]-t,g=n-i[2],w=i[3]-n,S=Math.min(m,u,g,w);S===m?t=i[0]-zt:S===u?t=i[1]+zt:S===g?n=i[2]-zt:n=i[3]+zt}o=!0}}if(!o)break}return[t,n]}l(fi,"resolve");var di=l((t,n)=>Gt(t,n)||Zn(t,n),"roam");function bc(t,n,e,a){let o=fi(t.x+n,t.z+e,a);if(!di(o[0],o[1])){let i=fi(t.x+n,t.z,a),s=fi(t.x,t.z+e,a),f=di(i[0],i[1]),c=di(s[0],s[1]);if(f&&(!c||Math.abs(n)>=Math.abs(e)))o=i;else if(c)o=s;else return null}return o}l(bc,"tryStep");var Wo=!0,Cd=[.45,-.45,.9,-.9];function $d(t,n,e,a){let o=bc(t,n,e,a),i=n*n+e*e,s=o?(o[0]-t.x)*n+(o[1]-t.z)*e:-1;if(Wo&&i>1e-6&&s<.3*i)for(let f of Cd){let c=Math.cos(f),d=Math.sin(f),p=bc(t,n*c+e*d,e*c-n*d,a);if(!p)continue;let h=(p[0]-t.x)*n+(p[1]-t.z)*e;h>s+.15*i&&(s=h,o=p)}o&&(t.x=o[0],t.z=o[1])}l($d,"slideStep");var Ao=[];function Cc(t,n,e){Ao.length=0;let a=-.03;for(let i of r.colliders)if(t.x>i[0]-a&&t.x<i[1]+a&&t.z>i[2]-a&&t.z<i[3]+a){let s=Ye(i);(!s||s.some(f=>cc(f,t.x,t.z,-a)))&&Ao.push(i)}let o=Math.max(1,Math.ceil(Math.hypot(n,e)/.25));for(let i=0;i<o;i++)$d(t,n/o,e/o,Ao.length?Ao:null)}l(Cc,"moveSlide");window.__slideRun=(t,n,e,a=1.5,o=6.6,i=!0)=>{let s=new $(t,0,n),f=1/30,c=Math.sin(e)*o*f,d=Math.cos(e)*o*f,p=Wo,h=0,m=0;Wo=i;for(let u=0;u<a;u+=f){let g=s.x,w=s.z;Cc(s,c,d);let S=Math.hypot(s.x-g,s.z-w);h+=S,S<o*f*.3&&m++}return Wo=p,[h,m,s.x,s.z]};var kc=!1,Bn=0,pi=0,wc=!1;function Hd(t){if(r.onRide){N.set(0,0,0),vt.y=vt.v=0,vt.run=!1,r.onRide(t,yc(t)),r.stack.update(t);return}let n=r.player.position,e=yc(t);r.inMag=Math.hypot(e.x,e.z);let a=qr(6.6*r.speedMul,xt.has("ShiftLeft")||xt.has("ShiftRight"),Math.hypot(e.x,e.z)>.6&&pi>1,t);N.x+=(e.x*a-N.x)*(1-Math.exp(-22*t)),N.z+=(e.z*a-N.z)*(1-Math.exp(-22*t));let o=n.x,i=n.z;if(Cc(n,N.x*t,N.z*t),t>0){N.x=(n.x-o)/t,N.z=(n.z-i)/t;let h=Math.hypot(N.x,N.z);h>a&&N.multiplyScalar(a/h)}$t.visible&&$t.scale.setScalar(1+Math.sin(r.time*6)*.12),n.y-=vt.y,n.y+=(bt(n.x,n.z)-n.y)*Math.min(1,t*14),n.y+=Ur(t);let s=Math.hypot(N.x,N.z),f=Math.hypot(e.x,e.z),c=Math.min(1,s/a),d=r.player.rotation;if(d.order!=="YXZ"&&(d.order="YXZ"),f>.2||s>.4){let h=f>.2?Math.atan2(e.x,e.z):Math.atan2(N.x,N.z);if(Math.abs(Math.atan2(Math.sin(h-d.y),Math.cos(h-d.y)))>1.9&&s>3&&Bn<.05&&vt.y===0){for(let u=0;u<3;u++)ca(n,{size:.36,grow:3,alpha:.55,v:new $(N.x*.18,0,N.z*.18)});Bn=.12}d.y=ue(d.y,h,1-Math.exp(-32*t))}!kc&&s>1&&(kc=!0,document.getElementById("help").classList.add("hide"));let p=c*(vt.run?.34:.2)+Math.max(0,(s-pi)/Math.max(t,.001))*.004;if(d.x+=(Math.min(vt.run?.42:.3,p)-d.x)*(1-Math.exp(-10*t)),pi=s,Bn-=t,s>3&&Bn<=0&&vt.y===0){Bn=.085-c*.015;let h=.36/s,m=(wc=!wc)?.14:-.14;ca({x:n.x-N.x*h+N.z/s*m,y:n.y,z:n.z-N.z*h-N.x/s*m},{size:.24+c*.1,grow:2.1+c*.4,alpha:.5+c*.15,life:.7,v:new $(-N.x*.07,0,-N.z*.07)})}Ne(r.player,vt.y>0?.2:c,vt.run?t*1.4:t,r.stack.items.length>0,!0),r.stack.anchor.rotation.x=-d.x-Math.min(.1,s*.012),r.stack.update(t)}l(Hd,"updatePlayer");var ct=new $,ui=new $,jd=new $,Yt=0,Io=null;function Oo(t,n){let e=r.player.position;r.camSnap&&(r.camSnap=!1,n=!0),r.camFocus&&Math.hypot(N.x,N.z)>1.5&&(r.camFocus=null);let a=r.camFocus;a&&r.time<a.until?ui.set(a.pos.x,0,a.pos.z):ui.set(e.x+N.x*.28,e.y-vt.y,e.z+N.z*.22),n?ct.copy(e):ct.lerp(ui,1-Math.exp(-5*t)),Tt+=(Rt-Tt)*(1-Math.exp(-8*t));let o=he.w/he.h,i=(o<.75?1.55:o<1.2?1.25:1)*Tt*(r.camK||1),s=n?1:1-Math.exp(-10*t),f=gt.clamp(.85/Math.pow(Tt,.8),.62,1.05);Math.abs(f-dc)>.01&&(dc=f,uc.style.setProperty("--lz",f.toFixed(3)));let c=gt.clamp(1/Tt,.2,1.4);Math.abs(c-pc)>.01&&(pc=c,uc.style.setProperty("--az",c.toFixed(3))),r.labelScale=gt.clamp(1/Tt,.42,1),r.farLabels=Tt>1.9,$e+=(Dn-$e)*s,fe+=(An-fe)*s;let d=23.8*i,p=Math.cos($e)*d,h=Math.sin(fe),m=Math.cos(fe);if(F.position.set(ct.x+h*p,ct.y+Math.sin($e)*d,ct.z+m*p),F.lookAt(ct.x-h*1.2,ct.y+.4,ct.z-m*1.2),r.mini&&(Io=r.mini),Yt=gt.clamp(Yt+(r.mini?t:-t)*2.4,0,1),Yt>0&&Io){let E=Yt*Yt*(3-2*Yt);F.position.lerp(Io.cam,E),F.lookAt(jd.set(ct.x-h*1.2,ct.y+.4,ct.z-m*1.2).lerp(Io.look,E))}F.updateMatrixWorld(),F.layers.mask=jr(Yt>0?1:Tt);let u=Math.max(0,d-24),g=(80+u*.9)*Go,w=(240+u*1.6)*Go;Math.abs(U.fog.far-w)>2&&(U.fog.near=g,U.fog.far=w,F.far=Math.max(400*Go,w+40),F.updateProjectionMatrix());let S=Yt>0||Xn()?.5:gt.clamp(d*.05,.5,6);Math.abs(F.near-S)>.05&&(F.near=S,F.updateProjectionMatrix()),Xn()&&$r(F,Dd.set(ct.x-h*1.2,ct.y+.4,ct.z-m*1.2),t,U);let b=gt.clamp((.98-Tt)/.4,0,1),v=gt.clamp((Mi-.05-$e)/.45,0,1);Xo=Xn()||Yt>0?0:Math.min(1,v+b*.65),Jo=Ad.set(0,0,-1).applyQuaternion(F.quaternion).dot($n.copy(ct).sub(F.position)),Od()}l(Oo,"updateCamera");var Dd=new $,Ad=new $,Qe=!0,Xo=0,Jo=20;r.hooks.cinema=t=>Br(t);r.hooks.cineShots=t=>Cr(t);var In=new $(-14,28,12).normalize(),jn=new $(0,1,0).cross(In).normalize(),_o=In.clone().cross(jn),Id=[[-1,-1],[1,-1],[1,1],[-1,1]],Fo=new $,$n=new $;function Od(){let t=Z.target.position.set(ct.x,0,ct.z),n=1/0,e=-1/0,a=1/0,o=-1/0,i=1/0,s=-1/0;for(let[E,z]of Id){Fo.set(E,z,.5).unproject(F).sub(F.position).normalize();for(let x of[0,4]){let k=Fo.y<-.02?Math.min(150,(x-F.position.y)/Fo.y):150;$n.copy(F.position).addScaledVector(Fo,k).sub(t);let M=$n.dot(jn),T=$n.dot(_o),B=$n.dot(In);n=Math.min(n,M),e=Math.max(e,M),a=Math.min(a,T),o=Math.max(o,T),i=Math.min(i,B),s=Math.max(s,B)}}let f=Math.max(33.5,s+12),c=Math.ceil((f-i+4)/4)*4,d=2,p=4,h=Math.max(-112,Math.floor((n-d)/p)*p),m=Math.min(112,Math.ceil((e+d)/p)*p),u=Math.max(-112,Math.floor((a-d)/p)*p),g=Math.min(112,Math.ceil((o+d)/p)*p),w=(m-h)/Z.shadow.mapSize.x,S=(g-u)/Z.shadow.mapSize.y,b=t.dot(jn),v=t.dot(_o);t.addScaledVector(jn,Math.round(b/w)*w-b).addScaledVector(_o,Math.round(v/S)*S-v),Z.position.copy(t).addScaledVector(In,f),Math.abs(it.left-h)+Math.abs(it.right-m)+Math.abs(it.bottom-u)+Math.abs(it.top-g)+Math.abs(it.far-c)>.1&&(it.left=h,it.right=m,it.bottom=u,it.top=g,it.far=c,it.updateProjectionMatrix(),Z.shadow.bias=-.037/(c-it.near))}l(Od,"fitShadow");var Mc=0,vc=0,$c=1;function bi(){let t=Math.max($c,Tt>2.6?3:Tt>1.6?2:1);++Mc>=t&&(Mc=0,q.shadowMap.needsUpdate=!0),Qe?fo(q,U,F,Xo,Jo):q.render(U,F)}l(bi,"renderFrame");var je=null;function Fd(t){let n=Qn(r.player.position);yr(t,n);let e=n&&n.id==="pazar"&&n.unlocked;No.style.display=e?"flex":"none",e&&No.style.setProperty("--c",(r.shout.cool/14).toFixed(3)),No.classList.toggle("active",r.shout.t>0);let a=r.guide,o=a?a.zone&&a:r.nextPad||r.needPad||r.finalPad;if(o){let i=o.zone.x-r.player.position.x,s=o.zone.z-r.player.position.z,f=Math.hypot(i,s);je.visible=f>(a?2.4:6)&&!(r.thief&&r.thief.loot>0),je.visible&&(je.position.set(r.player.position.x+i/f*1.5,r.player.position.y+.18+Math.sin(r.time*5)*.05,r.player.position.z+s/f*1.5),je.rotation.y=Math.atan2(i,s))}else je.visible=!1}l(Fd,"updateHud");function Zo(){let t=ln(ft.quality),n=Math.min(window.devicePixelRatio,t.pr);n!==Ze&&(Ze=St=n,Ko=Math.min(n,t.prMin),Xe=Je=0,He=0,Uo=Math.max(Uo,3),q.setPixelRatio(n));let e=innerWidth,a=innerHeight;q.setSize(e,a,!1),F.aspect=e/a,F.updateProjectionMatrix()}l(Zo,"resize");addEventListener("resize",Zo);l((function t(){try{matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`).addEventListener("change",()=>{Zo(),t()},{once:!0})}catch{}}),"watchDpr")();async function Nd(){await Ni();let t=Ts(),n=document.getElementById("loading");mr(`\u0130pucu: ${Xi("tips")}`),kr().catch(()=>{}),await Ui(gd,u=>{n.querySelector("b").style.width=`${Math.round(u*100)}%`}),await Ho(),kd(),await Ho(),r.labels=new er(document.getElementById("labels"));let e=Fe({shirt:"#3b8beb",pants:"#2d3e66",hat:"cap",hatColor:"#ffd23f",skin:"#f3cfae"});e.position.set(-2,0,-1),e.rotation.y=Wd,U.add(e),r.player=e,r.stack=new ar(e,8,.98,.5),je=Yi(),U.add(je),await fs(),await t;let{saved:a,flag:o}=await bs();if(await Ho(),Qr(a),Vi(U),await Ho(),a&&a.custom&&Object.assign(r.custom,a.custom),a&&a.stats&&Object.assign(r.stats,a.stats),ks(o),a&&Array.isArray(a.ach))for(let u of a.ach)r.ach.add(u);da(),as(a&&a.upg),Rr(a),pr();let i=l(u=>{da(),u&&Zt()},"onCustom");ur(i),Nr(),ls({onReset:Sd,onCustom:i,quality:xi,bootQuality:ki,gfx:l(()=>({fps:Math.round(1/Cn),pr:St,shadow:q.shadowMap.enabled}),"gfx"),getZoom:l(()=>Rt,"getZoom"),setZoom:l(u=>{Rt=gt.clamp(u,.55,Yo)},"setZoom"),snapCamera:l(()=>Oo(0,!0),"snapCamera"),beforeImport:l(()=>{ce=!0,ya()},"beforeImport")}),ss(i),yi(ft.quality),gr({scene:U,sun:Z,hemi:zc,LD:In,LX:jn,LY:_o}),zl(),Ir(),Js(pt),hl(),Wi(()=>(Qn(r.player.position)||{id:"koy"}).id),Zo(),Oo(0,!0);try{await Promise.race([q.compileAsync(U,F),new Promise(u=>setTimeout(u,5e3))])}catch{}if(Qe)try{fo(q,U,F,1,20)}catch{}n.classList.add("hide");try{sessionStorage.removeItem("koyBakkali.yukle")}catch{}Ss();try{navigator.serviceWorker&&!navigator.serviceWorker.controller&&navigator.serviceWorker.ready.then(u=>{let g=performance.getEntriesByType("resource").map(w=>w.name.split("#")[0]).filter(w=>w.startsWith(location.origin)&&/\.(js|json|glb|png|webp|ogg|mp3|woff2?)(\?|$)/.test(w));u.active&&g.length&&u.active.postMessage({warm:g})}).catch(()=>{})}catch{}r.fromBackup&&ut("\u{1F4BE} Son kay\u0131t okunamad\u0131: 5 dakika \xF6nceki yedekten devam ediyorsun"),r.custom.named||setTimeout(()=>hr(!0),500),hs(),Al(),setInterval(()=>{zs(),ce||(Zt(),xe())},3e3),Vd(),addEventListener("beforeunload",()=>{ce||(Zt(),xe(!0))});let s=0;document.addEventListener("visibilitychange",()=>{if(document.hidden){s=Date.now(),ce||(Zt(),xe(!0));return}s&&Date.now()-s>15e3&&ps(r.stats.time).then(u=>{u&&!ce&&(ce=!0,_n(u),location.reload())})}),zr(),qo&&(document.getElementById("help").textContent="Y\xFCr\xFCmek i\xE7in bas\u0131l\u0131 tut, s\xFCr\xFCkle");let f=performance.now(),c=l(u=>{r.labels.measure(),r.time+=u,r.stats.time+=u,Hd(u),Yr(u);for(let g of r.stations.slice())g.setInside(!r.onRide&&g.near(r.player.position)),g.update(u);es(u),Cs(u),Vr(u),Wr(u),Jr(u),Pr(u),os(),Vs(u),Lr(u),Xr(u),bl(u);for(let g of r.customers.slice())g.update(u);fr(u),is(u),Gr(u),or(u),Sr(u),br(u),Sl(u),Or(u),ql(u),tc(u),sc(),Il(u),Oo(u),Fd(u),cs(u),Zs(u),ml(u)},"tick"),d=l(u=>{r.labels.update(F,he.w,he.h,u),(vc-=u)<=0&&(vc=2,Hr(U)),Dr(u,U)},"tail"),p=new Set,h=l((u,g)=>{try{g()}catch(w){let S=String(w);p.has(S)||(p.add(S),console.error(w),cn(S,u,w&&w.stack))}},"guard"),m=l(u=>{requestAnimationFrame(m),Rd(u);let g=Bc();if(g&&u-f<1e3/g-(g<60?3:4))return;if(Vo){f=u;return}let w=Math.max(0,(u-f)/1e3),S=Math.min(.05,w);f=u,Pd(w),Bd(w),r.paused?h("kare",()=>{Oo(S),r.labels.measure(),r.labels.update(F,he.w,he.h,0)}):(h("kare",()=>c(S)),h("kare sonu",()=>d(S))),h("\xE7izim",bi)},"loop");requestAnimationFrame(m),window.__G=r,window.__R=q,window.__q={switchQuality:xi,applyQuality:yi,scene:U,camera:F},window.__bake=Ar,window.__cam=(u,g,w,S)=>(Tt=Rt=u,$e=Dn=g??Mi,w!=null&&(fe=An=w),S!=null&&(Qe=S),{dofS:Xo,dofF:Jo}),window.__step=(u,g=1/30,w=!0)=>{for(let S=0;S<u;S+=g)c(g),d(g);w&&bi()},window.__keys=xt,window.__mk=pe}l(Nd,"start");var Gd=["index.html","src/main.js","src/game.js","src/world.js","src/models.js","src/ui.js","src/upgrades.js","src/events.js","src/decor.js","src/audio.js","src/fx.js","src/texts.js","src/tex.js","src/menu.js","src/intro.js","src/sounds.js","src/soundpanel.js","src/cursor.js","src/minimap.js","src/station.js","src/roads.js","src/ambience.js","src/birds.js","src/thief.js","src/riders.js","src/chicks.js","src/resort.js","src/plaza.js","src/trucks.js","src/nature.js","src/carsi.js","src/energy.js","src/level.js","src/dress.js","src/wind.js","src/farmland.js","src/rating.js","src/rivals.js","src/alerts.js","src/avatar.js","src/bank.js","src/requests.js","src/services.js","src/fishing.js","src/sea.js","src/persist.js","src/perf.js","src/account.js","src/dest.js","src/autorun.js","src/cinema.js","src/expand.js","src/expand-west.js","src/expand-east.js","src/city.js","src/beach.js","src/catalog.js","src/ripe.js","src/online.js","src/online-ui.js","src/firebase-config.js","src/install.js","src/reyon.js","src/daylight.js","src/gorev.js","src/mevsim.js","src/canli.js"];function Vd(){if(!["localhost","127.0.0.1"].includes(location.hostname))return;let t=null,n=0;setInterval(l(async()=>{try{let o=(await Promise.all(Gd.map(i=>fetch(i,{method:"HEAD",cache:"no-store"}).then(s=>s.headers.get("Last-Modified")||"")))).join("|");t===null?t=o:o!==t&&(t=o,n=performance.now())}catch{}if(n&&performance.now()-n>3e3&&!r.menuOpen&&!ce){if(await fetch("src/.bakim",{method:"HEAD",cache:"no-store"}).then(o=>o.ok).catch(()=>!1))return;n=0,Zt(),xe(!0),document.getElementById("tip").textContent="Yeni s\xFCr\xFCm y\xFCkleniyor, kald\u0131\u011F\u0131n yerden devam\u2026",document.getElementById("loading").classList.remove("hide"),document.getElementById("loading").style.display="",setTimeout(()=>location.reload(),300)}},"check"),2500)}l(Vd,"watchForUpdates");var Wd=Math.PI;Nd().catch(t=>{console.error(t),Ec("Oyun y\xFCklenemedi. Ba\u011Flant\u0131n\u0131 kontrol edip yeniden dene. ("+t.message+")","The game could not load. Check your connection and try again. ("+t.message+")"),cn(String(t),"a\xE7\u0131l\u0131\u015F",t&&t.stack)});
