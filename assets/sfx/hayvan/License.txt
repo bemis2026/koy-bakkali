@@ -17,3 +17,10 @@ kus.ogg <- "Fringilla coelebs.ogg" — Oona Räisänen (Mysid) — Public domain
 kus.ogg <- "Parus major 15mars2011.ogg" — Dengis Chantal — CC BY 3.0 — https://commons.wikimedia.org/wiki/File:Parus_major_15mars2011.ogg
 kus.ogg <- "Passer domesticus - House Sparrow - XC86749.ogg" — Jonathon Jongsma — CC BY-SA 3.0 — https://commons.wikimedia.org/wiki/File:Passer_domesticus_-_House_Sparrow_-_XC86749.ogg
 yaprak.ogg <- "Rustling leaves (Gravity Sound).wav" — Gravity Sound — CC BY 4.0 — https://commons.wikimedia.org/wiki/File:Rustling_leaves_(Gravity_Sound).wav
+
+2026-11-11 eklenenler (aynı işlem):
+koyun.ogg <- "Sheep bleating.ogg" — earthcalling — Public domain — https://commons.wikimedia.org/wiki/File:Sheep_bleating.ogg
+guvercin.ogg <- "Dove cooing.ogg" — mary905 — Public domain — https://commons.wikimedia.org/wiki/File:Dove_cooing.ogg
+esek.ogg <- "157763 felix-blume a-donkey-is-braying-in-his-enclosure-in-south-of-france.wav" — felix-blume — CC0 — https://commons.wikimedia.org/wiki/File:157763_felix-blume_a-donkey-is-braying-in-his-enclosure-in-south-of-france.wav
+ordek.ogg <- "Anas platyrhynchos - Mallard - XC112828.ogg" — Jonathon Jongsma — CC BY-SA 3.0 — https://commons.wikimedia.org/wiki/File:Anas_platyrhynchos_-_Mallard_-_XC112828.ogg
+marti.ogg <- "XC707075 - European Herring Gull - Larus argentatus.mp3" — Sonothèque ADVL — CC0 — https://commons.wikimedia.org/wiki/File:XC707075_-_European_Herring_Gull_-_Larus_argentatus.mp3

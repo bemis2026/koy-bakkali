@@ -363,6 +363,30 @@ function addKeyif(n) {
   drawBar();
 }
 
+// ---------- köydeki Beach Club keyfi (2026-11-11 kullanıcı: "Köydeki beach clubta da tatil köyünde olduğu gibi eğlenebilsin adam") ----------
+// club.js playerFun: pistte dans, barda kokteyl (act), şezlongda uzanmak (lie). Aynı bar "🎧 Beach Club keyfi" adıyla çıkar. Kulüp bedava,
+// tatil parayla: bar adadan yavaş dolar (uzanarak ~2,5 dk, dans ve barda ~3,5 dk; her yeni etkinlik +%8) ve dolunca 10 dk dinçlik
+// verir (adada 20 dk). Sıkılma barla azalır, dolunca sıfır, Shift enerjisi dolar. Dinçken dolmaz; dinçlik bitince bar sıfırdan başlar.
+const CLUB_FILL = { lie: 0.65, act: 0.48 }, CLUB_MIN = 10;
+const cf = { keyif: 0, sik0: null, full: false, rate: '', fun: new Set(), here: false };
+export function clubFun(dt, rate, kind, here) {
+  cf.here = here; cf.rate = rate;
+  if (cf.full && !dinc()) { cf.keyif = 0; cf.full = false; cf.fun.clear(); cf.sik0 = null; } // dinçlik bitti: yeniden dolabilir
+  if (!here || !rate || cf.full || dinc()) return;
+  if (cf.sik0 === null) cf.sik0 = S().sik || 0;
+  let n = CLUB_FILL[rate] * dt;
+  if (kind && !cf.fun.has(kind)) { cf.fun.add(kind); n += NEW_FUN; if (G.player) floatText(G.player.position.clone().setY(2.5), `✨ ${CLUB_FUN[kind] || kind} +%${NEW_FUN}`, 'pos'); }
+  cf.keyif = Math.min(100, cf.keyif + n);
+  S().sik = Math.min(S().sik || 0, cf.sik0 * (1 - cf.keyif / 100));
+  if (cf.keyif < 100) return;
+  cf.full = true; S().sik = 0; S().dincUntil = Math.max(S().dincUntil || 0, (S().time || 0) + 60 * CLUB_MIN);
+  if (G.hooks.fillEnergy) G.hooks.fillEnergy();
+  toast(`⚡ Beach Club keyfi doldu: ${CLUB_MIN} dakika dinçsin, hızlı yürür, fazla taşırsın`); sfx('unlock');
+  if (G.player) floatText(G.player.position.clone().setY(2.6), '⚡ TAM ENERJİ', 'pos');
+  drawBar();
+}
+const CLUB_FUN = { dans: 'Dans', kokteyl: 'Kokteyl', sezlong: 'Şezlong' };
+
 // ---------- adada ekran: tatil keyfi barı (altta ortada, yardım satırının üstünde; üstteki bildirim satırını kapatmaz) ----------
 let bar = null, barT = 0; const drawn = ['', ''];
 const BAR_CSS = `#keyifBar { position: absolute; left: 50%; transform: translateX(-50%); width: min(360px, calc(100vw - 150px)); padding: 6px 12px 8px; border-radius: 16px; display: none; z-index: 6; pointer-events: auto; text-align: center; }
@@ -378,6 +402,7 @@ const BAR_CSS = `#keyifBar { position: absolute; left: 50%; transform: translate
 #keyifBar.full .bar i { background: linear-gradient(90deg, #ffd23f, #ffb627); }
 #keyifBar button { display: none; margin-top: 6px; padding: 6px 16px; border-radius: 12px; border: none; background: #2fb5a8; color: #fff; font: 16px var(--font-title); cursor: pointer; }
 #keyifBar.full button { display: inline-block; }
+#keyifBar.club button { display: none; }
 @media (max-width: 640px) { #keyifBar { width: calc(100vw - 120px); padding: 4px 8px 6px; } #keyifBar .t { font-size: 14px; } #keyifBar .now { font-size: 12px; } }`;
 const NOW = { lie: '😎 Uzanıyorsun: en hızlı doluyor', act: '🌊 Eğleniyorsun: hızlı doluyor', walk: '🚶 Gezerken yavaş dolar. Şezlong, hamak, deniz, oyun, dans daha hızlı' };
 function showBar(on) {
@@ -392,8 +417,23 @@ function showBar(on) {
   bar.classList.toggle('on', on);
   if (on) { placeBar(); drawBar(); }
 }
+const NOWC = { lie: '😎 Şezlongda uzanıyorsun: hızlı doluyor', act: '🎶 Eğleniyorsun: doluyor', '': '🎧 Pistte dans et, barda kokteyl iç, şezlongda uzan' };
 function drawBar() {
   if (!bar || !bar.classList.contains('on')) return;
+  const ck = !onIsle();
+  bar.classList.toggle('club', ck);
+  const tt = ck ? '🎧 Beach Club keyfi' : '🌴 Tatil keyfi', te = bar.querySelector('.t span');
+  if (te.dataset.k !== tt) { te.dataset.k = tt; te.textContent = tt; }
+  if (ck) {
+    const kc = Math.floor(cf.keyif);
+    bar.querySelector('.bar i').style.width = `${cf.keyif}%`; bar.querySelector('.pc').textContent = `%${kc}`;
+    bar.querySelector('.fn').textContent = cf.fun.size ? `✨ ${cf.fun.size}` : '';
+    bar.classList.toggle('full', cf.full);
+    const a = cf.full ? `⚡ Doldu! ${CLUB_MIN} dk dinçsin` : dinc() ? '⚡ Zaten dinçsin: dinçlik bitince yeniden dolar' : NOWC[cf.rate || ''];
+    if (a !== drawn[0]) { drawn[0] = a; bar.querySelector('.now .a').textContent = a; }
+    if (drawn[1] !== '') { drawn[1] = ''; bar.querySelector('.now .b').textContent = ''; }
+    return;
+  }
   const k = Math.floor(trip.keyif);
   bar.querySelector('.bar i').style.width = `${trip.keyif}%`;
   bar.querySelector('.pc').textContent = `%${k}`;
@@ -447,11 +487,12 @@ export function updateTatil(dt) {
   if ((posT -= dt) <= 0) {
     posT = 0.5; place(); refresh(); if (!agencyOn && agencyDue()) openAgency(false);
     G.dinc = dinc() && !onIsle(); // dinçken Shift enerjisi yarı hızda biter (yetenek.js)
-    const want = onIsle() && G.world === 'ada' && !G.cine; // gemi yolculuğunda gizli
+    const want = (onIsle() && G.world === 'ada' && !G.cine) || (!onIsle() && cf.here && G.world === 'koy' && !G.cine && !busy); // gemi yolculuğunda gizli; köyde Beach Club'dayken
     if (want !== !!(bar && bar.classList.contains('on'))) showBar(want); else if (want) placeBar();
   }
   updateIsle(dt); // adadan çıkınca da kamerayı ve kuşları toparlar
   if (onIsle()) { updateTrip(dt); return; }
+  if (cf.here && (barT -= dt) <= 0) { barT = 0.15; drawBar(); } // köyde Beach Club keyfi barı (clubFun)
   if (globe) { globe.rotation.y += dt * 0.5; flag.rotation.y = Math.sin(G.time * 1.7) * 0.25; }
   // sıkılmış avatar arada esner
   if ((S().sik || 0) >= 70 && (yawnT -= dt) <= 0) { yawnT = (S().sik >= 100 ? rand(5, 9) : rand(10, 16)); floatText(G.player.position.clone().setY(2.5), '🥱', 'neg'); }

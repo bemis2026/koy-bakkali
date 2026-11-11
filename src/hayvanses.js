@@ -24,6 +24,13 @@ const SES = {
   kedi: { f: 'kedi.ogg', p: [[0, 1.7], [1.95, 1.9], [4.1, 1.3], [5.65, 2.6], [8.5, 1.3], [10.05, 1], [11.3, 1.4]] },
   kus: { f: 'kus.ogg', p: [[0, 1.5], [1.75, 1.7], [3.7, 2.2], [6.15, 1.3], [7.7, 1.8], [9.75, 1.4], [11.4, 1.3], [12.95, 1.1], [14.3, 2.8], [17.35, 3], [20.6, 2.9], [23.75, 4.65], [28.65, 2.75], [31.65, 2.7], [34.6, 3.7]] },
   yaprak: { f: 'yaprak.ogg', p: [[0, 11.1]] },
+  // 2026-11-11 kullanıcı: "At sesi koyun sesi kuş sesi vs eklenecekti" (KoyBakkali-araclar/ses/kes4.py; kaynaklar License.txt'de)
+  koyun: { f: 'koyun.ogg', p: [[0, 1.2], [1.45, 1.8]] },
+  guvercin: { f: 'guvercin.ogg', p: [[0, 2.0], [2.25, 1.8], [4.3, 1.75]] },
+  esek: { f: 'esek.ogg', p: [[0, 11.45], [11.7, 5.0]] },
+  ordek: { f: 'ordek.ogg', p: [[0, 1.32], [1.57, 1.64], [3.46, 1.1], [4.81, 2.08], [7.14, 1.58]] },
+  marti: { f: 'marti.ogg', p: [[0, 1.75], [2.0, 1.3], [3.55, 1.6], [5.4, 0.9], [6.55, 1.15]] },
+  at: { f: '../at_kisneme.ogg', p: [[0.55, 2.6]] }, // ahırdaki kişneme kaydı (ambience.js): artık her atın kendisinden de gelir
 };
 // ses, hayvan türü, dipteki ses, en az / en çok sn aralık. Ölçüm (2026-11-05, ortam ses düzeyi varsayılanken): dipte hayvan ≈ 0,009
 // RMS, zemin (rüzgâr, kuş) ≈ 0,004; 30 m'de hayvan ≈ 0,001 (arka fon)
@@ -33,6 +40,12 @@ const KIND = [
   ['inek', 'inek', 0.12, 14, 30],
   ['kopek', 'kopek', 0.11, 14, 32],
   ['kedi', 'kedi', 0.12, 18, 40],
+  ['koyun', 'koyun', 0.13, 9, 22],
+  ['guvercin', 'guvercin', 0.1, 12, 28],
+  ['esek', 'esek', 0.1, 40, 90],
+  ['ordek', 'ordek', 0.12, 10, 24],
+  ['marti', 'marti', 0.09, 10, 26],
+  ['at', 'at', 0.09, 28, 65],
 ].map(([s, k, v, a, b]) => ({ S: SES[s], s, k, v, a, b, t: rnd(a, b) * 0.4 }));
 const MAXD = 60, REF = 7, MAXLIVE = 3;
 const KUS = 1.2; // kuş kaydının çarpanı: arka fonda, zemin düzeyinde (köyde ≈ 0,008 RMS)

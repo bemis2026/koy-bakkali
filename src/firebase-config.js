@@ -14,3 +14,7 @@ export const FIREBASE = {
 // https://koy-bakkali.web.app/__/auth/handler eklenmeli; eklenmeden true yapılırsa Google "redirect_uri_mismatch" verir.
 // 2026-10-27: adres ve https://koy-bakkali.web.app kaynağı eklendi, Google kabul ediyor.
 export const AUTH_SAME_SITE = true;
+// GitHub Pages kopyası (bemis2026.github.io/koy-bakkali): giriş yardımcısı __/auth/ klasöründe (Firebase'in kendi dosyaları, firebaseapp.com'dan
+// indirildi; Firebase'e yüklenmez, firebase.json ignore). Google Cloud → OAuth istemcisi → Yetkili yönlendirme URI'leri'nde
+// https://bemis2026.github.io/koy-bakkali/__/auth/handler olmalı (2026-11-11 eklendi). Yardımcı dosyalar ara sıra yeniden indirilmeli.
+export const AUTH_GITHUB = true;

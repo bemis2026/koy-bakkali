@@ -80,12 +80,29 @@ export function kaliciDepo() {
 }
 
 // ---------- ekran kartı ----------
+// Telefonda uygulama arka plana alınıp dönünce ya da bellek sıkışınca bağlam düşer, tarayıcı birkaç an sonra geri verir. Eskiden geri
+// gelince sayfa yenileniyordu: oyuncu yükleme ekranına atılıyordu (2026-11-11 kullanıcı: "oyundan atıyor sürekli"). Artık three.js
+// bağlamı yerinde kurar (dokular, şekiller, gölgeler kendiliğinden yeniden yüklenir), oyun kaldığı yerden sürer. Yalnız sayfa
+// görünürken 10 sn içinde geri gelmezse yeniden aç perdesi çıkar.
 export function ekranKarti(canvas) {
+  let lost = false, waitT = 0;
+  const giveUp = () => {
+    clearTimeout(waitT);
+    waitT = setTimeout(() => {
+      if (!lost) return;
+      if (document.hidden) { giveUp(); return; } // arka planda bekler; görünür olunca süre yeniden başlar
+      perde('Ekran kartı bir an durdu', 'Oyunun kaydedildi. Kaldığın yerden devam etmek için yeniden aç.', 'Yeniden aç', () => location.reload());
+    }, 10000);
+  };
   canvas.addEventListener('webglcontextlost', (e) => {
-    e.preventDefault(); flush();
-    perde('Ekran kartı bir an durdu', 'Oyunun kaydedildi. Kaldığın yerden devam etmek için yeniden aç.', 'Yeniden aç', () => location.reload());
+    e.preventDefault(); lost = true; G.glLost = (G.glLost || 0) + 1; flush(); giveUp();
   });
-  canvas.addEventListener('webglcontextrestored', () => location.reload());
+  canvas.addEventListener('webglcontextrestored', () => {
+    lost = false; clearTimeout(waitT);
+    const el = document.getElementById('koruPerde');
+    if (el && el.querySelector('b').textContent.startsWith('Ekran kartı')) el.classList.remove('open');
+  });
+  document.addEventListener('visibilitychange', () => { if (lost && !document.hidden) giveUp(); });
 }
 
 // ---------- hata raporu ----------

@@ -12,6 +12,7 @@ import { ring } from './fx.js';
 import { repMul } from './rating.js';
 import { texRep } from './tex.js';
 import { beatOf } from './calgi.js';
+import { clubFun } from './tatil.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const PI = Math.PI;
@@ -219,6 +220,9 @@ export function buildClub(c, { place, cashBox, danceStep }) {
   c.group.add(makePier());
   if (!G.walkways.club) { G.walkways.push([PIER.x - PIER.w / 2, PIER.x + PIER.w / 2, PIER.z0, PIER.z1], [PIER.tx0, PIER.tx1, PIER.z1 - 0.2, PIER.tz1]); G.walkways.club = true; }
   const boat = M.makeBoat(); c.put(boat, PIER.x, 0, PIER.tz1 + 1.3, PI / 2);
+  // oyuncunun şezlongları: kumda, denize bakar (aşağıda playerFun)
+  for (const [i, l] of LOUNGE.entries()) { c.put(M.makeLounger(i ? '#3fd7ff' : '#ff6fa8'), l.x, 0, l.z, l.ry); c.put(M.makeUmbrella(i ? '#ffe03f' : '#3fd7ff'), l.x + (i ? -1.05 : 1.05), 0, l.z - 0.35, 0); }
+  c.hint(FLOOR.x + 3.3, 2.2, FLOOR.z + 2.4, '🎶', 'Eğlen', 'Pistte durunca dans edersin, bardaki boş tabureye oturunca kokteyl içersin, kumdaki şezlongda uzanırsın: Beach Club keyfi dolar, dolunca dinçsin.', 2.6);
   BERTHS.forEach((b, i) => { const o = live(makeYacht(i ? '#1f4e8c' : '#c8463a')); o.visible = false; G.scene.add(o); club.yachts.push({ o, b, i, st: 'away', t: i ? 16 : 5, v: 0, h: 0, wps: [], aboard: 0, stay: 0 }); });
   for (const [x, col] of [[113.4, '#ff6fa8'], [125.4, '#ffe03f']]) {
     const f = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.16, 8, 18), M.mat(col, { rough: 0.4 })); f.rotation.x = PI / 2;
@@ -416,8 +420,53 @@ function animateClub(dt) {
     u.arms[0].rotation.set(-1.7 + w * 0.3, 0, 0); u.arms[1].rotation.set(-1.7 - w * 0.3, 0, 0); u.head.rotation.z = Math.sin(ph) * 0.06;
   }
 }
+// ---------- oyuncu kulüpte eğlenir (2026-11-11 kullanıcı: "Köydeki beach clubta da tatil köyünde olduğu gibi eğlenebilsin adam") ----------
+// Martı Adası'ndaki gibi (adacanli.js playerTick): pistte durunca DJ'in vuruşuyla dans eder, bardaki boş tabureye gelip durunca kokteyl
+// içer, kumdaki şezlongda uzanır; yürümek isteyince kalkar. Eğlendikçe tatil.js'teki "Beach Club keyfi" barı dolar (clubFun).
+const LOUNGE = [{ x: 114.0, z: 27.4, ry: 0 }, { x: 125.3, z: 27.4, ry: 0 }];
+const me = { lie: null, stool: null, d: null, still: 0, lp: null, sp: 0 };
+const inClub = (p) => p.x > 112.5 && p.x < 126.6 && p.z > 15.0 && p.z < 31.6;
+function standUp() {
+  const P = G.player;
+  if (me.lie || me.stool || me.d) { P.position.y = 0; P.rotation.x = 0; P.rotation.z = 0; for (const l of P.userData.legs) l.rotation.x = 0; }
+  if (me.stool) me.stool.c = null;
+  me.lie = null; me.stool = null; me.d = null;
+}
+function playerFun(dt) {
+  const P = G.player, p = P && P.position;
+  if (!p || !P.userData.legs) return;
+  if (!(G.world === 'koy' && !G.onRide && !G.cine && inClub(p))) { if (me.lie || me.stool || me.d) standUp(); me.lp = null; clubFun(dt, '', '', false); return; }
+  const u = P.userData;
+  me.sp = me.lp ? Math.hypot(p.x - me.lp.x, p.z - me.lp.z) / Math.max(dt, 1e-3) : 0;
+  me.still = me.sp < 0.3 ? me.still + dt : 0;
+  // yalnız yürümek isteyince kalkar (tuş, joystick): taburede bar tezgâhının çarpışma kutusu oyuncuyu her kare biraz iter, hız ölçüsü yanıltır
+  if ((me.lie || me.stool || me.d) && G.inMag > 0.35) { standUp(); me.still = 0; }
+  if (me.lie) { // şezlongda uzanır: ayaklar denize
+    const l = me.lie; p.set(l.x + Math.sin(l.ry) * 0.85, 0.5, l.z + Math.cos(l.ry) * 0.85); P.rotation.set(-1.25, l.ry, 0);
+    me.lp = { x: p.x, z: p.z }; clubFun(dt, 'lie', 'sezlong', true); return;
+  }
+  if (me.stool) { // taburede kokteyl
+    const s = me.stool; p.set(s.x, 0.1, s.z); P.rotation.set(0, -PI / 2, 0);
+    for (const l of u.legs) l.rotation.x = -1.3; u.arms[0].rotation.x = -1.25 + Math.sin(G.time * 0.9) * 0.25; u.arms[1].rotation.x = -0.45;
+    me.lp = { x: p.x, z: p.z }; clubFun(dt, 'act', 'kokteyl', true); return;
+  }
+  me.lp = { x: p.x, z: p.z };
+  if (Math.abs(p.x - FLOOR.x) < 2.7 && Math.abs(p.z - FLOOR.z) < 2.0 && me.still > 0.6) { // pistte dans: kalabalıkla aynı adımlar
+    if (!me.d) me.d = { o: P, style: ['zipla', 'sallan', 'el', 'alkis', 'kafa'][Math.floor(rand(0, 5))], f: PI, ph: 0, ry: Math.atan2(DJ.x - p.x, DJ.z - p.z) };
+    club.dance(me.d, club.beat, dt, 1); clubFun(dt, 'act', 'dans', true); return;
+  }
+  if (me.d) standUp();
+  if (me.still > 0.8) {
+    const st = club.stools.find((q) => !q.c && Math.hypot(p.x - q.x, p.z - q.z) < 0.75);
+    if (st) { st.c = 'oyuncu'; me.stool = st; floatText(V(st.x, 1.7, st.z), '🍹', 'pos'); sfx('pop'); return; }
+    const l = LOUNGE.find((q) => Math.hypot(p.x - q.x, p.z - q.z) < 1.0);
+    if (l) { me.lie = l; floatText(V(l.x, 1.3, l.z), '😎', 'pos'); return; }
+  }
+  clubFun(dt, '', '', true);
+}
 export function updateClub(dt) {
   if (!club.on) return;
+  playerFun(dt);
   // vuruş eksiye düşmez (2026-11-03 kullanıcı: "beach club'ın oraya gidince donuyor"): şarkının son notası planlanınca calgi.js loop0'ı
   // bir sonraki turun başına (ileriye) alır, o arada vuruş birkaç kare eksi kalır; PAL[-1] boş gelip hata veriyor, oyun döngüsü duruyordu
   club.dt = dt; club.beat = Math.max(0, beatOf('club') || 0);

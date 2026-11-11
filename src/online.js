@@ -4,7 +4,7 @@
 // çevrimdışı açılır (ON.mode 'off'). Arayüz online-ui.js'te; kayıt seçimi persist.js'te.
 import { G } from './game.js';
 import { stars } from './rating.js';
-import { FIREBASE, AUTH_SAME_SITE } from './firebase-config.js';
+import { FIREBASE, AUTH_SAME_SITE, AUTH_GITHUB } from './firebase-config.js';
 import { temiz, uygun } from './filtre.js';
 // başkasından gelen ad, köy adı ve hakkımda yazısı gösterilmeden önce süzülür (filtre.js)
 const cleanRow = (r) => { if (r) for (const k of ['name', 'village', 'bio', 'fromName', 'note']) if (typeof r[k] === 'string') r[k] = temiz(r[k]); return r; };
@@ -150,7 +150,9 @@ export async function setPassword(pw) {
   if (String(pw || '').length < 6) throw fail('auth/weak-password');
   await B.setPassword(`${ON.profile.username}@${MAIL}`, pw);
 }
-export async function signInGoogle() { await keep(); const u = await B.google(); if (u) await afterLogin(u); }
+// Google penceresi dokunuşla aynı anda açılmalı: önce kalıcılık (IndexedDB) beklenirse telefon tarayıcısı dokunuşu saymaz, pencereyi
+// engeller, yönlendirmeye düşülür (2026-11-11 kullanıcı: "google ile gir çalışmıyor"). Kalıcılık girişten sonra ayarlanır
+export async function signInGoogle() { const u = await B.google(); await keep(); if (u) await afterLogin(u); }
 // çıkışta yerel kaydın sahibi silinmez: başka hesap girerse bu kaydı devralmasın (kendi bulut kaydı ya da yeni oyun)
 export const myKey = (k) => mine(k);
 export async function signOut() { await B.logout(); ON.user = null; ON.profile = null; }
@@ -334,6 +336,9 @@ async function firebaseBackend(cfg) {
   const [A, U, F] = await Promise.all([import(`${SDK}firebase-app.js`), import(`${SDK}firebase-auth.js`), import(`${SDK}firebase-firestore.js`)]);
   const conf = { ...cfg };
   if (AUTH_SAME_SITE && /\.(web\.app|firebaseapp\.com)$/.test(location.hostname)) conf.authDomain = location.host;
+  // GitHub Pages: giriş yardımcısı (__/auth/handler, iframe) oyunla aynı adreste, alt klasörde durur. Google'dan dönüş başka alan adına
+  // giderse telefon tarayıcısı ve kurulu uygulama oturumu okuyamıyordu (üçüncü taraf depolama bölünmesi): "girişsiz geri dönüyor"
+  else if (AUTH_GITHUB && /\.github\.io$/.test(location.hostname)) conf.authDomain = location.host + location.pathname.replace(/\/[^/]*$/, '');
   const app = A.initializeApp(conf), auth = U.getAuth(app), db = F.getFirestore(app);
   const ref = (col, id) => F.doc(db, col, id);
   const gp = () => { const p = new U.GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); return p; };

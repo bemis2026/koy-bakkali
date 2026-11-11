@@ -15,7 +15,7 @@ self.addEventListener('fetch', (e) => {
   if (r.method !== 'GET' || r.headers.has('range')) return; // ses parçalı isteği tarayıcıya kalır
   const u = new URL(r.url), same = u.origin === location.origin, font = /^fonts\.(googleapis|gstatic)\.com$/.test(u.hostname);
   if (!same && !font) return;
-  if (same && (u.pathname.startsWith('/__/') || u.pathname.startsWith('/kayit'))) return;
+  if (same && (u.pathname.includes('/__/') || u.pathname.startsWith('/kayit'))) return; // giriş yardımcısı GitHub'da alt klasörde
   const media = font || /\.(png|jpe?g|webp|mp3|ogg|m4a|wav|glb|woff2?)$/i.test(u.pathname);
   e.respondWith(media ? cacheFirst(r) : networkFirst(r));
 });

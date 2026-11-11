@@ -448,6 +448,11 @@ const SESLER = [
   ['Büyük baştankara', 'Dengis Chantal', 'CC BY 3.0', 'https://commons.wikimedia.org/wiki/File:Parus_major_15mars2011.ogg'],
   ['Serçe', 'Jonathon Jongsma', 'CC BY-SA 3.0', 'https://commons.wikimedia.org/wiki/File:Passer_domesticus_-_House_Sparrow_-_XC86749.ogg'],
   ['Yaprak hışırtısı', 'Gravity Sound', 'CC BY 4.0', 'https://commons.wikimedia.org/wiki/File:Rustling_leaves_(Gravity_Sound).wav'],
+  ['Koyun', 'earthcalling', 'kamu malı', 'https://commons.wikimedia.org/wiki/File:Sheep_bleating.ogg'],
+  ['Güvercin', 'mary905', 'kamu malı', 'https://commons.wikimedia.org/wiki/File:Dove_cooing.ogg'],
+  ['Eşek', 'felix-blume', 'CC0', 'https://commons.wikimedia.org/wiki/File:157763_felix-blume_a-donkey-is-braying-in-his-enclosure-in-south-of-france.wav'],
+  ['Ördek', 'Jonathon Jongsma', 'CC BY-SA 3.0', 'https://commons.wikimedia.org/wiki/File:Anas_platyrhynchos_-_Mallard_-_XC112828.ogg'],
+  ['Martı', 'Sonothèque ADVL', 'CC0', 'https://commons.wikimedia.org/wiki/File:XC707075_-_European_Herring_Gull_-_Larus_argentatus.mp3'],
 ];
 // araç sesleri ve akordeoncu (aracses.js, calgi.js; kaynaklar assets/sfx/arac ve assets/sfx/calgi License.txt)
 const ARACSES = [
