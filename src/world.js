@@ -926,7 +926,14 @@ function shopKoy(R, c, o = {}) {
   let i = 0, st = steps[0], inside = false;
   c.got = 0; c.bill = 0;
   const bubble = () => { c.want = st.want; c.setBubble(st.want, Math.max(1, st.need - st.got)); if (c.basketMode) c.bEl.classList.add('basket'); }; // c.want: rafçı bekleyen müşteriyi öne alır
-  const leave = () => { c.state = 'leave'; c.leaving = true; c.path = o.exit ? o.exit() : koyExit(); };
+  // çıkış yolu. Güney ya da doğu kapısına giden müşteri kasadan kalkınca kuyruğun içinden yürümesin (kuyruk kasadan doğuya uzanır):
+  // önce kuyruğun kuzeyine çıkar, oradan kapının hizasına yürür (köy marketinden itibaren; bakkalın içi buna dar)
+  const exitPath = () => {
+    const p = o.exit ? o.exit() : koyExit(), q = c.obj.position, z = D.payZ() - 1.7;
+    if (o.door && o.door !== 'bati' && D.shopStage() >= 3 && q.z > z - 0.2 && p.length) p.unshift(V(q.x, 0, z), V(p[0].x, 0, z));
+    return p;
+  };
+  const leave = () => { c.state = 'leave'; c.leaving = true; c.path = exitPath(); };
   const toQueue = () => {
     c.clearBubble();
     if (!c.got) { c.mood(false); leave(); return; }
@@ -945,7 +952,7 @@ function shopKoy(R, c, o = {}) {
     c.path = [...enter, st.spot.p.clone()];
     c.state = 'toShelf'; bubble();
   };
-  c.onPaid = () => { c.mood(true); c.state = 'leave'; c.leaving = true; c.path = o.exit ? o.exit() : koyExit(); };
+  c.onPaid = () => { c.mood(true); c.state = 'leave'; c.leaving = true; c.path = exitPath(); };
   const patience = (o.basket ? 28 : 40) * pat(c); // acele müşterinin sabrı yarı süre
   bubble(); // ne alacağı daha yoldayken baloncukta belli
   c.think = (dt) => {
@@ -2565,7 +2572,10 @@ export function buildWorld(saved) {
     for (const u of UNLOCKS) {
       if (!saved.unlocked || !saved.unlocked.includes(u.id)) continue;
       G.unlocked.add(u.id);
-      u.build(true);
+      // bir kilidin kurulumu hata verirse oyun yine açılır: o kilit açılmamış sayılır, şartı sağlanınca yerinde yeniden çıkar. Eskiden
+      // tek hata bütün açılışı durduruyordu ("Oyun yüklenemedi"): bölgesi kayıtta olmayan bir kilit (bozuk ya da elle değişmiş kayıt)
+      // oyuncuyu oyunun dışında bırakırdı (2026-11-12 denetimi: şehirsiz kayıtta şehrin ikinci kasası)
+      try { u.build(true); } catch (e) { G.unlocked.delete(u.id); (G.loadErrors || (G.loadErrors = [])).push(u.id); console.error('kilit kurulamadı:', u.id, e); }
     }
     // eski kayıt: açık rafların yeri dükkânın sonraki aşamasındaysa o aşama kendiliğinden açık sayılır (dukkan-plan.md)
     const KS = G.regions.koy;

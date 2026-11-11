@@ -399,9 +399,10 @@ async function firebaseBackend(cfg) {
       const fresh = !r || !r.start || Date.now() - r.start.toMillis() >= 86400000;
       if (!fresh && r.n >= 100) throw fail('limit');
       const put = (nw) => {
-        const b = F.writeBatch(db), now = F.serverTimestamp();
-        b.set(rr, nw ? { last: now, start: now, n: 1 } : { last: now, start: r.start, n: r.n + 1 });
-        b.set(F.doc(F.collection(db, `inbox/${to}/items`)), data);
+        // sayaç bu yazımda bırakılan tek belgeyi gösterir (to, doc): kural bir sayaçla birden çok belgeye izin vermez (firestore.rules ticket)
+        const b = F.writeBatch(db), now = F.serverTimestamp(), item = F.doc(F.collection(db, `inbox/${to}/items`));
+        b.set(rr, nw ? { last: now, start: now, n: 1, to, doc: item.id } : { last: now, start: r.start, n: r.n + 1, to, doc: item.id });
+        b.set(item, data);
         return b.commit();
       };
       try { await put(fresh); } catch (e) { if (!r || e.code !== 'permission-denied') throw e; if (fresh && r.n >= 100) throw fail('limit'); await put(!fresh); }
