@@ -491,8 +491,9 @@ function unlockRegion(id, instant) {
 // arka sıra z −10,6 duvara dayalı ve kat alır (dolaplar burada), 2. sıra z −7,2 (bakkal), 3. sıra z −3,9 (köy marketi).
 // Batı koridoru (kapıdan girenlerin yolu) boş kalır. Raf, yerinin aşaması açılınca kurulur (reyon.js pending)
 const KOY_PLACES = {
-  sut: [-2.25, -10.6, 1, 2.0, 1], domates: [0, -10.6, 1, 2.0, 1], salatalik: [2.25, -10.6, 1, 2.0, 1], yumurta: [4.5, -10.6, 1, 2.0, 1],
-  peynir: [-4.5, -10.6, 1, 2.0, 2], yogurt: [-6.75, -10.6, 1, 2.0, 2], ksut: [6.75, -10.6, 1, 2.0, 2], lahana: [9.0, -10.6, 1, 2.0, 2],
+  // süt ürünleri arka sıranın batısında yan yana: yoğurt, peynir, süt, koyun sütü (2026-11-11 kullanıcı: "koyun sütü reyonu diğer süt ürünleriyle aynı yerde olmalı")
+  sut: [-2.25, -10.6, 1, 2.0, 1], domates: [2.25, -10.6, 1, 2.0, 1], salatalik: [4.5, -10.6, 1, 2.0, 1], yumurta: [6.75, -10.6, 1, 2.0, 1],
+  peynir: [-4.5, -10.6, 1, 2.0, 2], yogurt: [-6.75, -10.6, 1, 2.0, 2], ksut: [0, -10.6, 1, 2.0, 2], lahana: [9.0, -10.6, 1, 2.0, 2],
   biber: [-6.75, -7.2, 1, 2.0, 1], patlican: [-4.5, -7.2, 1, 2.0, 1], karpuz: [-2.25, -7.2, 1, 2.0, 1], tursu: [0, -7.2, 1, 2.0, 2], // manav: 1. aşamada dükkânın önünde (KOY_PLACES1)
   bal: [2.25, -7.2, 1, 2.0, 2], ekmek: [4.5, -7.2, 1, 2.0, 2], simit: [6.75, -7.2, 1, 2.0, 2], pogaca: [9.0, -7.2, 1, 2.0, 2],
   kilim: [-9.0, -3.9, 1, 2.0, 3], yun: [-6.75, -3.9, 1, 2.0, 3],

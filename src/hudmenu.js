@@ -98,6 +98,7 @@ body.no-labels #labels { display: none !important; }
      üstünden açılır (yüksekliği JS ile çubuğa göre) */
   #hud #mmBar > button { width: 30px; height: 30px; font-size: 16px; }
   #hud #mmBar > #kbDTab { font-size: 19px; }
+  #hud #mmBar.vert { flex-direction: column; }
   #hud #kbDrawer { top: auto; left: auto; right: 8px; bottom: 170px; max-height: calc(100% - 230px); }
   #hud #money { top: 6px; font-size: 19px; padding: 2px 12px 2px 3px; } #hud #money .coin { width: 24px; height: 24px; }
   #hud #menuBtn { top: 6px; right: 8px; height: 38px; padding: 0 10px; } #hud #menuBtn span { display: none; } #hud #menuBtn svg { width: 22px; height: 22px; }
@@ -252,13 +253,27 @@ export function initHudMenu() {
     const right = r ? hr.right - r.right : phone.matches ? 8 : 14;
     const bottom = r ? hr.bottom - r.top + 6 + (parseFloat(getComputedStyle(mm).outlineWidth) || 0) : phone.matches ? 8 : 16;
     bar.style.right = `${Math.round(right)}px`; bar.style.bottom = `${Math.round(bottom)}px`;
+    // telefonda harita kapalıyken çubuk haritanın boşalan köşesinde dikey durur, yazışma üstüne: alt sıradaki elindekiler şeridi
+    // (dest.js, ürünün götürüleceği yer) örtülmez (2026-11-11 kullanıcı: "mini haritayı kapatınca menü yönlendirme tabelasının üstüne geliyor")
+    const vert = phone.matches && !r;
+    if (bar.classList.contains('vert') !== vert) bar.classList.toggle('vert', vert);
     const br = bar.getBoundingClientRect(), bw = br.width || bar.offsetWidth, bh = br.height || bar.offsetHeight; // görünen boy (yan ekranda çubuk küçülür)
-    const top = bottom + bh; // çubuğun üst kenarının alttan uzaklığı
+    let top = bottom + bh; // çubuğun (dikeyken yazışmanın) üst kenarının alttan uzaklığı
     const chat = document.getElementById('chatBtn');
-    if (chat) { const ch = chat.getBoundingClientRect().height || chat.offsetHeight || 34; Object.assign(chat.style, { right: `${Math.round(right + bw + 6)}px`, bottom: `${Math.round(bottom + (bh - ch) / 2)}px` }); }
+    if (chat) {
+      const cb = chat.getBoundingClientRect(), ch = cb.height || chat.offsetHeight || 34, cw = cb.width || chat.offsetWidth || 34;
+      if (vert) { Object.assign(chat.style, { right: `${Math.round(right + (bw - cw) / 2)}px`, bottom: `${Math.round(top + 6)}px` }); if (chat.offsetParent) top += ch + 6; }
+      else Object.assign(chat.style, { right: `${Math.round(right + bw + 6)}px`, bottom: `${Math.round(bottom + (bh - ch) / 2)}px` });
+    }
     const sh = document.getElementById('shout');
     if (sh) sh.style.bottom = phone.matches ? `${Math.round(top + 8)}px` : '';
     box.style.bottom = phone.matches ? `${Math.round(top + 8)}px` : '';
+    // telefonda elindekiler şeridi alt sırada, haritanın (harita kapalıyken dikey çubuğun) solunda biter
+    const cd = document.getElementById('carryDest');
+    if (cd) {
+      const cr = phone.matches ? `${Math.round(r ? hr.right - r.left + 6 : right + bw + 6)}px` : '';
+      if (cd.style.right !== cr) cd.style.right = cr;
+    }
   };
   // telefonda 🌍 düğmesi menüye; ekran genişleyince (yan çevirme, masaüstü) yerlerine döner.
   // Düğmeler modüllerince sonradan kurulur: saniyede bir bakılır

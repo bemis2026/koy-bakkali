@@ -36,7 +36,7 @@ export const UPG = {
   spd:     { name: 'Yürüme hızı', values: [1, 1.1, 1.2, 1.3, 1.45], costs: [100, 1000, 6000, 24000], steep: 1, fmt: (v) => `%${Math.round(v * 100)}` },
   // avatar yetenekleri (yetenek.js, 2026-11-07 kullanıcı: "elmas ve çok yüksek parayla"; ödeme seçmeli soruyla: ikisi birden gerekir). Geç oyun hedefi:
   // günde en çok 4 💎 (gorev.js), hepsi 103 💎. flat: fiyat çarpanı ve dikleşme yok, costs ekranda görünen fiyat; gem: o basamağın elması
-  jump:    { name: 'Zıplama', icon: '🦘', skill: 1, flat: 1, values: [0, 1], costs: [50000], gem: [8], fmt: (v) => (v ? 'Açık' : 'Kapalı'), desc: 'Boşluk tuşuyla ya da 🦘 düğmesiyle zıplarsın. Eğlencesine: engellerin üstünden geçmez.' },
+  jump:    { name: 'Zıplama', icon: '🦘', skill: 1, flat: 1, values: [0, 1], costs: [50000], gem: [8], fmt: (v) => (v ? 'Açık' : 'Kapalı'), desc: 'Boşluk tuşuyla ya da 🦘 düğmesiyle zıplarsın. Meyve bahçesinde daldaki meyveleri zıplayarak koparırsın; engellerin üstünden geçmez.' },
   sprint:  { name: 'Hızlı Koşu', icon: '⚡', skill: 1, flat: 1, values: [0, 7, 10, 14], costs: [75000, 150000, 300000], gem: [12, 18, 25], fmt: (v) => (v ? `${v} sn enerji` : 'Kapalı'), desc: "Shift'i basılı tut ya da ⚡ düğmesine dokun: %55 daha hızlı koşarsın. Enerji harcar, koşmayınca dolar." },
   magnet:  { name: 'Para Mıknatısı', icon: '🧲', skill: 1, flat: 1, values: [0, 5, 8], costs: [100000, 250000], gem: [15, 25], fmt: (v) => (v ? `${v} m çekim` : 'Kapalı'), desc: 'Yakındaki kasaların parası üstüne basmadan sana uçar.' },
   // ikinci kasiyer ikinci kasa açılınca (world.js kk2): her kasaya bir kasiyer

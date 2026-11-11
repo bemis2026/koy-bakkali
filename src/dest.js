@@ -17,6 +17,8 @@ export const PLACES = {
   cicekci: { name: 'Çiçekçi', color: '#e05a8c' }, // kasabadaki çiçekçi (expand-east.js): buket masası ve vitrin
   kahve:  { name: 'Kahve',  color: '#b5523b' }, // kasaba kahvesinin kek vitrini (expand-east.js xkoy5)
 };
+// köydeki meyve bahçesinin meyvesi (meyve.js) Semt Pazarı'na gider: pazarın meyve tezgâhı oyuncu getirince açılır, tezgâh yokken de yol pazarı gösterir
+const PIN = { elma: 'pazar', portakal: 'pazar', limon: 'pazar' };
 export const DEST = {
   domates: 'koy', salatalik: 'koy', yumurta: 'koy', sut: 'koy', peynir: 'koy', ksut: 'koy', yogurt: 'koy',
   karpuz: 'pazar', biber: 'pazar', patlican: 'pazar', yun: 'pazar', kilim: 'pazar',
@@ -26,7 +28,7 @@ export const DEST = {
   saman: 'atlar',
   balik: 'iskele', izgara: 'iskele',
   kirli: 'tatil', havlu: 'tatil',
-  elma: 'sehir', portakal: 'sehir', limon: 'sehir', meyvesuyu: 'sehir',
+  elma: 'sehir', portakal: 'sehir', limon: 'sehir', meyvesuyu: 'sehir', // köyde bahçenin meyvesi pazara gider (PIN)
   lahana: 'koy', balkabagi: 'pazar', hali: 'pazar', balikcorba: 'iskele', // bölge genişletmelerinin ürünleri (expand-west.js)
   tursu: 'pazar', guvec: 'han', bal: 'koy', aycicek: 'pazar', pide: 'firin', cicek: 'cicekci', buket: 'cicekci', tost: 'sehir', // (expand-east.js)
   pure: 'sahil', karpuzsuyu: 'sahil', menemen: 'sahil', // sahil mutfağının vitrinleri (mutfak.js)
@@ -98,7 +100,8 @@ export function updateDest(dt) {
   const it = (k, p) => `<span class="it">${G.icons && G.icons[k] ? `<img src="${G.icons[k]}" alt="">` : ''}<i style="background:${p ? p.color : '#c9ccd0'}"></i></span>`;
   const groups = new Map();
   for (const k of order) {
-    const p = PLACES[city ? 'sehir' : DEST[k]], to = city ? ['sehir'] : whereOf(k), list = to.length ? to : p ? [DEST[k] in G.regions ? DEST[k] : p.name] : [''];
+    const pin = !city && PIN[k] && G.unlocked.has('xciftlik4') && G.regions[PIN[k]] && G.regions[PIN[k]].unlocked ? PIN[k] : null, w = city ? ['sehir'] : whereOf(k);
+    const p = PLACES[city ? 'sehir' : pin || DEST[k]], to = pin && !w.includes(pin) ? [pin, ...w].slice(0, 2) : w, list = to.length ? to : p ? [DEST[k] in G.regions ? DEST[k] : p.name] : [''];
     if (!groups.has(list[0])) groups.set(list[0], { list, items: [] });
     groups.get(list[0]).items.push([k, p]);
   }

@@ -27,8 +27,9 @@ const SECTIONS = [
 const REGIONS = [['koy', '🏡'], ['pazar', '🍉'], ['ciftlik', '🐄'], ['sahil', '🏖️'], ['han', '🐫'], ['atlar', '🐎'], ['firin', '🥯'], ['tatil', '🐚'], ['kasaba', '⛲'], ['tarla', '🌽'], ['mera', '🐑'], ['atolye', '🧶'], ['sehir', '🏙️'], ['enerji', '🌬️'], ['tarlalar', '🚜'], ['iskele', '🎣'], ['lunapark', '🎡']];
 const STAFF = [['cashier', 'Kasiyer', '🧾'], ['shelver', 'Rafçı', '🧺'], ['courier', 'Araba servisçisi', '🛵'], ['guard', 'Bekçi', '👮'], ['vendor', 'Tezgahçı', '🍉'], ['waiter', 'Garson', '🍦'], ['lifeguard', 'Cankurtaran', '🛟'], ['steward', 'Kâhya', '🐫'], ['groom', 'Seyis', '🐎'], ['maid', 'Kat görevlisi', '🧹'], ['recep', 'Resepsiyonist', '🛎️'], ['weaver', 'Dokumacı', '🧶'], ['milkman', 'Sütçü', '🥛'], ['carrier', 'Taşıyıcı', '🐴'], ['accountant', 'Muhasebeci', '💼'], ['server', 'Ayakçı', '🍽️'], ['fisher', 'Balıkçı', '🎣'], ['rwaiter', 'Restoran garsonu', '🍽️']];
 const SRC = {
-  elma: ['Şehir', 'Hal kamyoneti → meyve reyonu', () => G.unlocked.has('sc2')], portakal: ['Şehir', 'Hal kamyoneti → meyve reyonu', () => G.unlocked.has('sc2')],
-  limon: ['Şehir', 'Hal kamyoneti → meyve reyonu', () => G.unlocked.has('sc2')], meyvesuyu: ['Şehir', 'Hal kamyoneti → meyve reyonu', () => G.unlocked.has('sc2')],
+  elma: ['Şehir, Meyve Bahçesi', 'Hal kamyoneti → meyve reyonu; bahçede zıplayıp kopar → pazar tezgâhı', () => G.unlocked.has('sc2') || G.unlocked.has('xciftlik4')],
+  portakal: ['Şehir, Meyve Bahçesi', 'Hal kamyoneti → meyve reyonu; bahçede zıplayıp kopar → pazar tezgâhı', () => G.unlocked.has('sc2') || G.unlocked.has('xciftlik4')],
+  limon: ['Şehir, Meyve Bahçesi', 'Hal kamyoneti → meyve reyonu; bahçede zıplayıp kopar → pazar tezgâhı', () => G.unlocked.has('sc2') || G.unlocked.has('xciftlik4')], meyvesuyu: ['Şehir', 'Hal kamyoneti → meyve reyonu', () => G.unlocked.has('sc2')],
   yun: ['Mera', 'Kırkım barakası (yemliğe lahana, balkabağı, koçan ya da saman) → pazarda ya da köydeki kilim ve yün rafında sat; kilim doku', () => G.unlocked.has('gm')],
   kilim: ['Mera', 'Dokuma atölyesi, köy yolunda (yünden) → pazar tezgahında ya da köydeki kilim ve yün rafında sat; tatil evi', () => G.unlocked.has('m2')],
   ksut: ['Mera', 'Sağım yeri (yemliğe lahana, balkabağı, koçan ya da saman) → köy süt dolabı', () => G.unlocked.has('m1')],

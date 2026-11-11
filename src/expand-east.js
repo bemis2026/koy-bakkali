@@ -21,6 +21,7 @@ import { Mixer, makeKekTezgahi } from './expand-west.js';
 import './mutfak.js'; // sahil mutfağı: püre, karpuz suyu, menemen tezgâhları (genişletme tanımları world.js UNLOCKS'tan önce yüklenmeli)
 import './koymakine.js'; // büyük köy marketinin doğu şeridindeki makineler (tanımları da UNLOCKS kurulmadan kaydolmalı)
 import './kano.js'; // derenin doğu kıyısında kano iskelesi (xkano) ve derede gezen kanolar
+import './meyve.js'; // çiftlik koridorunda meyve bahçesi (xciftlik4): meyveler zıplayarak koparılır
 import { makeBakeOven } from './carsi.js';
 import { buildClub, updateClub } from './club.js';
 import { sunflowerField } from './farmland.js';
