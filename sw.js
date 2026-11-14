@@ -8,7 +8,9 @@ self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(V).then((c) => c.addAll(SHELL)).catch(() => {}).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', (e) => {
-  e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== V).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== V).map((k) => caches.delete(k))))
+    .then(() => caches.open(V)).then((c) => c.keys().then((ks) => Promise.all(ks.filter((k) => /surum\.json/.test(k.url)).map((k) => c.delete(k)))))
+    .catch(() => {}).then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', (e) => {
   const r = e.request;
@@ -35,7 +37,8 @@ async function networkFirst(r) {
     if (r.mode === 'navigate' && res.redirected) res = await get(r); // yönlendirilmiş yanıt gezinmeye verilemez
     // oyunun ana sayfası sorgusu ne olursa olsun tek anahtarla saklanır: her ?ziyaret=<kimlik> için ayrı kopya birikiyordu
     const home = r.mode === 'navigate' && /\/(index\.html)?$/.test(new URL(r.url).pathname);
-    return keep(c, home ? './' : r, res);
+    // no-store istekleri (surum.json?t=…, 10 dakikada bir) saklanmaz: her biri ayrı adresle birikip önbelleği şişiriyordu (2026-11-14)
+    return r.cache === 'no-store' ? res : keep(c, home ? './' : r, res);
   } catch (err) {
     return (await c.match(r)) || (r.mode === 'navigate' && ((await c.match(r, { ignoreSearch: true })) || (await c.match('./')))) || Response.error();
   }
