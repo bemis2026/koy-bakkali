@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="tr">
 <head>
-<meta name="kb-surum" content="59">
+<meta name="kb-surum" content="60">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Köy Bakkalı</title>
@@ -863,6 +863,7 @@ button, .tog, .th, .seg, .mini, .big2, #minimap, input[type="range"], #mmNav but
 </div></div>
 <div id="qVeil" aria-hidden="true"><div class="qv-card"><span class="qv-spin"></span><span><b>Orta</b><small>Görüntü ayarlanıyor…</small></span></div></div>
 <div id="loading"><img src="assets/logo.webp" alt=""><h1>Köy Bakkalı</h1><div class="bar"><b></b></div><span id="tip">Yükleniyor…</span></div>
+<script src="./tasi-al.js"></script><!-- eski adresten taşınan kayıt: oyun kodundan ve dil seçiminden önce yazılır (y60) -->
 <script>/* İngilizcede yükleme ekranı dil.js gelmeden önce de İngilizce görünsün (dil.js ile aynı seçim) */
 try { var l = localStorage.getItem('koyBakkali.lang'); if (l === 'en' || (l !== 'tr' && !/^tr\b/i.test(navigator.language || ''))) { document.documentElement.lang = 'en'; document.title = 'Village Grocer'; document.querySelector('#loading h1').textContent = 'Village Grocer'; document.getElementById('tip').textContent = 'Loading…'; } } catch (e) {}</script>
 <script>/* Bekçi (2026-11-10): modül haritasını (importmap) tanımayan eski tarayıcıda oyun kodu hiç çalışmaz, ekran sonsuza dek
